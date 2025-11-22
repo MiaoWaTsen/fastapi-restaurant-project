@@ -2,48 +2,55 @@
 
 from sqlalchemy.orm import Session
 from app.models import item as item_model 
-# 1. 重要！我們要匯入 ItemCreate 才能看懂客人的點菜單
-from app.models.item import ItemCreate 
+# 1. 新增：匯入 ItemUpdate
+from app.models.item import ItemCreate, ItemUpdate 
 
 class ItemService:
-    """
-    這就是「主廚 (Service)」本人。
-    它負責所有跟 Item (商品) 相關的「商業邏輯」(動作)。
-    """
     
     def __init__(self, db: Session):
         self.db = db
 
     def get_item(self, item_id: int):
-        """
-        SOP 1：依據 ID 取得單一商品
-        """
         return self.db.query(item_model.Item).filter(item_model.Item.id == item_id).first()
 
     def get_all_items(self):
-        """
-        SOP 2：取得所有商品
-        """
         return self.db.query(item_model.Item).all()
     
-    # --- 3. 新增技能：進貨 (Create) ---
     def create_item(self, item_in: ItemCreate):
-        """
-        主廚收到一張「點菜單 (item_in)」，
-        要把上面的資料變成真正的「料理 (SQLAlchemy Model)」，
-        然後放進倉庫。
-        """
-        # 備料：把 Pydantic 格式轉成 SQLAlchemy 格式
-        # (**) 是解壓縮語法，把字典填進 Item() 裡面
         db_item = item_model.Item(**item_in.model_dump())
-        
-        # 入鍋
         self.db.add(db_item)
-        
-        # 開火 (寫入資料庫)
         self.db.commit()
-        
-        # 起鍋確認 (拿到自動產生的 ID)
         self.db.refresh(db_item)
+        return db_item
+
+    # --- 2. 新增技能：修改訂單 (Update) ---
+    def update_item(self, item_id: int, item_in: ItemUpdate):
+        # 先把舊的找出來
+        db_item = self.get_item(item_id)
+        if not db_item:
+            return None # 找不到就沒辦法改
         
+        # 這裡有個小魔法：exclude_unset=True
+        # 意思是：客人沒填寫的欄位，就不要動它 (保留原樣)
+        update_data = item_in.model_dump(exclude_unset=True)
+        
+        # 一個一個欄位更新
+        for key, value in update_data.items():
+            setattr(db_item, key, value)
+
+        self.db.add(db_item)
+        self.db.commit()
+        self.db.refresh(db_item)
+        return db_item
+
+    # --- 3. 新增技能：取消訂單 (Delete) ---
+    def delete_item(self, item_id: int):
+        # 先把舊的找出來
+        db_item = self.get_item(item_id)
+        if not db_item:
+            return None # 找不到就沒辦法刪
+        
+        # 撕掉訂單 (Delete)
+        self.db.delete(db_item)
+        self.db.commit()
         return db_item
