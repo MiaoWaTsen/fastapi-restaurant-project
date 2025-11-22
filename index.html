@@ -1,0 +1,81 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>妙蛙宸的寶可夢</title>
+    <style>
+        /* 簡單的美化 (CSS) - 這是筆記裡的「美化畫面」 */
+        body { font-family: Arial, sans-serif; padding: 20px; background-color: #f0f2f5; }
+        .container { max-width: 600px; margin: 0 auto; background: white; padding: 20px; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.1); }
+        h1 { color: #333; text-align: center; }
+        .item { border-bottom: 1px solid #eee; padding: 10px 0; display: flex; justify-content: space-between; align-items: center; }
+        .item:last-child { border-bottom: none; }
+        .price { color: #e74c3c; font-weight: bold; }
+        button { background-color: #3498db; color: white; border: none; padding: 10px 20px; border-radius: 4px; cursor: pointer; width: 100%; font-size: 16px; }
+        button:hover { background-color: #2980b9; }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <h1>🍔 呂其翰的美味漢堡菜單</h1>
+    
+    <div id="menu-list">
+        <p style="text-align:center; color:gray;">載入中...</p>
+    </div>
+
+    <br>
+    <button onclick="fetchItems()">🔄 重新整理菜單</button>
+</div>
+
+<script>
+    // 這是筆記裡的「JavaScript 基本語法 + 串接後端 API」
+    
+    // 定義一個函式：去後端拿資料
+    async function fetchItems() {
+        const menuList = document.getElementById('menu-list');
+        menuList.innerHTML = '<p style="text-align:center; color:gray;">載入中...</p>';
+
+        try {
+            // 1. 打電話給後端 (Fetch API)
+            // 注意：這裡的網址就是你 Swagger UI 上面那個 GET 的網址
+            const response = await fetch('http://127.0.0.1:8000/api/v1/items/');
+            
+            // 2. 把回傳的資料轉成 JSON 格式
+            const items = await response.json();
+
+            // 3. 把資料顯示在畫面上
+            menuList.innerHTML = ''; // 清空載入中文字
+            
+            if (items.length === 0) {
+                menuList.innerHTML = '<p style="text-align:center;">目前沒有餐點，請去 Swagger UI 新增！</p>';
+                return;
+            }
+
+            // 跑迴圈，把每一個漢堡變成 HTML
+            items.forEach(item => {
+                const itemHtml = `
+                    <div class="item">
+                        <div>
+                            <strong>${item.name}</strong>
+                            <div style="font-size: 0.9em; color: #666;">${item.description || '無描述'}</div>
+                        </div>
+                        <div class="price">$${item.price}</div>
+                    </div>
+                `;
+                menuList.innerHTML += itemHtml;
+            });
+
+        } catch (error) {
+            console.error('出錯了:', error);
+            menuList.innerHTML = '<p style="color:red; text-align:center;">連線失敗！請確認後端伺服器有開。</p>';
+        }
+    }
+
+    // 網頁一打開就自動執行一次
+    fetchItems();
+</script>
+
+</body>
+</html>

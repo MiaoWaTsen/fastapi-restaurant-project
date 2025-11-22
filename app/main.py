@@ -1,20 +1,26 @@
 # app/main.py
 
 from fastapi import FastAPI
+from fastapi.middleware.cors import CORSMiddleware # 1. 新增：匯入 CORS 套件
 from app.routers import item
-from app.db.session import engine # <-- 1. 匯入「連線通道」
-from app.models import item as item_model # <-- 2. 匯入你的「item 食譜」
+from app.db.session import engine
+from app.models import item as item_model
 
-# --- 關鍵指令 ---
-# 告訴 SQLAlchemy，請你去看 item_model 裡那個「食譜設計局」(Base)
-# 把它旗下所有的「食譜」(Models, 像 Item)
-# 都透過「連線通道」(engine) 在資料庫裡「建立成真實的桌子」。
 item_model.Base.metadata.create_all(bind=engine)
-# --------------------
 
 app = FastAPI()
 
-# 載入路由
+# --- 2. 新增：設定通行證 (CORS) ---
+# 這段設定允許「任何來源 (*」連線到你的 API
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"], # 允許所有網域 (正式上線時通常會限制，但練習時全開沒關係)
+    allow_credentials=True,
+    allow_methods=["*"], # 允許所有方法 (GET, POST, PUT, DELETE...)
+    allow_headers=["*"], # 允許所有標頭
+)
+# -------------------------------
+
 app.include_router(item.router, prefix="/api/v1/items", tags=["Items"])
 
 @app.get("/")
