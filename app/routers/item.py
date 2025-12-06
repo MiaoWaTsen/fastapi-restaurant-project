@@ -6,9 +6,9 @@ from app.services.item_service import ItemService
 from app.common.deps import get_item_service
 from app.models.item import ItemRead, ItemCreate, ItemUpdate
 
-# --- 關鍵修復：這行就是對講機，絕對不能少！ ---
+# --- ⚠️ 之前缺少的關鍵一行 ---
 router = APIRouter()
-# ----------------------------------------
+# ---------------------------
 
 @router.post("/", response_model=ItemRead)
 def create_item(
