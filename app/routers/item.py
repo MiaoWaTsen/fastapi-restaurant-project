@@ -1,56 +1,56 @@
-# app/routers/item.py
+# app/models/item.py
 
-from fastapi import APIRouter, Depends, HTTPException
-from typing import List
-from app.services.item_service import ItemService
-from app.common.deps import get_item_service
-# 1. 新增：匯入 ItemUpdate
-from app.models.item import ItemRead, ItemCreate, ItemUpdate
+from sqlalchemy import Column, Integer, String, Text
+from sqlalchemy.orm import declarative_base
+from pydantic import BaseModel, ConfigDict
+from typing import Optional
 
-router = APIRouter()
+Base = declarative_base()
 
-@router.post("/", response_model=ItemRead)
-def create_item(
-    item_in: ItemCreate, 
-    service: ItemService = Depends(get_item_service)
-):
-    return service.create_item(item_in)
+# --- 1. 倉庫食譜 (SQLAlchemy Model) ---
+class Item(Base):
+    """
+    對應資料庫中的 'monsters' 表格。
+    雖然 Class 叫 Item (為了相容你的舊程式碼)，但它現在代表一隻「怪獸」！
+    """
+    __tablename__ = "monsters" # 資料表改名，讓系統自動建立一張新表
 
-@router.get("/", response_model=List[ItemRead])
-def read_items(service: ItemService = Depends(get_item_service)):
-    return service.get_all_items()
-
-@router.get("/{item_id}", response_model=ItemRead)
-def read_item(
-    item_id: int,
-    service: ItemService = Depends(get_item_service)
-):
-    db_item = service.get_item(item_id=item_id)
-    if db_item is None:
-        raise HTTPException(status_code=404, detail="Item not found")
-    return db_item
-
-# --- 2. 新增：修改櫃檯 (PUT) ---
-@router.put("/{item_id}", response_model=ItemRead)
-def update_item(
-    item_id: int,
-    item_in: ItemUpdate, # 客人會給一張「修改單」
-    service: ItemService = Depends(get_item_service)
-):
-    updated_item = service.update_item(item_id, item_in)
-    if updated_item is None:
-        raise HTTPException(status_code=404, detail="Item not found")
-    return updated_item
-
-# --- 3. 新增：刪除櫃檯 (DELETE) ---
-@router.delete("/{item_id}")
-def delete_item(
-    item_id: int,
-    service: ItemService = Depends(get_item_service)
-):
-    deleted_item = service.delete_item(item_id)
-    if deleted_item is None:
-        raise HTTPException(status_code=404, detail="Item not found")
+    id = Column(Integer, primary_key=True, index=True)
     
-    # 刪除成功，回傳一個簡單的訊息
-    return {"message": "Item deleted successfully", "id": item_id}
+    # 基本資料
+    name = Column(String(100), index=True, nullable=False) # 怪獸名字
+    description = Column(Text, nullable=True)              # 介紹
+    image_url = Column(String(255), nullable=True)         # 圖片網址
+    
+    # 戰鬥數值
+    hp = Column(Integer, nullable=False, default=100)      # 當前血量
+    max_hp = Column(Integer, nullable=False, default=100)  # 最大血量
+    attack = Column(Integer, nullable=False, default=10)   # 攻擊力
+
+
+# --- 2. 菜單 (Pydantic Schemas) ---
+class ItemBase(BaseModel):
+    name: str
+    description: Optional[str] = None
+    image_url: Optional[str] = None
+    hp: int = 100
+    max_hp: int = 100
+    attack: int = 10
+
+class ItemCreate(ItemBase):
+    pass
+
+class ItemUpdate(ItemBase):
+    """
+    所有欄位都設為 Optional，方便我們只扣血 (只更新 hp)
+    """
+    name: Optional[str] = None
+    description: Optional[str] = None
+    image_url: Optional[str] = None
+    hp: Optional[int] = None
+    max_hp: Optional[int] = None
+    attack: Optional[int] = None
+
+class ItemRead(ItemBase):
+    id: int
+    model_config = ConfigDict(from_attributes=True)
