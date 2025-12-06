@@ -3,12 +3,12 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>⚡️ 寶可夢大亂鬥 (Vue版) ⚡️</title>
+    <title>⚡️ 寶可夢大亂鬥 (Vue熱血版) ⚡️</title>
     <script src="https://unpkg.com/vue@3/dist/vue.global.js"></script>
     
     <style>
-        /* --- 樣式區 (保持原本的帥氣風格) --- */
-        body { font-family: 'Segoe UI', sans-serif; background-color: #1a1a2e; color: #fff; padding: 20px; margin: 0; overflow-x: hidden; }
+        /* --- 基礎樣式 --- */
+        body { font-family: 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; background-color: #1a1a2e; color: #fff; padding: 20px; margin: 0; overflow-x: hidden; }
         .container { max-width: 900px; margin: 0 auto; padding-top: 20px; position: relative; }
         
         /* Navbar */
@@ -20,9 +20,9 @@
         .money-badge { color: #f1c40f; background: rgba(241, 196, 15, 0.1); padding: 2px 8px; border-radius: 10px; border: 1px solid #f1c40f; font-size: 0.9em; margin-left: 10px; }
         .player-hp-box { width: 100%; background: #333; height: 10px; border-radius: 5px; margin-top: 5px; overflow: hidden; }
         .player-hp-fill { height: 100%; transition: width 0.3s; }
-        
-        .btn-logout { background: transparent; border: 1px solid #e74c3c; color: #e74c3c; padding: 5px 15px; border-radius: 5px; cursor: pointer; }
-        
+        .btn-logout { background: transparent; border: 1px solid #e74c3c; color: #e74c3c; padding: 5px 15px; border-radius: 5px; cursor: pointer; transition:0.3s; }
+        .btn-logout:hover { background: #e74c3c; color: white; }
+
         /* Tabs */
         .tabs { display: flex; gap: 10px; margin-bottom: 20px; }
         .tab-btn { flex: 1; padding: 12px; background: #0f3460; border: none; color: #aaa; cursor: pointer; border-radius: 8px; font-weight: bold; transition: 0.3s; }
@@ -43,20 +43,70 @@
         .hp-bar-bg { background: #333; height: 8px; border-radius: 4px; margin: 8px 0; overflow: hidden; }
         .hp-bar-fill { height: 100%; transition: width 0.3s; }
         
-        .btn-attack { width: 100%; background: #c0392b; color: white; border: none; padding: 8px; border-radius: 5px; cursor: pointer; margin-top: 5px; }
+        /* Buttons */
+        .btn-attack { width: 100%; background: #c0392b; color: white; border: none; padding: 8px; border-radius: 5px; cursor: pointer; margin-top: 5px; transition:0.2s; }
+        .btn-attack:active { transform: scale(0.95); }
         .btn-heal { background: #27ae60; }
         .btn-pvp { background: #8e44ad; }
         .btn-disabled { background: #555 !important; cursor: not-allowed; }
 
         /* Gacha */
         .gacha-box { text-align: center; padding: 40px; background: #16213e; border-radius: 15px; border: 2px dashed #f1c40f; }
-        .gacha-btn { background: linear-gradient(45deg, #f1c40f, #d35400); color: white; border: none; padding: 15px 40px; font-size: 1.5em; border-radius: 50px; cursor: pointer; box-shadow: 0 0 20px rgba(241, 196, 15, 0.5); }
+        .gacha-btn { background: linear-gradient(45deg, #f1c40f, #d35400); color: white; border: none; padding: 15px 40px; font-size: 1.5em; border-radius: 50px; cursor: pointer; box-shadow: 0 0 20px rgba(241, 196, 15, 0.5); transition:0.3s; }
+        .gacha-btn:hover { transform: scale(1.05); box-shadow: 0 0 30px rgba(241, 196, 15, 0.8); }
 
         /* Floating Damage */
-        .floating-damage { position: absolute; color: #ffeb3b; font-weight: bold; font-size: 24px; pointer-events: none; animation: floatUp 0.8s ease-out forwards; text-shadow: 2px 2px 0 #000; z-index: 100; }
+        .floating-damage { position: absolute; color: #ffeb3b; font-weight: bold; font-size: 24px; pointer-events: none; animation: floatUp 0.8s ease-out forwards; text-shadow: 2px 2px 0 #000; z-index: 100; white-space: nowrap; }
         @keyframes floatUp { 0% { transform: translateY(0) scale(1); opacity: 1; } 100% { transform: translateY(-60px) scale(1); opacity: 0; } }
         
-        /* RWD */
+        /* --- 🆕 決鬥場景專用樣式 --- */
+        .duel-overlay {
+            position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+            background: rgba(20, 20, 40, 0.95); /* 深色背景 */
+            z-index: 2000; /* 最上層 */
+            display: flex; flex-direction: column; align-items: center; justify-content: center;
+            padding: 20px; box-sizing: border-box;
+            animation: fadeIn 0.5s; /* 進場動畫 */
+        }
+        .duel-arena {
+            display: flex; justify-content: space-around; align-items: center;
+            width: 100%; max-width: 800px; margin-bottom: 30px;
+            position: relative;
+        }
+        .duel-card {
+            width: 45%; max-width: 300px;
+            transform: scale(1.1); /* 比普通卡片大一點 */
+            box-shadow: 0 0 30px rgba(231, 76, 60, 0.5); /* 發光特效 */
+        }
+        .vs-text {
+            font-size: 5em; font-weight: bold; color: #f1c40f;
+            text-shadow: 0 0 20px #e74c3c;
+            font-style: italic;
+            animation: pulse-vs 1s infinite alternate;
+        }
+        .duel-actions {
+            display: flex; gap: 20px; width: 100%; max-width: 400px;
+        }
+        .btn-duel-attack {
+            flex: 2; padding: 15px; font-size: 1.2em;
+            background: linear-gradient(to bottom, #e74c3c, #c0392b);
+            border: 2px solid #f1c40f; animation: pulse-btn 2s infinite;
+        }
+        .btn-duel-escape { flex: 1; background: #555; }
+
+        /* 強力震動特效 */
+        .duel-shake-heavy { animation: shake-heavy 0.5s; }
+        @keyframes shake-heavy {
+            0% { transform: translate(0, 0) rotate(0deg) scale(1.1); }
+            25% { transform: translate(-10px, 5px) rotate(-2deg) scale(1.1); }
+            50% { transform: translate(10px, -5px) rotate(2deg) scale(1.1); }
+            75% { transform: translate(-10px, 5px) rotate(-2deg) scale(1.1); }
+            100% { transform: translate(0, 0) rotate(0deg) scale(1.1); }
+        }
+        @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+        @keyframes pulse-vs { from { transform: scale(1); } to { transform: scale(1.1); } }
+        @keyframes pulse-btn { 0% { box-shadow: 0 0 0 0 rgba(241, 196, 15, 0.7); } 70% { box-shadow: 0 0 0 20px rgba(241, 196, 15, 0); } 100% { box-shadow: 0 0 0 0 rgba(241, 196, 15, 0); } }
+
         @media (max-width: 768px) { .game-area { flex-direction: column-reverse; } }
     </style>
 </head>
@@ -81,15 +131,49 @@
         <button class="btn-logout" @click="logout">登出</button>
     </div>
 
-    <h1 style="text-align: center; color: #e94560;">⚔️ 妙蛙宸的熱血戰場 (Vue版) ⚔️</h1>
+    <h1 style="text-align: center; color: #e94560;" v-show="!isDueling">⚔️ 妙蛙宸的熱血戰場 ⚔️</h1>
 
-    <div class="tabs">
+    <div v-if="isDueling && duelTarget" class="duel-overlay">
+        <h2 style="color:#f1c40f; margin-bottom: 30px;">⚔️ 宿命的對決 ⚔️</h2>
+        
+        <div class="duel-arena">
+            <div class="card duel-card" id="duel-my-card">
+                <img :src="user.pokemon_image" class="card-img">
+                <div class="card-body">
+                    <div style="text-align:center; font-size:1.2em; color:#4cc9f0;">{{ user.username }} (我方)</div>
+                    <div class="hp-bar-bg"><div class="hp-bar-fill" :style="{ width: hpPercent(user) + '%', background: hpColor(user) }"></div></div>
+                    <div style="text-align:center;">{{ user.hp }} / {{ user.max_hp }}</div>
+                </div>
+            </div>
+
+            <div class="vs-text">VS</div>
+
+            <div class="card duel-card" :class="{ dead: duelTarget.hp <= 0 }" id="duel-target-card">
+                <img :src="duelTarget.pokemon_image" class="card-img">
+                <div class="card-body">
+                    <div style="text-align:center; font-size:1.2em; color:#e74c3c;">{{ duelTarget.username }} (對手)</div>
+                    <div class="hp-bar-bg"><div class="hp-bar-fill" :style="{ width: hpPercent(duelTarget) + '%', background: hpColor(duelTarget) }"></div></div>
+                    <div style="text-align:center;">{{ duelTarget.hp }} / {{ duelTarget.max_hp }}</div>
+                </div>
+            </div>
+        </div>
+
+        <div class="duel-actions" v-if="duelTarget.hp > 0">
+            <button class="action-btn btn-attack btn-duel-attack" @click="executeDuelAttack">👊 全力攻擊!</button>
+            <button class="action-btn btn-attack btn-duel-escape" @click="endDuel">🏳️ 戰略撤退</button>
+        </div>
+        <div v-else>
+            <h3 style="color:#f1c40f; font-size: 2em;">🎉 勝利！</h3>
+            <button class="action-btn btn-attack btn-duel-attack" @click="endDuel">回到大廳</button>
+        </div>
+    </div>
+    <div class="tabs" v-show="!isDueling">
         <button class="tab-btn" :class="{ active: currentTab === 'wild' }" @click="currentTab = 'wild'">🌲 野外探險</button>
         <button class="tab-btn" :class="{ active: currentTab === 'arena' }" @click="currentTab = 'arena'">🏟️ 玩家競技場</button>
         <button class="tab-btn" :class="{ active: currentTab === 'shop' }" @click="currentTab = 'shop'">🛒 商店 & 扭蛋</button>
     </div>
 
-    <div class="game-area">
+    <div class="game-area" v-show="!isDueling">
         
         <div v-if="currentTab === 'wild'" class="card-grid">
             <div v-if="monsters.length === 0" style="text-align:center; width:100%; color:#888;">沒有怪獸...</div>
@@ -117,7 +201,7 @@
                     <div class="hp-bar-bg"><div class="hp-bar-fill" :style="{ width: hpPercent(p) + '%', background: hpColor(p) }"></div></div>
                     <small>{{ p.hp }} / {{ p.max_hp }}</small>
                     
-                    <button v-if="p.is_online" class="btn-attack btn-pvp" @click="attackPlayer(p)">🥊 決鬥</button>
+                    <button v-if="p.is_online" class="btn-attack btn-pvp" @click="startDuel(p)">🥊 決鬥</button>
                     <button v-else class="btn-attack btn-disabled" disabled>💤 休息中</button>
                 </div>
             </div>
@@ -142,6 +226,8 @@
 </div>
 
 <script>
+    const { createApp, ref, onMounted, watch } = Vue;
+
     // --------------------------------------------------------
     // ⚠️ 設定區：請將這裡改成你的 Zeabur 網址
     const ZEABUR_DOMAIN = 'mwtpokemons.zeabur.app'; 
@@ -149,9 +235,6 @@
 
     const API_URL = `https://${ZEABUR_DOMAIN}/api/v1`;
     const WS_URL = `wss://${ZEABUR_DOMAIN}/ws`;
-
-    // --- Vue 3 應用程式 ---
-    const { createApp, ref, onMounted, watch } = Vue;
 
     createApp({
         setup() {
@@ -161,22 +244,22 @@
             const players = ref([]);
             const logs = ref([]);
             const currentTab = ref('wild');
+            
+            // 🆕 決鬥狀態
+            const isDueling = ref(false);
+            const duelTarget = ref(null);
+
             let socket = null;
 
-            // 檢查登入
-            if (!token) {
-                window.location.href = 'login.html';
-            }
+            if (!token) window.location.href = 'login.html';
 
-            // 初始化
             onMounted(async () => {
                 await updateUserInfo();
                 await fetchMonsters();
-                await fetchPlayers(); // 一進來先抓一次玩家
+                await fetchPlayers();
                 connectWebSocket();
             });
 
-            // 1. 取得自己資料
             const updateUserInfo = async () => {
                 try {
                     const res = await fetch(`${API_URL}/auth/me`, { headers: { 'Authorization': `Bearer ${token}` } });
@@ -184,7 +267,6 @@
                 } catch (e) { console.error(e); }
             };
 
-            // 2. 取得怪獸列表
             const fetchMonsters = async () => {
                 try {
                     const res = await fetch(`${API_URL}/items/`);
@@ -193,65 +275,78 @@
                 } catch (e) { console.error(e); }
             };
 
-            // 3. 取得玩家列表 (含在線狀態)
             const fetchPlayers = async () => {
                 try {
                     const res = await fetch(`${API_URL}/auth/all`);
                     const data = await res.json();
-                    // 過濾掉自己，並依狀態排序
                     players.value = data.filter(u => u.id !== user.value?.id).sort((a, b) => b.is_online - a.is_online);
                 } catch (e) { console.error(e); }
             };
 
-            // 4. WebSocket 連線
             const connectWebSocket = () => {
                 socket = new WebSocket(`${WS_URL}?token=${token}`);
-                
                 socket.onopen = () => {
                     addLog("✅ 已連線到即時戰場！");
                     setInterval(() => { if(socket.readyState === 1) socket.send("ping"); }, 30000);
                 };
-
-                // 🔥 修正重點：收到廣播，全部刷新！ 🔥
                 socket.onmessage = (event) => {
                     addLog(`<span style="color: #4cc9f0;">📡 ${event.data}</span>`);
-                    fetchMonsters();  // 刷新怪獸
-                    fetchPlayers();   // 刷新玩家狀態 (解決離線顯示問題)
-                    updateUserInfo(); // 刷新自己
-                };
+                    
+                    // 收到廣播時，如果正在決鬥，更新對手資料
+                    if (isDueling.value && duelTarget.value) {
+                         fetchPlayers().then(() => {
+                             const updatedTarget = players.value.find(p => p.id === duelTarget.value.id);
+                             if(updatedTarget) duelTarget.value = updatedTarget;
+                         });
+                    }
 
-                socket.onclose = () => {
-                    addLog(`<span style="color: red;">❌ 連線斷開，嘗試重連...</span>`);
-                    setTimeout(connectWebSocket, 3000);
+                    fetchMonsters();
+                    if(currentTab.value === 'arena') fetchPlayers();
+                    updateUserInfo();
                 };
+                socket.onclose = () => setTimeout(connectWebSocket, 3000);
             };
 
-            // 5. 戰鬥邏輯
+            // --- 戰鬥相關 ---
             const attackMonster = async (monster) => {
                 if(monster.hp <= 0) return;
-                
-                // 計算預覽傷害
+                // 前端預覽傷害 (視覺用)
                 const isCrit = Math.random() < 0.3;
                 const bonus = Math.floor(Math.random() * user.value.attack);
                 const dmg = isCrit ? (user.value.attack + bonus) * 2 : (user.value.attack + bonus);
-                
                 showFloatingDamage(`card-monster-${monster.id}`, dmg, isCrit);
                 
-                // 預先更新 UI (讓手感更好)
-                monster.hp = Math.max(0, monster.hp - dmg);
-
+                // 呼叫後端 API (實際傷害由後端計算)
+                // 為了觸發後端的反擊邏輯，我們傳送一個 dummy hp (只要不是 None 就好)
+                // 更好的做法是後端開一個專門的 attack endpoint
                 const res = await fetch(`${API_URL}/items/${monster.id}`, {
                     method: 'PUT',
                     headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ hp: monster.hp })
+                    body: JSON.stringify({ hp: monster.hp }) // 這裡後端會忽略數值，只看有沒有傳
                 });
             };
 
-            const attackPlayer = async (target) => {
-                showFloatingDamage(`card-player-${target.id}`, "PVP", true);
-                const res = await fetch(`${API_URL}/shop/pvp/${target.id}`, {
-                    method: 'POST',
-                    headers: { 'Authorization': `Bearer ${token}` }
+            // 🔥 🆕 開始決鬥 (進入場景) 🔥
+            const startDuel = (target) => {
+                duelTarget.value = target;
+                isDueling.value = true;
+                addLog(`⚔️ 與 [${target.username}] 的宿命對決開始了！`);
+            };
+
+            // 🔥 🆕 執行決鬥攻擊 (在場景內) 🔥
+            const executeDuelAttack = async () => {
+                if(!duelTarget.value || duelTarget.value.hp <= 0) return;
+
+                // 視覺特效
+                const targetCard = document.getElementById('duel-target-card');
+                targetCard.classList.remove('duel-shake-heavy');
+                void targetCard.offsetWidth; 
+                targetCard.classList.add('duel-shake-heavy');
+                showFloatingDamage('duel-target-card', "PVP衝擊!", true, true); // 大傷害特效
+
+                // 呼叫 API
+                const res = await fetch(`${API_URL}/shop/pvp/${duelTarget.value.id}`, {
+                    method: 'POST', headers: { 'Authorization': `Bearer ${token}` }
                 });
                 if(!res.ok) {
                     const err = await res.json();
@@ -259,46 +354,32 @@
                 }
             };
 
+            // 🔥 🆕 結束決鬥 🔥
+            const endDuel = () => {
+                isDueling.value = false;
+                duelTarget.value = null;
+                fetchPlayers();
+            };
+
+            // --- 商店相關 ---
             const playGacha = async () => {
-                const res = await fetch(`${API_URL}/shop/gacha`, {
-                    method: 'POST', headers: { 'Authorization': `Bearer ${token}` }
-                });
+                const res = await fetch(`${API_URL}/shop/gacha`, { method: 'POST', headers: { 'Authorization': `Bearer ${token}` } });
                 const data = await res.json();
-                if(res.ok) {
-                    alert(`🎉 ${data.message}`);
-                    updateUserInfo();
-                } else {
-                    alert(data.detail);
-                }
+                if(res.ok) { alert(`🎉 ${data.message}`); updateUserInfo(); } else { alert(data.detail); }
             };
 
             const buyHeal = async () => {
-                const res = await fetch(`${API_URL}/shop/heal`, {
-                    method: 'POST', headers: { 'Authorization': `Bearer ${token}` }
-                });
-                if(res.ok) {
-                    alert("補血成功！");
-                    updateUserInfo();
-                } else {
-                    alert("金幣不足");
-                }
+                const res = await fetch(`${API_URL}/shop/heal`, { method: 'POST', headers: { 'Authorization': `Bearer ${token}` } });
+                if(res.ok) { alert("補血成功！"); updateUserInfo(); } else { alert("金幣不足"); }
             };
 
-            // 工具函式
+            // --- 工具 ---
             const logout = () => { localStorage.clear(); window.location.href = 'login.html'; };
-            
-            const addLog = (msg) => {
-                logs.value.unshift(msg);
-                if(logs.value.length > 50) logs.value.pop();
-            };
-
+            const addLog = (msg) => { logs.value.unshift(msg); if(logs.value.length > 50) logs.value.pop(); };
             const hpPercent = (u) => Math.max(0, (u.hp / u.max_hp) * 100);
-            const hpColor = (u) => {
-                const p = hpPercent(u);
-                return p < 30 ? '#e74c3c' : (p < 60 ? '#f1c40f' : '#2ecc71');
-            };
+            const hpColor = (u) => { const p = hpPercent(u); return p < 30 ? '#e74c3c' : (p < 60 ? '#f1c40f' : '#2ecc71'); };
 
-            const showFloatingDamage = (elementId, value, isCrit) => {
+            const showFloatingDamage = (elementId, value, isCrit, isMega = false) => {
                 const card = document.getElementById(elementId);
                 if (!card) return;
                 const rect = card.getBoundingClientRect();
@@ -308,19 +389,22 @@
                 el.style.left = `${rect.left + rect.width/2}px`;
                 el.style.top = `${rect.top}px`;
                 if(isCrit) { el.style.fontSize='36px'; el.style.color='#e74c3c'; }
+                if(isMega) { el.style.fontSize='60px'; el.style.color='#f1c40f'; el.style.textShadow='0 0 20px red'; el.style.zIndex = 3000; }
                 document.body.appendChild(el);
                 setTimeout(() => el.remove(), 800);
             };
 
-            // 監聽 Tab 切換 (確保切換時資料也是新的)
             watch(currentTab, (newTab) => {
                 if(newTab === 'wild') fetchMonsters();
                 if(newTab === 'arena') fetchPlayers();
             });
 
             return {
-                user, monsters, players, logs, currentTab,
-                hpPercent, hpColor, logout, attackMonster, attackPlayer, playGacha, buyHeal
+                user, monsters, players, logs, currentTab, 
+                isDueling, duelTarget, // 輸出新狀態
+                hpPercent, hpColor, logout, attackMonster, 
+                startDuel, executeDuelAttack, endDuel, // 輸出新函式
+                playGacha, buyHeal
             };
         }
     }).mount('#app');
