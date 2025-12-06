@@ -1,0 +1,104 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>勇者登入</title>
+    <style>
+        body { font-family: 'Segoe UI', sans-serif; background-color: #1a1a2e; color: white; display: flex; justify-content: center; align-items: center; height: 100vh; margin: 0; }
+        .login-box { background: #16213e; padding: 40px; border-radius: 10px; box-shadow: 0 0 20px rgba(0,0,0,0.5); width: 300px; text-align: center; border: 1px solid #0f3460; }
+        h1 { color: #f1c40f; margin-bottom: 20px; }
+        input { width: 100%; padding: 10px; margin: 10px 0; border: none; border-radius: 5px; background: #0f3460; color: white; box-sizing: border-box; }
+        button { width: 100%; padding: 10px; background: #e94560; color: white; border: none; border-radius: 5px; cursor: pointer; font-weight: bold; margin-top: 10px; transition: 0.3s; }
+        button:hover { background: #c0392b; }
+        .switch-btn { background: transparent; color: #4cc9f0; margin-top: 10px; font-size: 0.9em; }
+        .switch-btn:hover { background: transparent; text-decoration: underline; }
+        #msg { color: #e74c3c; font-size: 0.9em; margin-top: 10px; min-height: 20px; }
+    </style>
+</head>
+<body>
+
+<div class="login-box">
+    <h1 id="title">勇者登入</h1>
+    <input type="text" id="username" placeholder="帳號 (Username)">
+    <input type="password" id="password" placeholder="密碼 (Password)">
+    <div id="msg"></div>
+    <button onclick="handleAuth()" id="action-btn">登入</button>
+    <button class="switch-btn" onclick="toggleMode()">還沒帳號？去註冊</button>
+</div>
+
+<script>
+    // ⚠️ 記得改成你的 Zeabur 網址
+    const BASE_URL = 'https://mwtpokemons.zeabur.app';
+    
+    let isLoginMode = true;
+
+    function toggleMode() {
+        isLoginMode = !isLoginMode;
+        document.getElementById('title').innerText = isLoginMode ? "勇者登入" : "註冊新帳號";
+        document.getElementById('action-btn').innerText = isLoginMode ? "登入" : "註冊";
+        document.querySelector('.switch-btn').innerText = isLoginMode ? "還沒帳號？去註冊" : "已有帳號？回登入";
+        document.getElementById('msg').innerText = "";
+    }
+
+    async function handleAuth() {
+        const username = document.getElementById('username').value;
+        const password = document.getElementById('password').value;
+        const msg = document.getElementById('msg');
+
+        if (!username || !password) {
+            msg.innerText = "請輸入帳號密碼";
+            return;
+        }
+
+        try {
+            if (isLoginMode) {
+                // --- 登入流程 ---
+                // FastAPI 的 OAuth2 需要用 Form Data 格式
+                const formData = new URLSearchParams();
+                formData.append('username', username);
+                formData.append('password', password);
+
+                const res = await fetch(`${BASE_URL}/api/v1/auth/token`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+                    body: formData
+                });
+
+                if (!res.ok) throw new Error("帳號或密碼錯誤");
+                
+                const data = await res.json();
+                // 關鍵：把識別證 (Token) 存到瀏覽器裡
+                localStorage.setItem('token', data.access_token);
+                localStorage.setItem('user', username);
+                
+                msg.style.color = '#2ecc71';
+                msg.innerText = "登入成功！轉跳中...";
+                setTimeout(() => window.location.href = 'index.html', 1000);
+
+            } else {
+                // --- 註冊流程 ---
+                const res = await fetch(`${BASE_URL}/api/v1/auth/register`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ username, password })
+                });
+
+                if (!res.ok) {
+                    const errData = await res.json();
+                    throw new Error(errData.detail || "註冊失敗");
+                }
+
+                msg.style.color = '#2ecc71';
+                msg.innerText = "註冊成功！請登入";
+                setTimeout(() => toggleMode(), 1000); // 自動切回登入模式
+            }
+        } catch (err) {
+            msg.style.color = '#e74c3c';
+            msg.innerText = err.message;
+        }
+    }
+</script>
+
+</body>
+</html>
