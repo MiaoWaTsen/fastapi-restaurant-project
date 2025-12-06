@@ -40,7 +40,7 @@
         try {
             // 1. 打電話給後端 (Fetch API)
             // 注意：這裡的網址就是你 Swagger UI 上面那個 GET 的網址
-            const response = await fetch('http://127.0.0.1:8000/api/v1/items/');
+            const response = await fetch('https://mwtpokemons.zeabur.app/api/v1/items/');
             
             // 2. 把回傳的資料轉成 JSON 格式
             const items = await response.json();
