@@ -17,6 +17,8 @@ from app.routers import item  # 怪獸系統
 from app.routers import auth  # 會員系統
 from app.common.websocket import manager # 匯入我們剛剛寫的廣播站長
 
+from app.routers import shop
+
 # --- 3. 初始化資料庫 ---
 # 啟動時自動建立 tables (monsters 和 users)
 Base.metadata.create_all(bind=engine)
@@ -47,7 +49,7 @@ async def websocket_endpoint(websocket: WebSocket):
 # --- 7. 掛載路由 (Routers) ---
 app.include_router(item.router, prefix="/api/v1/items", tags=["Items"])
 app.include_router(auth.router, prefix="/api/v1/auth", tags=["Auth"])
-
+app.include_router(shop.router, prefix="/api/v1/shop", tags=["Shop"])
 # --- 8. 首頁測試 ---
 @app.get("/")
 def read_root():

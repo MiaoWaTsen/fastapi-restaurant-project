@@ -9,12 +9,16 @@
         body { font-family: 'Segoe UI', sans-serif; background-color: #1a1a2e; color: #fff; padding: 20px; margin: 0; overflow-x: hidden; }
         .container { max-width: 900px; margin: 0 auto; padding-top: 20px; position: relative; }
         
-        /* --- 頂部導航列 (修改：加入錢包顯示) --- */
+        /* --- 頂部導航列 --- */
         .navbar { display: flex; justify-content: space-between; align-items: center; background: #16213e; padding: 10px 20px; border-radius: 10px; margin-bottom: 20px; border: 1px solid #0f3460; }
-        .user-info { color: #4cc9f0; font-weight: bold; font-size: 1.1em; display: flex; gap: 15px; }
-        .money-badge { color: #f1c40f; background: rgba(241, 196, 15, 0.1); padding: 2px 8px; border-radius: 5px; border: 1px solid #f1c40f; }
+        .user-info { color: #4cc9f0; font-weight: bold; font-size: 1.1em; display: flex; align-items: center; gap: 15px; }
+        .money-badge { color: #f1c40f; background: rgba(241, 196, 15, 0.1); padding: 4px 10px; border-radius: 20px; border: 1px solid #f1c40f; font-size: 0.9em; display: flex; align-items: center; gap: 5px; }
+        
+        .btn-group-nav { display: flex; gap: 10px; }
         .btn-logout { background: transparent; border: 1px solid #e74c3c; color: #e74c3c; padding: 5px 15px; border-radius: 5px; cursor: pointer; transition: 0.3s; }
         .btn-logout:hover { background: #e74c3c; color: white; }
+        .btn-shop { background: #f1c40f; border: none; color: #000; padding: 5px 15px; border-radius: 5px; cursor: pointer; font-weight: bold; transition: 0.3s; }
+        .btn-shop:hover { background: #d4ac0d; }
 
         h1 { text-align: center; color: #e94560; text-shadow: 0 0 10px #e94560; margin-bottom: 30px; }
 
@@ -46,8 +50,9 @@
         .btn-attack { background: linear-gradient(to bottom, #e74c3c, #c0392b); }
         .btn-attack:active { transform: scale(0.95); }
         .btn-heal { background: linear-gradient(to bottom, #2ecc71, #27ae60); }
+        .btn-heal:active { transform: scale(0.95); }
         
-        /* 飄傷特效 */
+        /* --- 飄傷數字特效 --- */
         .floating-damage {
             position: absolute;
             color: #ffeb3b;
@@ -64,6 +69,51 @@
             100% { transform: translateY(-60px) scale(1); opacity: 0; }
         }
 
+        /* --- 商店面板 --- */
+        .shop-panel {
+            display: none;
+            position: fixed;
+            top: 50%; left: 50%;
+            transform: translate(-50%, -50%);
+            background: #16213e;
+            border: 2px solid #f1c40f;
+            padding: 20px;
+            border-radius: 15px;
+            z-index: 1000;
+            width: 320px;
+            box-shadow: 0 0 50px rgba(0,0,0,0.8);
+        }
+        .shop-item {
+            background: #0f3460;
+            margin-bottom: 10px;
+            padding: 12px;
+            border-radius: 8px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        .shop-item-info { display: flex; flex-direction: column; gap: 4px; }
+        .shop-item-name { font-weight: bold; color: #f1c40f; }
+        .shop-item-desc { font-size: 0.8em; color: #ccc; }
+        .shop-buy-btn {
+            background: #f1c40f;
+            color: #000;
+            border: none;
+            padding: 6px 12px;
+            border-radius: 5px;
+            cursor: pointer;
+            font-weight: bold;
+            min-width: 60px;
+        }
+        .shop-buy-btn:hover { background: #d4ac0d; }
+        .overlay {
+            display: none;
+            position: fixed;
+            top: 0; left: 0; width: 100%; height: 100%;
+            background: rgba(0,0,0,0.7);
+            z-index: 999;
+        }
+
         @media (max-width: 768px) { .game-area { flex-direction: column-reverse; } .battle-log-panel { width: 100%; height: 200px; } }
     </style>
 </head>
@@ -75,7 +125,10 @@
             <span id="player-name">載入中...</span>
             <span class="money-badge">💰 <span id="player-money">0</span></span>
         </div>
-        <button class="btn-logout" onclick="logout()">登出</button>
+        <div class="btn-group-nav">
+            <button class="btn-shop" onclick="toggleShop()">🛒 商店</button>
+            <button class="btn-logout" onclick="logout()">登出</button>
+        </div>
     </div>
 
     <h1>⚔️ 妙蛙宸的熱血戰場 ⚔️</h1>
@@ -91,6 +144,14 @@
     </div>
 </div>
 
+<div class="overlay" id="shop-overlay" onclick="toggleShop()"></div>
+<div class="shop-panel" id="shop-panel">
+    <h2 style="text-align:center; color:#f1c40f; margin-top:0;">🛒 道具商店</h2>
+    <div id="shop-items-container">
+        </div>
+    <button onclick="toggleShop()" style="width:100%; background:#e74c3c; margin-top:15px; padding:10px; border:none; border-radius:5px; color:white; font-weight:bold; cursor:pointer;">關閉</button>
+</div>
+
 <script>
     // --------------------------------------------------------
     // ⚠️ 設定區：請將這裡改成你的 Zeabur 網址
@@ -99,15 +160,16 @@
 
     const API_URL = `https://${ZEABUR_DOMAIN}/api/v1/items/`;
     const AUTH_URL = `https://${ZEABUR_DOMAIN}/api/v1/auth/me`;
+    const SHOP_URL = `https://${ZEABUR_DOMAIN}/api/v1/shop/buy/`;
     const WS_URL = `wss://${ZEABUR_DOMAIN}/ws`;
 
-    // --- 1. 門禁系統 ---
+    // --- 1. 門禁與初始載入 ---
     const token = localStorage.getItem('token');
     
     if (!token) {
         window.location.href = 'login.html';
     } else {
-        updateUserInfo(); // 進來就更新資料
+        updateUserInfo();
     }
 
     function logout() {
@@ -116,7 +178,6 @@
         window.location.href = 'login.html';
     }
 
-    // 更新玩家資訊 (等級 & 金幣)
     async function updateUserInfo() {
         try {
             const res = await fetch(AUTH_URL, {
@@ -125,13 +186,12 @@
             if (res.ok) {
                 const user = await res.json();
                 document.getElementById('player-name').innerText = `${user.username} (Lv.${user.level})`;
-                // 💰 更新錢包
                 document.getElementById('player-money').innerText = user.money;
             }
         } catch (e) { console.error(e); }
     }
 
-    // --- 2. WebSocket 連線 (含心跳機制) ---
+    // --- 2. WebSocket 連線 (含心跳) ---
     let socket;
     function connectWebSocket() {
         socket = new WebSocket(WS_URL);
@@ -140,33 +200,25 @@
             console.log("WebSocket 連線成功");
             addLog("✅ 已連線到即時戰場！");
             
-            // ❤️ 心跳機制：每 30 秒送一次 'ping' 給後端，防止斷線
+            // 心跳機制
             setInterval(() => {
-                if (socket.readyState === WebSocket.OPEN) {
-                    socket.send("ping");
-                    console.log("💓 心跳發送");
-                }
+                if (socket.readyState === WebSocket.OPEN) socket.send("ping");
             }, 30000);
         };
 
         socket.onmessage = (event) => {
             const msg = event.data;
             addLog(`<span style="color: #4cc9f0;">📡 [即時] ${msg}</span>`);
-            
-            fetchMonsters(); // 更新怪獸
-            updateUserInfo(); // 更新自己 (可能升級或賺錢了)
+            fetchMonsters(); 
+            updateUserInfo(); 
         };
 
         socket.onclose = () => {
             console.log("連線斷開，嘗試重連...");
-            // 斷線自動重連機制
             setTimeout(connectWebSocket, 3000);
         };
     }
-    
-    // 啟動連線
     connectWebSocket();
-
 
     // --- 3. 遊戲邏輯 ---
     fetchMonsters();
@@ -194,18 +246,15 @@
         if (currentHp <= 0) return; 
 
         const isCrit = Math.random() < 0.3; 
-        const baseDamage = 15 + Math.floor(Math.random() * 15); 
-        const damage = isCrit ? baseDamage * 2 : baseDamage;
-        let newHp = Math.max(0, currentHp - damage);
+        const damage = isCrit ? 30 : 15;
+        const newHp = Math.max(0, currentHp - damage);
         
-        // 視覺
         const card = document.getElementById(`card-${id}`);
         card.classList.remove('shaking');
         void card.offsetWidth; 
         card.classList.add('shaking');
         showFloatingDamage(`card-${id}`, damage, isCrit);
 
-        // 戰報
         const logMsg = isCrit 
             ? `💥 爆擊！你對 [${name}] 造成了 ${damage} 點巨量傷害！`
             : `🗡️ 你攻擊了 [${name}]，造成 ${damage} 點傷害。`;
@@ -228,7 +277,6 @@
                 },
                 body: JSON.stringify({ hp: newHp })
             });
-            // 這裡不需要手動更新 UserInfo，因為後端廣播會觸發 socket.onmessage 來更新
         } catch (e) { console.error("同步失敗", e); }
     }
 
@@ -253,27 +301,89 @@
         });
     }
 
+    // --- 4. 商店系統 ---
+    const SHOP_ITEMS = [
+        { id: 'potion', name: '大補藥 💊', price: 50, desc: '回復 50 HP' },
+        { id: 'str_potion', name: '力量藥劑 ⚔️', price: 200, desc: '攻擊 +5' },
+        { id: 'life_gem', name: '生命寶石 💎', price: 500, desc: 'MaxHP +50' }
+    ];
+
+    function toggleShop() {
+        const panel = document.getElementById('shop-panel');
+        const overlay = document.getElementById('shop-overlay');
+        const isClosed = panel.style.display === 'none' || panel.style.display === '';
+        
+        if (isClosed) {
+            renderShop();
+            panel.style.display = 'block';
+            overlay.style.display = 'block';
+        } else {
+            panel.style.display = 'none';
+            overlay.style.display = 'none';
+        }
+    }
+
+    function renderShop() {
+        const container = document.getElementById('shop-items-container');
+        container.innerHTML = '';
+        SHOP_ITEMS.forEach(item => {
+            container.innerHTML += `
+                <div class="shop-item">
+                    <div class="shop-item-info">
+                        <span class="shop-item-name">${item.name}</span>
+                        <span class="shop-item-desc">${item.desc}</span>
+                    </div>
+                    <button class="shop-buy-btn" onclick="buyItem('${item.id}', ${item.price})">
+                        $${item.price}
+                    </button>
+                </div>
+            `;
+        });
+    }
+
+    async function buyItem(itemId, price) {
+        const currentMoney = parseInt(document.getElementById('player-money').innerText);
+        if (currentMoney < price) {
+            alert("金幣不足！快去打怪賺錢！");
+            return;
+        }
+
+        try {
+            const res = await fetch(`${SHOP_URL}${itemId}`, {
+                method: 'POST',
+                headers: { 'Authorization': `Bearer ${token}` }
+            });
+
+            if (!res.ok) {
+                const err = await res.json();
+                alert(err.detail || "購買失敗");
+                return;
+            }
+
+            const user = await res.json();
+            alert("購買成功！");
+            updateUserInfo(); 
+            toggleShop(); 
+
+        } catch (e) {
+            console.error(e);
+            alert("購買失敗");
+        }
+    }
+
     // --- UI 工具 ---
     function showFloatingDamage(elementId, value, isCrit, isHeal = false) {
         const card = document.getElementById(elementId);
         if (!card) return;
         const rect = card.getBoundingClientRect();
-        
         const floatEl = document.createElement('div');
         floatEl.className = 'floating-damage';
         floatEl.innerText = isHeal ? `+${value}` : (isCrit ? `💥 ${value}` : `-${value}`);
-        
-        if (isCrit) {
-            floatEl.style.fontSize = '36px';
-            floatEl.style.color = '#e74c3c';
-        } else if (isHeal) {
-            floatEl.style.color = '#2ecc71';
-        }
-
+        if (isCrit) { floatEl.style.fontSize = '36px'; floatEl.style.color = '#e74c3c'; } 
+        else if (isHeal) { floatEl.style.color = '#2ecc71'; }
         const randomX = Math.floor(Math.random() * 60) - 30;
         floatEl.style.left = `${rect.left + rect.width / 2 + randomX}px`;
         floatEl.style.top = `${rect.top + rect.height / 3}px`;
-
         document.body.appendChild(floatEl);
         setTimeout(() => { floatEl.remove(); }, 800);
     }
