@@ -46,8 +46,10 @@
 </div>
 
 <script>
+    // 你的 Zeabur 後端網址 (不用改，沿用你原本正確的)
     const API_URL = 'https://mwtpokemons.zeabur.app/api/v1/items/';
 
+    // 1. 讀取怪獸 (跟原本一樣)
     async function fetchMonsters() {
         const container = document.getElementById('monster-list');
         try {
@@ -55,7 +57,7 @@
             if (!res.ok) throw new Error('連線失敗');
             
             const monsters = await res.json();
-            container.innerHTML = ''; // 清空
+            container.innerHTML = ''; 
 
             if (monsters.length === 0) {
                 container.innerHTML = '<p class="loading">目前沒有怪獸，快去 Swagger UI 召喚！</p>';
@@ -63,11 +65,10 @@
             }
 
             monsters.forEach(m => {
-                // 計算血量百分比
                 const hpPercent = (m.hp / m.max_hp) * 100;
-                // 如果沒有圖片，用預設圖
                 const img = m.image_url || 'https://via.placeholder.com/300x200?text=No+Image';
 
+                // --- 這裡有小修改：按鈕現在會呼叫 attackMonster 了！ ---
                 const html = `
                     <div class="card">
                         <img src="${img}" class="card-img" alt="${m.name}">
@@ -86,7 +87,8 @@
                             </div>
 
                             <div class="btn-group">
-                                <button class="btn-attack" onclick="alert('攻擊功能開發中！')">⚔️ 攻擊</button>
+                                <button class="btn-attack" onclick="attackMonster(${m.id}, ${m.hp})">⚡️ 十萬伏特</button>
+                                <button class="btn-heal" onclick="healMonster(${m.id}, ${m.hp}, ${m.max_hp})">💊 補血</button>
                             </div>
                         </div>
                     </div>
@@ -96,8 +98,48 @@
 
         } catch (err) {
             console.error(err);
-            container.innerHTML = `<p class="loading" style="color:#e74c3c">連線失敗！請確認網址是否正確。<br>(${API_URL})</p>`;
+            container.innerHTML = `<p class="loading" style="color:#e74c3c">連線失敗！請確認網址。</p>`;
         }
+    }
+
+    // 2. 新增：攻擊功能 (扣血)
+    async function attackMonster(id, currentHp) {
+        // 設定傷害值
+        const damage = 20; 
+        
+        // 計算新血量 (不能低於 0)
+        let newHp = currentHp - damage;
+        if (newHp < 0) newHp = 0;
+
+        try {
+            // 呼叫後端 API (PUT) 來更新血量
+            // 這就是告訴後端：「欸，這隻怪獸的血量變少了喔！」
+            await fetch(API_URL + id, {
+                method: 'PUT',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ hp: newHp }) // 只傳送要修改的 hp 欄位
+            });
+
+            // 攻擊完後，重新抓取資料來更新畫面
+            fetchMonsters();
+
+        } catch (error) {
+            alert("攻擊失敗！網路好像怪怪的");
+        }
+    }
+
+    // 3. (加碼贈送) 補血功能
+    async function healMonster(id, currentHp, maxHp) {
+        const healAmount = 50;
+        let newHp = currentHp + healAmount;
+        if (newHp > maxHp) newHp = maxHp; // 不能超過上限
+
+        await fetch(API_URL + id, {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ hp: newHp })
+        });
+        fetchMonsters();
     }
 
     fetchMonsters();
