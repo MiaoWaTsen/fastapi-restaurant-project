@@ -227,7 +227,7 @@
     // 玩家治癒
     async function playerHeal(id, currentHp, maxHp, name) {
         if (currentHp >= maxHp || currentHp <= 0) return;
-        const heal = 30;
+        const heal = 30 + Math.floor(Math.random() * 25);
         let newHp = Math.min(maxHp, currentHp + heal);
         
         addLog(`✨ 治癒！回復 ${heal} 點生命。`);
