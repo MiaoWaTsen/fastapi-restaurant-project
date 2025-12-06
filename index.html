@@ -3,308 +3,331 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>🔥 妙蛙宸的熱血戰場 🔥</title>
+    <title>⚡️ 寶可夢大亂鬥 (Vue版) ⚡️</title>
+    <script src="https://unpkg.com/vue@3/dist/vue.global.js"></script>
+    
     <style>
+        /* --- 樣式區 (保持原本的帥氣風格) --- */
         body { font-family: 'Segoe UI', sans-serif; background-color: #1a1a2e; color: #fff; padding: 20px; margin: 0; overflow-x: hidden; }
         .container { max-width: 900px; margin: 0 auto; padding-top: 20px; position: relative; }
         
         /* Navbar */
         .navbar { display: flex; flex-wrap: wrap; justify-content: space-between; align-items: center; background: #16213e; padding: 10px 20px; border-radius: 10px; margin-bottom: 20px; border: 1px solid #0f3460; gap: 10px; }
-        .user-section { display: flex; align-items: center; gap: 15px; width: 100%; }
+        .user-info { display: flex; align-items: center; gap: 15px; width: 100%; }
         .user-avatar { width: 50px; height: 50px; border-radius: 50%; border: 2px solid #f1c40f; object-fit: cover; }
         .user-stats { flex: 1; }
-        .user-name { font-weight: bold; color: #4cc9f0; }
-        .money-badge { color: #f1c40f; font-size: 0.9em; margin-left: 10px; }
+        .user-name { font-weight: bold; color: #4cc9f0; font-size: 1.1em; }
+        .money-badge { color: #f1c40f; background: rgba(241, 196, 15, 0.1); padding: 2px 8px; border-radius: 10px; border: 1px solid #f1c40f; font-size: 0.9em; margin-left: 10px; }
+        .player-hp-box { width: 100%; background: #333; height: 10px; border-radius: 5px; margin-top: 5px; overflow: hidden; }
+        .player-hp-fill { height: 100%; transition: width 0.3s; }
         
-        /* 玩家血條 */
-        .player-hp-box { width: 100%; background: #333; height: 10px; border-radius: 5px; margin-top: 5px; overflow: hidden; position: relative; }
-        .player-hp-fill { height: 100%; background: #2ecc71; width: 100%; transition: width 0.3s; }
-        .player-hp-text { font-size: 0.8em; color: #ccc; margin-left: 5px; }
-
-        .btn-group-nav { display: flex; gap: 10px; }
-        .btn-logout { background: transparent; border: 1px solid #e74c3c; color: #e74c3c; padding: 5px 15px; border-radius: 5px; cursor: pointer; transition: 0.3s; }
-        .btn-logout:hover { background: #e74c3c; color: white; }
-        .btn-shop { background: #f1c40f; border: none; color: #000; padding: 5px 15px; border-radius: 5px; cursor: pointer; font-weight: bold; transition: 0.3s; }
-
+        .btn-logout { background: transparent; border: 1px solid #e74c3c; color: #e74c3c; padding: 5px 15px; border-radius: 5px; cursor: pointer; }
+        
         /* Tabs */
         .tabs { display: flex; gap: 10px; margin-bottom: 20px; }
         .tab-btn { flex: 1; padding: 12px; background: #0f3460; border: none; color: #aaa; cursor: pointer; border-radius: 8px; font-weight: bold; transition: 0.3s; }
         .tab-btn.active { background: #e94560; color: white; transform: translateY(-3px); }
-        .game-section { display: none; }
-        .game-section.active { display: block; }
 
-        /* Cards */
-        .card-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 15px; }
-        .card { background: #0f3460; border-radius: 10px; overflow: hidden; box-shadow: 0 4px 10px rgba(0,0,0,0.5); position: relative; }
-        .card-img { width: 100%; height: 150px; object-fit: cover; background: #fff; }
-        .card-body { padding: 10px; }
-        .card-title { margin: 0; font-weight: bold; color: #fff; }
-        .hp-bar-bg { background: #333; height: 8px; border-radius: 4px; margin: 8px 0; overflow: hidden; }
-        .hp-bar-fill { background: #e74c3c; height: 100%; width: 100%; transition: width 0.3s; }
-        
-        .btn-attack { width: 100%; background: #c0392b; color: white; border: none; padding: 8px; border-radius: 5px; cursor: pointer; margin-top: 5px; }
-        .btn-attack:active { transform: scale(0.95); }
-
-        /* Floating Damage */
-        .floating-damage { position: absolute; color: #ffeb3b; font-weight: bold; font-size: 24px; pointer-events: none; animation: floatUp 0.8s ease-out forwards; text-shadow: 2px 2px 0 #000; z-index: 100; }
-        @keyframes floatUp { 0% { transform: translateY(0) scale(1); opacity: 1; } 50% { transform: translateY(-30px) scale(1.5); opacity: 1; } 100% { transform: translateY(-60px) scale(1); opacity: 0; } }
-        .shaking { animation: shake 0.5s; border: 2px solid red; }
-        @keyframes shake { 0% { transform: translate(1px, 1px); } 20% { transform: translate(-3px, 0px); } 40% { transform: translate(1px, -1px); } 60% { transform: translate(-3px, 1px); } 80% { transform: translate(-1px, -1px); } 100% { transform: translate(0, 0); } }
-
-        /* Battle Log */
-        .battle-log-panel { background: #16213e; border: 2px solid #0f3460; border-radius: 10px; height: 200px; padding: 10px; overflow-y: auto; margin-top: 20px; }
+        /* Game Area */
+        .game-area { display: flex; gap: 20px; align-items: flex-start; }
+        .card-grid { flex: 2; display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 15px; }
+        .battle-log-panel { flex: 1; background: #16213e; border: 2px solid #0f3460; border-radius: 10px; height: 500px; padding: 10px; overflow-y: auto; position: sticky; top: 20px; }
         .log-entry { font-size: 0.9em; border-bottom: 1px solid #333; padding: 4px 0; }
 
-        /* Gacha Animation */
-        .gacha-overlay { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.9); z-index: 2000; justify-content: center; align-items: center; flex-direction: column; }
-        .pokeball { width: 100px; height: 100px; border-radius: 50%; background: white; border: 5px solid #333; position: relative; animation: shake-ball 1s infinite; }
-        .pokeball::before { content: ''; position: absolute; top: 0; left: 0; width: 100%; height: 50%; background: #e74c3c; border-bottom: 5px solid #333; border-radius: 50px 50px 0 0; }
-        .pokeball::after { content: ''; position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); width: 30px; height: 30px; background: white; border: 4px solid #333; border-radius: 50%; z-index: 2; }
-        @keyframes shake-ball { 0% { transform: rotate(0deg); } 25% { transform: rotate(-10deg); } 50% { transform: rotate(10deg); } 75% { transform: rotate(-10deg); } 100% { transform: rotate(0deg); } }
-        .gacha-result { display: none; text-align: center; animation: pop-in 0.5s; }
-        @keyframes pop-in { 0% { transform: scale(0); } 100% { transform: scale(1); } }
-        .gacha-img { width: 200px; height: 200px; object-fit: contain; border-radius: 10px; border: 4px solid #f1c40f; box-shadow: 0 0 30px #f1c40f; }
+        /* Card */
+        .card { background: #0f3460; border-radius: 10px; overflow: hidden; box-shadow: 0 4px 10px rgba(0,0,0,0.5); position: relative; transition: 0.2s; }
+        .card:hover { transform: translateY(-5px); border: 1px solid #e94560; }
+        .card.dead { filter: grayscale(100%); opacity: 0.6; pointer-events: none; }
+        .card-img { width: 100%; height: 150px; object-fit: cover; background: #fff; }
+        .card-body { padding: 10px; }
+        .hp-bar-bg { background: #333; height: 8px; border-radius: 4px; margin: 8px 0; overflow: hidden; }
+        .hp-bar-fill { height: 100%; transition: width 0.3s; }
+        
+        .btn-attack { width: 100%; background: #c0392b; color: white; border: none; padding: 8px; border-radius: 5px; cursor: pointer; margin-top: 5px; }
+        .btn-heal { background: #27ae60; }
+        .btn-pvp { background: #8e44ad; }
+        .btn-disabled { background: #555 !important; cursor: not-allowed; }
 
-        /* Gacha Box */
+        /* Gacha */
         .gacha-box { text-align: center; padding: 40px; background: #16213e; border-radius: 15px; border: 2px dashed #f1c40f; }
         .gacha-btn { background: linear-gradient(45deg, #f1c40f, #d35400); color: white; border: none; padding: 15px 40px; font-size: 1.5em; border-radius: 50px; cursor: pointer; box-shadow: 0 0 20px rgba(241, 196, 15, 0.5); }
 
-        @media (max-width: 768px) { .game-area { flex-direction: column-reverse; } .user-section { flex-direction: column; align-items: flex-start; } .user-avatar { width: 40px; height: 40px; } }
+        /* Floating Damage */
+        .floating-damage { position: absolute; color: #ffeb3b; font-weight: bold; font-size: 24px; pointer-events: none; animation: floatUp 0.8s ease-out forwards; text-shadow: 2px 2px 0 #000; z-index: 100; }
+        @keyframes floatUp { 0% { transform: translateY(0) scale(1); opacity: 1; } 100% { transform: translateY(-60px) scale(1); opacity: 0; } }
+        
+        /* RWD */
+        @media (max-width: 768px) { .game-area { flex-direction: column-reverse; } }
     </style>
 </head>
 <body>
 
-<div class="container">
-    <div class="navbar">
+<div id="app" class="container">
+    
+    <div class="navbar" v-if="user">
         <div class="user-section">
-            <img id="my-avatar" class="user-avatar" src="">
+            <img :src="user.pokemon_image || 'https://via.placeholder.com/50'" class="user-avatar">
             <div class="user-stats">
-                <div class="user-name"><span id="player-name">載入中...</span> <span class="money-badge">💰 <span id="player-money">0</span></span></div>
-                <div class="player-hp-box">
-                    <div id="my-hp-bar" class="player-hp-fill" style="width: 100%;"></div>
+                <div class="user-name">
+                    {{ user.username }} (Lv.{{ user.level }}) 
+                    <span class="money-badge">💰 {{ user.money }}</span>
                 </div>
-                <div id="my-hp-text" class="player-hp-text">HP: 100/100</div>
+                <div class="player-hp-box">
+                    <div class="player-hp-fill" :style="{ width: hpPercent(user) + '%', background: hpColor(user) }"></div>
+                </div>
+                <div style="font-size:0.8em; color:#ccc">HP: {{ user.hp }}/{{ user.max_hp }} | ATK: {{ user.attack }}</div>
             </div>
         </div>
-        <div class="btn-group-nav">
-            <button class="btn-shop" onclick="switchTab('shop')">🛒 商店</button>
-            <button class="btn-logout" onclick="logout()">登出</button>
-        </div>
+        <button class="btn-logout" @click="logout">登出</button>
     </div>
+
+    <h1 style="text-align: center; color: #e94560;">⚔️ 妙蛙宸的熱血戰場 (Vue版) ⚔️</h1>
 
     <div class="tabs">
-        <button class="tab-btn active" id="btn-wild" onclick="switchTab('wild')">🌲 野外探險</button>
-        <button class="tab-btn" id="btn-arena" onclick="switchTab('arena')">🏟️ 玩家競技場</button>
-        <button class="tab-btn" id="btn-shop" onclick="switchTab('shop')">🛒 扭蛋中心</button>
+        <button class="tab-btn" :class="{ active: currentTab === 'wild' }" @click="currentTab = 'wild'">🌲 野外探險</button>
+        <button class="tab-btn" :class="{ active: currentTab === 'arena' }" @click="currentTab = 'arena'">🏟️ 玩家競技場</button>
+        <button class="tab-btn" :class="{ active: currentTab === 'shop' }" @click="currentTab = 'shop'">🛒 商店 & 扭蛋</button>
     </div>
 
-    <div id="tab-wild" class="game-section active">
-        <div id="monster-list" class="card-grid"></div>
-    </div>
+    <div class="game-area">
+        
+        <div v-if="currentTab === 'wild'" class="card-grid">
+            <div v-if="monsters.length === 0" style="text-align:center; width:100%; color:#888;">沒有怪獸...</div>
+            <div v-for="m in monsters" :key="m.id" class="card" :class="{ dead: m.hp <= 0 }" :id="'card-monster-' + m.id">
+                <img :src="m.image_url" class="card-img">
+                <div class="card-body">
+                    <div><b>{{ m.name }}</b> <small style="float:right">ATK: {{ m.attack }}</small></div>
+                    <div class="hp-bar-bg"><div class="hp-bar-fill" :style="{ width: hpPercent(m) + '%', background: hpColor(m) }"></div></div>
+                    <small>{{ m.hp }} / {{ m.max_hp }}</small>
+                    <button class="btn-attack" @click="attackMonster(m)">⚔️ 討伐</button>
+                </div>
+            </div>
+        </div>
 
-    <div id="tab-arena" class="game-section">
-        <div id="player-list" class="card-grid"></div>
-    </div>
+        <div v-if="currentTab === 'arena'" class="card-grid">
+            <div v-if="players.length === 0" style="text-align:center; width:100%; color:#888;">沒有其他玩家...</div>
+            <div v-for="p in players" :key="p.id" class="card" :class="{ dead: p.hp <= 0 }" :id="'card-player-' + p.id">
+                <img :src="p.pokemon_image" class="card-img">
+                <div class="card-body">
+                    <div>
+                        <b>{{ p.username }}</b> 
+                        <span v-if="p.is_online" style="color:#2ecc71; font-size:0.8em;">● 線上</span>
+                        <span v-else style="color:#95a5a6; font-size:0.8em;">● 離線</span>
+                    </div>
+                    <div class="hp-bar-bg"><div class="hp-bar-fill" :style="{ width: hpPercent(p) + '%', background: hpColor(p) }"></div></div>
+                    <small>{{ p.hp }} / {{ p.max_hp }}</small>
+                    
+                    <button v-if="p.is_online" class="btn-attack btn-pvp" @click="attackPlayer(p)">🥊 決鬥</button>
+                    <button v-else class="btn-attack btn-disabled" disabled>💤 休息中</button>
+                </div>
+            </div>
+        </div>
 
-    <div id="tab-shop" class="game-section">
-        <div class="gacha-box">
-            <h2 style="color:#f1c40f;">🌟 傳說扭蛋機 🌟</h2>
-            <p>消耗 200 G，隨機獲得強力寶可夢！(數值保留)</p>
-            <button class="gacha-btn" onclick="playGacha()">🔮 召喚 (200G)</button>
-            <br><br>
-            <button onclick="buyHeal()" style="background:#27ae60; color:white; border:none; padding:10px 20px; border-radius:5px; cursor:pointer;">💊 醫院補血 (50G)</button>
+        <div v-if="currentTab === 'shop'" style="width: 100%;">
+            <div class="gacha-box">
+                <h2 style="color:#f1c40f;">🌟 傳說扭蛋機 🌟</h2>
+                <p>消耗 200 G，隨機獲得強力寶可夢！</p>
+                <button class="gacha-btn" @click="playGacha">🔮 召喚 (200G)</button>
+                <br><br>
+                <button class="btn-attack btn-heal" style="width:auto; padding:10px 30px;" @click="buyHeal">💊 醫院補血 (50G)</button>
+            </div>
+        </div>
+
+        <div class="battle-log-panel">
+            <h3 class="log-title">📜 戰鬥紀錄</h3>
+            <div v-for="(log, index) in logs" :key="index" class="log-entry" v-html="log"></div>
         </div>
     </div>
 
-    <div class="battle-log-panel" id="battle-log"></div>
-</div>
-
-<div class="gacha-overlay" id="gacha-overlay">
-    <div class="pokeball" id="pokeball-anim"></div>
-    <div class="gacha-result" id="gacha-result">
-        <h2 style="color:#f1c40f;">✨ 獲得新夥伴！ ✨</h2>
-        <img id="gacha-img" class="gacha-img" src="">
-        <h3 id="gacha-name"></h3>
-        <button onclick="closeGacha()" style="margin-top:20px; padding:10px 30px; border-radius:5px; border:none; cursor:pointer; font-weight:bold;">太棒了！</button>
-    </div>
 </div>
 
 <script>
+    const { createApp, ref, onMounted, computed } = Vue;
+
     // --------------------------------------------------------
+    // ⚠️ 設定區：請將這裡改成你的 Zeabur 網址
     const ZEABUR_DOMAIN = 'mwtpokemons.zeabur.app'; 
     // --------------------------------------------------------
 
     const API_URL = `https://${ZEABUR_DOMAIN}/api/v1`;
-    // 🔥 修改：WebSocket 網址不加 Token，我們在連線函式裡動態加
-    const WS_BASE_URL = `wss://${ZEABUR_DOMAIN}/ws`;
+    const WS_URL = `wss://${ZEABUR_DOMAIN}/ws`;
 
-    let myId = 0;
-    let myAttack = 10;
-    
-    // 門禁
-    const token = localStorage.getItem('token');
-    if (!token) window.location.href = 'login.html';
-    else updateUserInfo(); // 這裡會順便啟動 WebSocket
+    createApp({
+        setup() {
+            const user = ref(null);
+            const token = localStorage.getItem('token');
+            const monsters = ref([]);
+            const players = ref([]);
+            const logs = ref([]);
+            const currentTab = ref('wild');
+            let socket = null;
 
-    function logout() { localStorage.clear(); window.location.href = 'login.html'; }
-
-    // Tab 切換
-    function switchTab(tabName) {
-        document.querySelectorAll('.game-section').forEach(el => el.classList.remove('active'));
-        document.querySelectorAll('.tab-btn').forEach(el => el.classList.remove('active'));
-        document.getElementById(`tab-${tabName}`).classList.add('active');
-        document.getElementById(`btn-${tabName}`).classList.add('active');
-        if(tabName=='wild') fetchMonsters();
-        if(tabName=='arena') fetchPlayers();
-    }
-
-    async function updateUserInfo() {
-        try {
-            const res = await fetch(`${API_URL}/auth/me`, { headers: { 'Authorization': `Bearer ${token}` } });
-            if (res.ok) {
-                const user = await res.json();
-                myId = user.id;
-                myAttack = user.attack;
-                document.getElementById('player-name').innerText = `${user.username} (Lv.${user.level})`;
-                document.getElementById('player-money').innerText = user.money;
-                document.getElementById('my-avatar').src = user.pokemon_image || 'https://via.placeholder.com/50';
-                
-                // 登入成功後，才啟動 WebSocket (避免 Token 還沒拿到就連線)
-                if(!window.socket) connectWebSocket();
-            }
-        } catch (e) { console.error(e); }
-    }
-
-    // 🔥 修改：WebSocket 連線 (帶 Token) 🔥
-    function connectWebSocket() {
-        // 把 Token 串在網址後面傳給後端驗證
-        window.socket = new WebSocket(`${WS_BASE_URL}?token=${token}`);
-
-        window.socket.onopen = () => {
-            addLog("✅ 已連線！(身分驗證成功)");
-            setInterval(() => { if(window.socket.readyState===1) window.socket.send("ping"); }, 30000);
-        };
-
-        window.socket.onmessage = (event) => {
-            const msg = event.data;
-            addLog(`<span style="color: #4cc9f0;">📡 ${msg}</span>`);
-            
-            // 如果有人上線/下線/受傷，刷新列表
-            // 這裡簡單粗暴一點，只要有廣播就刷新當前頁面
-            const activeTab = document.querySelector('.game-section.active').id;
-            if(activeTab === 'tab-wild') fetchMonsters();
-            if(activeTab === 'tab-arena') fetchPlayers();
-            updateUserInfo();
-        };
-    }
-
-    // 抓野怪
-    async function fetchMonsters() {
-        const res = await fetch(`${API_URL}/items/`);
-        const data = await res.json();
-        data.sort((a, b) => a.id - b.id);
-        renderList('monster-list', data, 'monster');
-    }
-
-    // 🔥 抓玩家 (含在線狀態) 🔥
-    async function fetchPlayers() {
-        const res = await fetch(`${API_URL}/auth/all`);
-        const data = await res.json();
-        // 排序：自己在線 > 別人在線 > 離線
-        const others = data.filter(u => u.id !== myId).sort((a, b) => b.is_online - a.is_online);
-        renderList('player-list', others, 'player');
-    }
-
-    // 渲染卡片
-    function renderList(elementId, items, type) {
-        const container = document.getElementById(elementId);
-        container.innerHTML = '';
-        if(items.length === 0) { container.innerHTML = `<p style="text-align:center;width:100%">暫無目標...</p>`; return; }
-
-        items.forEach(item => {
-            const name = item.name || item.username;
-            const img = item.image_url || item.pokemon_image || 'https://via.placeholder.com/200';
-            const hpPct = Math.max(0, (item.hp / item.max_hp) * 100);
-            const isDead = item.hp <= 0 ? 'dead' : '';
-            const itemId = item.id;
-            const currentHp = item.hp;
-            
-            let btnHtml = '';
-            let statusBadge = '';
-
-            if (type === 'monster') {
-                btnHtml = `<button class="btn-attack" onclick="attackMonster(${itemId}, ${currentHp}, '${name}')">⚔️ 討伐</button>`;
-            } else {
-                // 🔥 玩家卡片邏輯 🔥
-                if (item.is_online) {
-                    statusBadge = `<span style="background:#2ecc71; color:white; padding:2px 6px; border-radius:4px; font-size:0.8em; margin-left:5px;">🟢 線上</span>`;
-                    btnHtml = `<button class="btn-attack" style="background:#8e44ad" onclick="attackPlayer(${itemId}, '${name}')">🥊 決鬥</button>`;
-                } else {
-                    statusBadge = `<span style="background:#95a5a6; color:white; padding:2px 6px; border-radius:4px; font-size:0.8em; margin-left:5px;">⚪ 離線</span>`;
-                    // 離線不能打，按鈕停用
-                    btnHtml = `<button class="btn-attack" style="background:#555; cursor:not-allowed;" disabled>💤 休息中</button>`;
-                }
+            // 檢查登入
+            if (!token) {
+                window.location.href = 'login.html';
             }
 
-            container.innerHTML += `
-                <div class="card ${isDead}" id="card-${type}-${itemId}">
-                    <img src="${img}" class="card-img">
-                    <div class="card-body">
-                        <div><b>${name}</b> ${statusBadge} <small style="float:right">ATK: ${item.attack}</small></div>
-                        <div class="hp-bar-bg"><div class="hp-bar-fill" style="width:${hpPct}%"></div></div>
-                        <small>${item.hp} / ${item.max_hp}</small>
-                        ${btnHtml}
-                    </div>
-                </div>
-            `;
-        });
-    }
-
-    // ... (attackMonster, attackPlayer, playGacha, buyHeal, showFloatingDamage 等函式保持原本的樣子，不用動) ...
-    // 為了節省長度，請保留你原本 index.html 裡面的這些函式，它們邏輯不變。
-    
-    // 這裡補上 attackPlayer 方便你複製
-    async function attackPlayer(targetId, name) {
-        try {
-            const res = await fetch(`${API_URL}/shop/pvp/${targetId}`, {
-                method: 'POST',
-                headers: { 'Authorization': `Bearer ${token}` }
+            // 初始化
+            onMounted(async () => {
+                await updateUserInfo();
+                await fetchMonsters();
+                connectWebSocket();
             });
-            const data = await res.json();
-            showFloatingDamage(`card-player-${targetId}`, "PVP", true);
-            if (!res.ok) alert(data.detail);
-            updateUserInfo();
-        } catch (e) { console.error(e); }
-    }
-    
-    // 下面請保留原本的 attackMonster, playGacha, buyHeal, UI 工具函式...
-    // (如果你需要我再次提供完整的 index.html 請告訴我)
-    
-    // --- 補上必要的 UI 工具 (防呆) ---
-    function showFloatingDamage(elementId, value, isCrit) {
-        const card = document.getElementById(elementId);
-        if (!card) return;
-        const rect = card.getBoundingClientRect();
-        const floatEl = document.createElement('div');
-        floatEl.className = 'floating-damage';
-        floatEl.innerText = isCrit ? `💥 ${value}` : `-${value}`;
-        if (isCrit) { floatEl.style.fontSize = '36px'; floatEl.style.color = '#e74c3c'; }
-        else if (value === "PVP") { floatEl.style.color = '#8e44ad'; floatEl.innerText = "⚔️ PVP!"; }
-        
-        const randomX = Math.floor(Math.random() * 60) - 30;
-        floatEl.style.left = `${rect.left + rect.width / 2 + randomX}px`;
-        floatEl.style.top = `${rect.top + rect.height / 3}px`;
-        document.body.appendChild(floatEl);
-        setTimeout(() => { floatEl.remove(); }, 800);
-    }
-    
-    function addLog(html) {
-        const box = document.getElementById('battle-log');
-        const entry = document.createElement('div');
-        entry.className = 'log-entry';
-        entry.innerHTML = html;
-        box.prepend(entry);
-    }
+
+            // 取得自己資料
+            const updateUserInfo = async () => {
+                try {
+                    const res = await fetch(`${API_URL}/auth/me`, { headers: { 'Authorization': `Bearer ${token}` } });
+                    if (res.ok) user.value = await res.json();
+                } catch (e) { console.error(e); }
+            };
+
+            // 取得怪獸列表
+            const fetchMonsters = async () => {
+                try {
+                    const res = await fetch(`${API_URL}/items/`);
+                    const data = await res.json();
+                    monsters.value = data.sort((a, b) => a.id - b.id);
+                } catch (e) { console.error(e); }
+            };
+
+            // 取得玩家列表 (含在線狀態)
+            const fetchPlayers = async () => {
+                try {
+                    const res = await fetch(`${API_URL}/auth/all`);
+                    const data = await res.json();
+                    // 過濾掉自己
+                    players.value = data.filter(u => u.id !== user.value?.id).sort((a, b) => b.is_online - a.is_online);
+                } catch (e) { console.error(e); }
+            };
+
+            // WebSocket 連線
+            const connectWebSocket = () => {
+                socket = new WebSocket(`${WS_URL}?token=${token}`);
+                
+                socket.onopen = () => {
+                    addLog("✅ 已連線到即時戰場！");
+                    // 心跳包
+                    setInterval(() => { if(socket.readyState === 1) socket.send("ping"); }, 30000);
+                };
+
+                socket.onmessage = (event) => {
+                    addLog(`<span style="color: #4cc9f0;">📡 ${event.data}</span>`);
+                    // 收到廣播就全部刷新，確保資料最新
+                    fetchMonsters();
+                    if(currentTab.value === 'arena') fetchPlayers();
+                    updateUserInfo();
+                };
+
+                socket.onclose = () => {
+                    addLog(`<span style="color: red;">❌ 連線斷開，嘗試重連...</span>`);
+                    setTimeout(connectWebSocket, 3000);
+                };
+            };
+
+            // 攻擊怪獸
+            const attackMonster = async (monster) => {
+                if(monster.hp <= 0) return;
+
+                // 前端計算傷害 (為了視覺爽度)
+                const isCrit = Math.random() < 0.3;
+                const bonus = Math.floor(Math.random() * user.value.attack);
+                const dmg = isCrit ? (user.value.attack + bonus) * 2 : (user.value.attack + bonus);
+                
+                showFloatingDamage(`card-monster-${monster.id}`, dmg, isCrit);
+                
+                // 預先扣血 (視覺優化)
+                monster.hp = Math.max(0, monster.hp - dmg);
+
+                // 呼叫後端
+                const res = await fetch(`${API_URL}/items/${monster.id}`, {
+                    method: 'PUT',
+                    headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ hp: monster.hp })
+                });
+            };
+
+            // 攻擊玩家
+            const attackPlayer = async (target) => {
+                showFloatingDamage(`card-player-${target.id}`, "PVP", true);
+                const res = await fetch(`${API_URL}/shop/pvp/${target.id}`, {
+                    method: 'POST',
+                    headers: { 'Authorization': `Bearer ${token}` }
+                });
+                if(!res.ok) {
+                    const err = await res.json();
+                    alert(err.detail);
+                }
+            };
+
+            // 扭蛋
+            const playGacha = async () => {
+                const res = await fetch(`${API_URL}/shop/gacha`, {
+                    method: 'POST', headers: { 'Authorization': `Bearer ${token}` }
+                });
+                const data = await res.json();
+                if(res.ok) {
+                    alert(`🎉 ${data.message}`);
+                    updateUserInfo();
+                } else {
+                    alert(data.detail);
+                }
+            };
+
+            // 補血
+            const buyHeal = async () => {
+                const res = await fetch(`${API_URL}/shop/heal`, {
+                    method: 'POST', headers: { 'Authorization': `Bearer ${token}` }
+                });
+                if(res.ok) {
+                    alert("補血成功！");
+                    updateUserInfo();
+                } else {
+                    alert("金幣不足");
+                }
+            };
+
+            // 工具函式
+            const logout = () => { localStorage.clear(); window.location.href = 'login.html'; };
+            
+            const addLog = (msg) => {
+                logs.value.unshift(msg);
+                if(logs.value.length > 50) logs.value.pop();
+            };
+
+            const hpPercent = (u) => Math.max(0, (u.hp / u.max_hp) * 100);
+            const hpColor = (u) => {
+                const p = hpPercent(u);
+                return p < 30 ? '#e74c3c' : (p < 60 ? '#f1c40f' : '#2ecc71');
+            };
+
+            const showFloatingDamage = (elementId, value, isCrit) => {
+                const card = document.getElementById(elementId);
+                if (!card) return;
+                const rect = card.getBoundingClientRect();
+                const el = document.createElement('div');
+                el.className = 'floating-damage';
+                el.innerText = isCrit ? `💥 ${value}` : `-${value}`;
+                el.style.left = `${rect.left + rect.width/2}px`;
+                el.style.top = `${rect.top}px`;
+                if(isCrit) { el.style.fontSize='36px'; el.style.color='#e74c3c'; }
+                document.body.appendChild(el);
+                setTimeout(() => el.remove(), 800);
+            };
+
+            // 監聽 Tab 切換，自動載入該 Tab 資料
+            Vue.watch(currentTab, (newTab) => {
+                if(newTab === 'wild') fetchMonsters();
+                if(newTab === 'arena') fetchPlayers();
+            });
+
+            return {
+                user, monsters, players, logs, currentTab,
+                hpPercent, hpColor, logout, attackMonster, attackPlayer, playGacha, buyHeal
+            };
+        }
+    }).mount('#app');
 </script>
+
 </body>
 </html>
