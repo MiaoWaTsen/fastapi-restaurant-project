@@ -2,7 +2,7 @@
 
 from fastapi import APIRouter, Depends, HTTPException
 from typing import List
-import random # 引入隨機模組，用來計算金幣掉落
+import random 
 
 from app.services.item_service import ItemService
 from app.common.deps import get_item_service, get_current_user
@@ -12,116 +12,90 @@ from app.common.websocket import manager
 
 router = APIRouter()
 
-# --- 召喚怪獸 (POST) ---
 @router.post("/", response_model=ItemRead)
-def create_item(
-    item_in: ItemCreate, 
-    service: ItemService = Depends(get_item_service)
-):
+def create_item(item_in: ItemCreate, service: ItemService = Depends(get_item_service)):
     return service.create_item(item_in)
 
-# --- 讀取所有怪獸 (GET) ---
 @router.get("/", response_model=List[ItemRead])
 def read_items(service: ItemService = Depends(get_item_service)):
     return service.get_all_items()
 
-# --- 讀取單隻怪獸 (GET) ---
 @router.get("/{item_id}", response_model=ItemRead)
-def read_item(
-    item_id: int,
-    service: ItemService = Depends(get_item_service)
-):
+def read_item(item_id: int, service: ItemService = Depends(get_item_service)):
     db_item = service.get_item(item_id=item_id)
-    if db_item is None:
-        raise HTTPException(status_code=404, detail="Item not found")
+    if db_item is None: raise HTTPException(status_code=404, detail="Item not found")
     return db_item
 
-# --- 攻擊/更新怪獸 (PUT) - 核心邏輯區 ---
 @router.put("/{item_id}", response_model=ItemRead)
 async def update_item(
     item_id: int,
     item_in: ItemUpdate,
     service: ItemService = Depends(get_item_service),
-    current_user: User = Depends(get_current_user) # 必須登入才能攻擊
+    current_user: User = Depends(get_current_user)
 ):
-    # 1. 執行本次攻擊/更新
     updated_monster = service.update_item(item_id, item_in)
     if updated_monster is None:
         raise HTTPException(status_code=404, detail="Monster not found")
     
-    # 2. 如果這次操作涉及血量變化 (代表是攻擊或補血)
+    # 如果是攻擊行為 (有傳送 hp 變更)
     if item_in.hp is not None:
         
-        # A. 廣播受傷戰報
-        message = f"戰報：勇者 [{current_user.username}] 攻擊了 [{updated_monster.name}]！剩餘血量 {updated_monster.hp}"
-        await manager.broadcast(message)
-
-        # B. 獲得經驗值機制
-        # 只要有攻擊（不管有沒有打死），就加經驗
-        exp_gain = 10
-        current_user.exp += exp_gain
+        # 1. 怪獸反擊！(扣玩家血量)
+        # 傷害公式：怪獸攻擊力 + (-5 ~ +5 浮動)
+        monster_dmg = max(1, updated_monster.attack + random.randint(-5, 5))
+        current_user.hp = max(0, current_user.hp - monster_dmg)
         
-        # 檢查升級 (每 100 經驗升一級)
-        if current_user.exp >= 100:
-            current_user.level += 1
-            current_user.exp = 0 
-            current_user.max_hp += 50
-            current_user.hp = current_user.max_hp
-            current_user.attack += 5
-            await manager.broadcast(f"🎉 恭喜！勇者 [{current_user.username}] 升到了 {current_user.level} 等！")
+        # 廣播戰報 (雙方受傷)
+        msg = f"⚔️ 交戰：[{current_user.username}] 對 [{updated_monster.name}] 造成傷害，但也被反擊受了 {monster_dmg} 點傷！"
+        await manager.broadcast(msg)
 
-        # 先暫存玩家狀態 (還沒 Commit，因為下面可能還有金幣要拿)
+        # 2. 玩家死亡判定
+        if current_user.hp <= 0:
+            current_user.money = int(current_user.money * 0.8) # 死亡懲罰：掉 20% 錢
+            current_user.hp = current_user.max_hp # 免費復活但回城
+            await manager.broadcast(f"⚰️ 悲報：勇者 [{current_user.username}] 被野怪打死，噴了 20% 金幣...")
+
+        # 3. 玩家獲得經驗 (沒死才有)
+        else:
+            exp_gain = 10
+            current_user.exp += exp_gain
+            if current_user.exp >= 100:
+                current_user.level += 1
+                current_user.exp = 0 
+                current_user.max_hp += 50
+                current_user.hp = current_user.max_hp
+                current_user.attack += 5
+                await manager.broadcast(f"🎉 升級！勇者 [{current_user.username}] 升到了 {current_user.level} 等！")
+
+        # 儲存玩家狀態 (扣血/升級/扣錢)
         service.db.add(current_user)
 
-        # 🔥 C. 死亡判定與轉生機制 (含金幣掉落) 🔥
+        # 4. 怪獸死亡與轉生 (保持原本邏輯)
         if updated_monster.hp <= 0:
-            
-            # 💰 1. 掉落金幣邏輯
-            # 隨機獲得 50 ~ 100 金幣
             gold_drop = random.randint(50, 100)
             current_user.money += gold_drop
             
-            # 廣播擊殺與獎勵
-            await manager.broadcast(f"💀 公告：[{updated_monster.name}] 被 [{current_user.username}] 擊敗了！獲得 {gold_drop} 金幣！(目前持有: {current_user.money})")
+            await manager.broadcast(f"💀 擊殺：[{updated_monster.name}] 倒下！[{current_user.username}] 獲得 {gold_drop} G！")
             
-            # 🛠️ 2. 轉生變強邏輯
-            # 血量變 1.2 倍，攻擊變 1.1 倍
             new_max_hp = int(updated_monster.max_hp * 1.2)
             new_attack = int(updated_monster.attack * 1.1)
             
-            # 準備復活數據
             revive_data = ItemUpdate(
-                hp=new_max_hp, 
-                max_hp=new_max_hp, 
-                attack=new_attack,
+                hp=new_max_hp, max_hp=new_max_hp, attack=new_attack,
                 description=f"更強的 {updated_monster.name} (Lv Up) 復活了！"
             )
-            
-            # 執行復活更新
             revived_monster = service.update_item(item_id, revive_data)
+            await manager.broadcast(f"⚠️ 警告：[{revived_monster.name}] 轉生復活！")
             
-            # 廣播復活訊息
-            await manager.broadcast(f"⚠️ 警告：[{revived_monster.name}] 轉生復活！HP 上限提升至 {revived_monster.max_hp}！")
-            
-            # 💾 儲存所有變更 (包含玩家的金幣、經驗、怪獸的復活)
             service.db.commit()
-            
-            # 🔙 重要：回傳「復活後」的怪獸給前端
-            # 這樣前端畫面會瞬間回滿血，而不是卡在 0 血
-            return revived_monster
+            return revived_monster # 回傳滿血怪獸
 
-        # 如果沒死，就儲存玩家經驗值就好
         service.db.commit()
     
     return updated_monster
 
-# --- 刪除怪獸 (DELETE) ---
 @router.delete("/{item_id}")
-def delete_item(
-    item_id: int,
-    service: ItemService = Depends(get_item_service)
-):
+def delete_item(item_id: int, service: ItemService = Depends(get_item_service)):
     deleted_item = service.delete_item(item_id)
-    if deleted_item is None:
-        raise HTTPException(status_code=404, detail="Item not found")
+    if deleted_item is None: raise HTTPException(status_code=404, detail="Item not found")
     return {"message": "Item deleted successfully", "id": item_id}

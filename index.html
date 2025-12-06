@@ -3,32 +3,38 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>⚡️ 寶可夢大亂鬥 ⚡️</title>
+    <title>🔥 妙蛙宸的熱血戰場 🔥</title>
     <style>
         body { font-family: 'Segoe UI', sans-serif; background-color: #1a1a2e; color: #fff; padding: 20px; margin: 0; overflow-x: hidden; }
-        .container { max-width: 900px; margin: 0 auto; padding-top: 20px; }
+        .container { max-width: 900px; margin: 0 auto; padding-top: 20px; position: relative; }
         
         /* Navbar */
-        .navbar { display: flex; justify-content: space-between; align-items: center; background: #16213e; padding: 10px 20px; border-radius: 10px; margin-bottom: 20px; border: 1px solid #0f3460; }
-        .user-info { display: flex; align-items: center; gap: 15px; }
-        .user-avatar { width: 40px; height: 40px; border-radius: 50%; border: 2px solid #f1c40f; object-fit: cover; }
-        .money-badge { color: #f1c40f; border: 1px solid #f1c40f; padding: 4px 10px; border-radius: 15px; }
+        .navbar { display: flex; flex-wrap: wrap; justify-content: space-between; align-items: center; background: #16213e; padding: 10px 20px; border-radius: 10px; margin-bottom: 20px; border: 1px solid #0f3460; gap: 10px; }
+        .user-section { display: flex; align-items: center; gap: 15px; width: 100%; }
+        .user-avatar { width: 50px; height: 50px; border-radius: 50%; border: 2px solid #f1c40f; object-fit: cover; }
+        .user-stats { flex: 1; }
+        .user-name { font-weight: bold; color: #4cc9f0; }
+        .money-badge { color: #f1c40f; font-size: 0.9em; margin-left: 10px; }
         
+        /* 玩家血條 */
+        .player-hp-box { width: 100%; background: #333; height: 10px; border-radius: 5px; margin-top: 5px; overflow: hidden; position: relative; }
+        .player-hp-fill { height: 100%; background: #2ecc71; width: 100%; transition: width 0.3s; }
+        .player-hp-text { font-size: 0.8em; color: #ccc; margin-left: 5px; }
+
+        .btn-group-nav { display: flex; gap: 10px; }
+        .btn-logout { background: transparent; border: 1px solid #e74c3c; color: #e74c3c; padding: 5px 15px; border-radius: 5px; cursor: pointer; transition: 0.3s; }
+        .btn-logout:hover { background: #e74c3c; color: white; }
+        .btn-shop { background: #f1c40f; border: none; color: #000; padding: 5px 15px; border-radius: 5px; cursor: pointer; font-weight: bold; transition: 0.3s; }
+
         /* Tabs */
         .tabs { display: flex; gap: 10px; margin-bottom: 20px; }
         .tab-btn { flex: 1; padding: 12px; background: #0f3460; border: none; color: #aaa; cursor: pointer; border-radius: 8px; font-weight: bold; transition: 0.3s; }
         .tab-btn.active { background: #e94560; color: white; transform: translateY(-3px); }
-        
-        /* Game Area */
         .game-section { display: none; }
         .game-section.active { display: block; }
-        .card-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 15px; }
-        
-        /* Battle Log */
-        .battle-log-panel { background: #16213e; border: 2px solid #0f3460; border-radius: 10px; height: 200px; padding: 10px; overflow-y: auto; margin-top: 20px; }
-        .log-entry { font-size: 0.9em; border-bottom: 1px solid #333; padding: 4px 0; }
 
-        /* Card */
+        /* Cards */
+        .card-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 15px; }
         .card { background: #0f3460; border-radius: 10px; overflow: hidden; box-shadow: 0 4px 10px rgba(0,0,0,0.5); position: relative; }
         .card-img { width: 100%; height: 150px; object-fit: cover; background: #fff; }
         .card-body { padding: 10px; }
@@ -36,32 +42,60 @@
         .hp-bar-bg { background: #333; height: 8px; border-radius: 4px; margin: 8px 0; overflow: hidden; }
         .hp-bar-fill { background: #e74c3c; height: 100%; width: 100%; transition: width 0.3s; }
         
-        /* Gacha */
-        .gacha-box { text-align: center; padding: 40px; background: #16213e; border-radius: 15px; border: 2px dashed #f1c40f; }
-        .gacha-btn { background: linear-gradient(45deg, #f1c40f, #d35400); color: white; border: none; padding: 15px 40px; font-size: 1.5em; border-radius: 50px; cursor: pointer; box-shadow: 0 0 20px rgba(241, 196, 15, 0.5); animation: pulse 2s infinite; }
-        @keyframes pulse { 0% { transform: scale(1); } 50% { transform: scale(1.05); } 100% { transform: scale(1); } }
-
         .btn-attack { width: 100%; background: #c0392b; color: white; border: none; padding: 8px; border-radius: 5px; cursor: pointer; margin-top: 5px; }
+        .btn-attack:active { transform: scale(0.95); }
+
+        /* Floating Damage */
+        .floating-damage { position: absolute; color: #ffeb3b; font-weight: bold; font-size: 24px; pointer-events: none; animation: floatUp 0.8s ease-out forwards; text-shadow: 2px 2px 0 #000; z-index: 100; }
+        @keyframes floatUp { 0% { transform: translateY(0) scale(1); opacity: 1; } 50% { transform: translateY(-30px) scale(1.5); opacity: 1; } 100% { transform: translateY(-60px) scale(1); opacity: 0; } }
+        .shaking { animation: shake 0.5s; border: 2px solid red; }
+        @keyframes shake { 0% { transform: translate(1px, 1px); } 20% { transform: translate(-3px, 0px); } 40% { transform: translate(1px, -1px); } 60% { transform: translate(-3px, 1px); } 80% { transform: translate(-1px, -1px); } 100% { transform: translate(0, 0); } }
+
+        /* Battle Log */
+        .battle-log-panel { background: #16213e; border: 2px solid #0f3460; border-radius: 10px; height: 200px; padding: 10px; overflow-y: auto; margin-top: 20px; }
+        .log-entry { font-size: 0.9em; border-bottom: 1px solid #333; padding: 4px 0; }
+
+        /* Gacha Animation */
+        .gacha-overlay { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.9); z-index: 2000; justify-content: center; align-items: center; flex-direction: column; }
+        .pokeball { width: 100px; height: 100px; border-radius: 50%; background: white; border: 5px solid #333; position: relative; animation: shake-ball 1s infinite; }
+        .pokeball::before { content: ''; position: absolute; top: 0; left: 0; width: 100%; height: 50%; background: #e74c3c; border-bottom: 5px solid #333; border-radius: 50px 50px 0 0; }
+        .pokeball::after { content: ''; position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); width: 30px; height: 30px; background: white; border: 4px solid #333; border-radius: 50%; z-index: 2; }
+        @keyframes shake-ball { 0% { transform: rotate(0deg); } 25% { transform: rotate(-10deg); } 50% { transform: rotate(10deg); } 75% { transform: rotate(-10deg); } 100% { transform: rotate(0deg); } }
+        .gacha-result { display: none; text-align: center; animation: pop-in 0.5s; }
+        @keyframes pop-in { 0% { transform: scale(0); } 100% { transform: scale(1); } }
+        .gacha-img { width: 200px; height: 200px; object-fit: contain; border-radius: 10px; border: 4px solid #f1c40f; box-shadow: 0 0 30px #f1c40f; }
+
+        /* Gacha Box */
+        .gacha-box { text-align: center; padding: 40px; background: #16213e; border-radius: 15px; border: 2px dashed #f1c40f; }
+        .gacha-btn { background: linear-gradient(45deg, #f1c40f, #d35400); color: white; border: none; padding: 15px 40px; font-size: 1.5em; border-radius: 50px; cursor: pointer; box-shadow: 0 0 20px rgba(241, 196, 15, 0.5); }
+
+        @media (max-width: 768px) { .game-area { flex-direction: column-reverse; } .user-section { flex-direction: column; align-items: flex-start; } .user-avatar { width: 40px; height: 40px; } }
     </style>
 </head>
 <body>
 
 <div class="container">
     <div class="navbar">
-        <div class="user-info">
+        <div class="user-section">
             <img id="my-avatar" class="user-avatar" src="">
-            <div>
-                <div id="player-name">載入中...</div>
-                <div class="money-badge">💰 <span id="player-money">0</span></div>
+            <div class="user-stats">
+                <div class="user-name"><span id="player-name">載入中...</span> <span class="money-badge">💰 <span id="player-money">0</span></span></div>
+                <div class="player-hp-box">
+                    <div id="my-hp-bar" class="player-hp-fill" style="width: 100%;"></div>
+                </div>
+                <div id="my-hp-text" class="player-hp-text">HP: 100/100</div>
             </div>
         </div>
-        <button onclick="logout()" style="background:transparent; border:1px solid #666; color:#aaa; padding:5px 10px; border-radius:5px; cursor:pointer;">登出</button>
+        <div class="btn-group-nav">
+            <button class="btn-shop" onclick="switchTab('shop')">🛒 商店</button>
+            <button class="btn-logout" onclick="logout()">登出</button>
+        </div>
     </div>
 
     <div class="tabs">
-        <button class="tab-btn active" onclick="switchTab('wild')">🌲 野外探險</button>
-        <button class="tab-btn" onclick="switchTab('arena')">🏟️ 玩家競技場</button>
-        <button class="tab-btn" onclick="switchTab('shop')">🛒 商店 & 扭蛋</button>
+        <button class="tab-btn active" id="btn-wild" onclick="switchTab('wild')">🌲 野外探險</button>
+        <button class="tab-btn" id="btn-arena" onclick="switchTab('arena')">🏟️ 玩家競技場</button>
+        <button class="tab-btn" id="btn-shop" onclick="switchTab('shop')">🛒 扭蛋中心</button>
     </div>
 
     <div id="tab-wild" class="game-section active">
@@ -75,7 +109,7 @@
     <div id="tab-shop" class="game-section">
         <div class="gacha-box">
             <h2 style="color:#f1c40f;">🌟 傳說扭蛋機 🌟</h2>
-            <p>消耗 200 G，隨機獲得強力寶可夢！</p>
+            <p>消耗 200 G，隨機獲得強力寶可夢！(數值保留)</p>
             <button class="gacha-btn" onclick="playGacha()">🔮 召喚 (200G)</button>
             <br><br>
             <button onclick="buyHeal()" style="background:#27ae60; color:white; border:none; padding:10px 20px; border-radius:5px; cursor:pointer;">💊 醫院補血 (50G)</button>
@@ -85,12 +119,30 @@
     <div class="battle-log-panel" id="battle-log"></div>
 </div>
 
+<div class="gacha-overlay" id="gacha-overlay">
+    <div class="pokeball" id="pokeball-anim"></div>
+    <div class="gacha-result" id="gacha-result">
+        <h2 style="color:#f1c40f;">✨ 獲得新夥伴！ ✨</h2>
+        <img id="gacha-img" class="gacha-img" src="">
+        <h3 id="gacha-name"></h3>
+        <button onclick="closeGacha()" style="margin-top:20px; padding:10px 30px; border-radius:5px; border:none; cursor:pointer; font-weight:bold;">太棒了！</button>
+    </div>
+</div>
+
 <script>
-    const ZEABUR_DOMAIN = 'mwtpokemons.zeabur.app'; // ⚠️ 請改網址
-    const BASE_URL = `https://${ZEABUR_DOMAIN}/api/v1`;
+    // --------------------------------------------------------
+    // ⚠️ 設定區：請將這裡改成你的 Zeabur 網址
+    const ZEABUR_DOMAIN = 'mwtpokemons.zeabur.app'; 
+    // --------------------------------------------------------
+
+    const API_URL = `https://${ZEABUR_DOMAIN}/api/v1`;
     const WS_URL = `wss://${ZEABUR_DOMAIN}/ws`;
 
     let myId = 0;
+    let myAttack = 10;
+    let myHp = 100;
+    let myMaxHp = 100;
+
     const token = localStorage.getItem('token');
     if (!token) window.location.href = 'login.html';
     else updateUserInfo();
@@ -102,130 +154,243 @@
         document.querySelectorAll('.game-section').forEach(el => el.classList.remove('active'));
         document.querySelectorAll('.tab-btn').forEach(el => el.classList.remove('active'));
         document.getElementById(`tab-${tabName}`).classList.add('active');
-        // 笨方法：根據 Tab 文字來 active 按鈕
+        document.getElementById(`btn-${tabName}`).classList.add('active');
         if(tabName=='wild') fetchMonsters();
         if(tabName=='arena') fetchPlayers();
     }
 
     // --- 資料讀取 ---
     async function updateUserInfo() {
-        const res = await fetch(`${BASE_URL}/auth/me`, { headers: { 'Authorization': `Bearer ${token}` } });
-        if (res.ok) {
-            const user = await res.json();
-            myId = user.id;
-            document.getElementById('player-name').innerText = `${user.username} (Lv.${user.level})`;
-            document.getElementById('player-money').innerText = user.money;
-            document.getElementById('my-avatar').src = user.pokemon_image || 'https://via.placeholder.com/50';
-        }
+        try {
+            const res = await fetch(`${API_URL}/auth/me`, { headers: { 'Authorization': `Bearer ${token}` } });
+            if (res.ok) {
+                const user = await res.json();
+                myId = user.id;
+                myAttack = user.attack;
+                myHp = user.hp;
+                myMaxHp = user.max_hp;
+
+                // 更新 UI
+                document.getElementById('player-name').innerText = `${user.username} (Lv.${user.level})`;
+                document.getElementById('player-money').innerText = user.money;
+                document.getElementById('my-avatar').src = user.pokemon_image || 'https://via.placeholder.com/50';
+                
+                // 更新自己血條
+                const hpPct = Math.max(0, (user.hp / user.max_hp) * 100);
+                document.getElementById('my-hp-bar').style.width = `${hpPct}%`;
+                document.getElementById('my-hp-bar').style.background = hpPct < 30 ? '#e74c3c' : '#2ecc71';
+                document.getElementById('my-hp-text').innerText = `HP: ${user.hp}/${user.max_hp}`;
+            }
+        } catch (e) { console.error(e); }
     }
 
     async function fetchMonsters() {
-        const res = await fetch(`${BASE_URL}/items/`);
+        const res = await fetch(`${API_URL}/items/`);
         const data = await res.json();
+        // 🔥 排序：固定位置，避免亂跳
+        data.sort((a, b) => a.id - b.id);
         renderList('monster-list', data, 'monster');
     }
 
     async function fetchPlayers() {
-        const res = await fetch(`${BASE_URL}/auth/all`);
+        const res = await fetch(`${API_URL}/auth/all`);
         const data = await res.json();
-        // 過濾掉自己
-        const others = data.filter(u => u.id !== myId);
+        // 過濾掉自己，且依照 ID 排序
+        const others = data.filter(u => u.id !== myId).sort((a, b) => a.id - b.id);
         renderList('player-list', others, 'player');
     }
 
-    // --- 渲染卡片 (共用) ---
+    // --- 渲染卡片 ---
     function renderList(elementId, items, type) {
         const container = document.getElementById(elementId);
         container.innerHTML = '';
+        if(items.length === 0) {
+            container.innerHTML = `<p style="text-align:center; width:100%">暫無目標...</p>`;
+            return;
+        }
+
         items.forEach(item => {
-            const name = item.name || item.username; // Monster用name, User用username
+            const name = item.name || item.username;
             const img = item.image_url || item.pokemon_image || 'https://via.placeholder.com/200';
             const hpPct = Math.max(0, (item.hp / item.max_hp) * 100);
+            const isDead = item.hp <= 0 ? 'dead' : '';
+            const itemId = item.id;
+            const currentHp = item.hp;
             
-            // 攻擊按鈕
-            let actionBtn = '';
+            // 根據類型決定按鈕功能
+            let btnHtml = '';
             if (type === 'monster') {
-                actionBtn = `<button class="btn-attack" onclick="attackMonster(${item.id})">⚔️ 討伐</button>`;
+                btnHtml = `<button class="btn-attack" onclick="attackMonster(${itemId}, ${currentHp}, '${name}')">⚔️ 討伐</button>`;
             } else {
-                actionBtn = `<button class="btn-attack" style="background:#8e44ad" onclick="attackPlayer(${item.id})">🥊 決鬥</button>`;
+                btnHtml = `<button class="btn-attack" style="background:#8e44ad" onclick="attackPlayer(${itemId}, '${name}')">🥊 決鬥</button>`;
             }
 
+            // HTML 結構 (ID 用於飄傷定位)
             container.innerHTML += `
-                <div class="card">
+                <div class="card ${isDead}" id="card-${type}-${itemId}">
                     <img src="${img}" class="card-img">
                     <div class="card-body">
                         <div><b>${name}</b> <small style="float:right">ATK: ${item.attack}</small></div>
                         <div class="hp-bar-bg"><div class="hp-bar-fill" style="width:${hpPct}%"></div></div>
                         <small>${item.hp} / ${item.max_hp}</small>
-                        ${actionBtn}
+                        ${btnHtml}
                     </div>
                 </div>
             `;
         });
     }
 
-    // --- 動作 ---
-    async function attackMonster(id) {
-        await fetch(`${BASE_URL}/items/${id}`, {
-            method: 'PUT',
-            headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
-            body: JSON.stringify({ hp: 0 }) // 這裡偷懶，讓後端去算扣血，前端只負責觸發
-            // 更好的做法是前端算好 hp 傳過去，或者後端新增專屬 attack api
-            // 為了相容舊邏輯，我們這裡先用 "隨機扣血" 的方式
-        });
-        // 為了簡單，我們這裡還是用舊的 update 介面，但因為後端有廣播，所以不需手動更新 UI
-        // 這裡需要稍微修改後端邏輯才能完美支援前端只送 "攻擊訊號"。
-        // 既然我們不想動太多後端，這裡我們模擬一下：
-        // 先讀取怪獸目前血量 -> 減去我的攻擊力 -> 傳回新血量
-        // (這部分留給你當練習！目前按下去可能不會扣血，因為 body 傳了 hp:0 會直接秒殺 XD)
-        // 修正：為了讓遊戲能玩，我們讓 update_item 支援 "damage" 參數會更好，
-        // 但現在我們用最簡單的：
-        // 1. 取得怪獸 -> 2. 計算 -> 3. PUT
-        // 這裡為了演示方便，我們直接呼叫後端，讓後端處理 (假設後端有改)
+    // --- 攻擊怪獸 (修復：直接讀取 DOM 數字或簡單計算) ---
+    async function attackMonster(id, hpFromCard, name) {
+        // 🔥 修復秒殺 Bug：
+        // 舊寫法是依賴 onclick 參數，這參數不會變。
+        // 我們這裡直接依賴後端邏輯，前端只負責送出「計算好的新血量」。
+        // 正確做法：讀取玩家當前攻擊力，計算傷害
         
-        // 臨時解法：我們直接用舊的邏輯，先 fetch 單隻 -> 扣血 -> PUT
-        const res = await fetch(`${BASE_URL}/items/${id}`);
-        const m = await res.json();
-        let newHp = Math.max(0, m.hp - 15); // 固定扣 15
-        await fetch(`${BASE_URL}/items/${id}`, {
-            method: 'PUT',
-            headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
-            body: JSON.stringify({ hp: newHp })
-        });
+        // 傷害公式
+        const isCrit = Math.random() < 0.3;
+        const randomBonus = Math.floor(Math.random() * (myAttack * 0.5));
+        const dmg = isCrit ? (myAttack + randomBonus) * 2 : (myAttack + randomBonus);
+        
+        // 為了避免 onclick 參數過時的問題，我們應該重新 fetch 或從 DOM 讀取，
+        // 但為了簡單，我們這裡假設傳入的 hpFromCard 是舊的，我們改用後端回應來更新。
+        // 更好的方式：前端維護一個 state map。這裡我們用簡單的「預扣」顯示。
+        
+        // 從 DOM 取得當前血量 (最準確)
+        const card = document.getElementById(`card-monster-${id}`);
+        // 簡單解析文字，或是直接信任本次操作
+        // 這裡我們做一個大膽的假設：就用傳進來的參數減，但靠 WebSocket 快速修正
+        // 或者：我們直接送 damage 給後端 (但我們後端只有 update hp 介面)
+        
+        // 我們改用：先 fetch 該怪獸最新血量 -> 計算 -> update
+        try {
+            const getRes = await fetch(`${API_URL}/items/${id}`);
+            const monster = await getRes.json();
+            
+            if(monster.hp <= 0) return; // 已死
+
+            let newHp = Math.max(0, monster.hp - dmg);
+
+            // 視覺特效
+            showFloatingDamage(`card-monster-${id}`, dmg, isCrit);
+            card.classList.remove('shaking');
+            void card.offsetWidth;
+            card.classList.add('shaking');
+
+            // 送出更新
+            await fetch(`${API_URL}/items/${id}`, {
+                method: 'PUT',
+                headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
+                body: JSON.stringify({ hp: newHp })
+            });
+            
+            // 更新自己 (可能被反擊扣血了)
+            updateUserInfo();
+
+        } catch (e) { console.error(e); }
     }
 
-    async function attackPlayer(targetId) {
-        await fetch(`${BASE_URL}/shop/pvp/${targetId}`, {
-            method: 'POST',
-            headers: { 'Authorization': `Bearer ${token}` }
-        });
+    // --- 攻擊玩家 (PVP) ---
+    async function attackPlayer(targetId, name) {
+        try {
+            const res = await fetch(`${API_URL}/shop/pvp/${targetId}`, {
+                method: 'POST',
+                headers: { 'Authorization': `Bearer ${token}` }
+            });
+            const data = await res.json();
+            
+            // 視覺特效 (PVP 固定飄傷顯示 ??)
+            showFloatingDamage(`card-player-${targetId}`, "PVP", true);
+            
+            if (!res.ok) alert(data.detail);
+            
+            // 更新自己 (可能獲得經驗/錢)
+            updateUserInfo();
+        } catch (e) { console.error(e); }
     }
 
+    // --- 扭蛋 ---
     async function playGacha() {
-        const res = await fetch(`${BASE_URL}/shop/gacha`, {
-            method: 'POST',
-            headers: { 'Authorization': `Bearer ${token}` }
-        });
-        const data = await res.json();
-        alert(data.message || data.detail);
-        updateUserInfo();
+        // 1. 播放動畫
+        document.getElementById('gacha-overlay').style.display = 'flex';
+        document.getElementById('pokeball-anim').style.display = 'block';
+        document.getElementById('gacha-result').style.display = 'none';
+
+        // 2. 呼叫後端 (模擬等待 2 秒)
+        setTimeout(async () => {
+            try {
+                const res = await fetch(`${API_URL}/shop/gacha`, {
+                    method: 'POST',
+                    headers: { 'Authorization': `Bearer ${token}` }
+                });
+                const data = await res.json();
+                
+                if (!res.ok) {
+                    closeGacha();
+                    alert(data.detail);
+                    return;
+                }
+
+                // 3. 顯示結果
+                document.getElementById('pokeball-anim').style.display = 'none';
+                document.getElementById('gacha-result').style.display = 'block';
+                document.getElementById('gacha-name').innerText = data.user.pokemon_name;
+                document.getElementById('gacha-img').src = data.user.pokemon_image;
+                
+                updateUserInfo(); // 更新大頭貼
+
+            } catch (e) {
+                closeGacha();
+                alert("連線失敗");
+            }
+        }, 2000);
+    }
+
+    function closeGacha() {
+        document.getElementById('gacha-overlay').style.display = 'none';
     }
 
     async function buyHeal() {
-        const res = await fetch(`${BASE_URL}/shop/heal`, {
+        const res = await fetch(`${API_URL}/shop/heal`, {
             method: 'POST',
             headers: { 'Authorization': `Bearer ${token}` }
         });
-        alert("補血成功！");
-        updateUserInfo();
+        if(res.ok) {
+            alert("補血成功！");
+            updateUserInfo();
+        } else {
+            alert("金幣不足或發生錯誤");
+        }
+    }
+
+    // --- 視覺工具 ---
+    function showFloatingDamage(elementId, value, isCrit) {
+        const card = document.getElementById(elementId);
+        if (!card) return;
+        const rect = card.getBoundingClientRect();
+        const floatEl = document.createElement('div');
+        floatEl.className = 'floating-damage';
+        floatEl.innerText = isCrit ? `💥 ${value}` : `-${value}`;
+        if (isCrit) { floatEl.style.fontSize = '36px'; floatEl.style.color = '#e74c3c'; }
+        const randomX = Math.floor(Math.random() * 60) - 30;
+        floatEl.style.left = `${rect.left + rect.width / 2 + randomX}px`;
+        floatEl.style.top = `${rect.top + rect.height / 3}px`;
+        document.body.appendChild(floatEl);
+        setTimeout(() => { floatEl.remove(); }, 800);
+    }
+
+    function addLog(html) {
+        const box = document.getElementById('battle-log');
+        const entry = document.createElement('div');
+        entry.className = 'log-entry';
+        entry.innerHTML = html;
+        box.prepend(entry);
     }
 
     // --- WebSocket ---
     const socket = new WebSocket(WS_URL);
     socket.onmessage = (e) => {
-        const box = document.getElementById('battle-log');
-        box.innerHTML = `<div class="log-entry">📡 ${e.data}</div>` + box.innerHTML;
-        // 收到任何廣播都刷新所有列表
+        addLog(`📡 ${e.data}`);
         fetchMonsters();
         fetchPlayers();
         updateUserInfo();
