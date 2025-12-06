@@ -295,4 +295,32 @@
         const bar = document.getElementById(`hp-bar-${id}`);
         const text = document.getElementById(`hp-text-${id}`);
         if (!bar) return;
-        const currentMax =
+        const currentMax = parseInt(text.innerText.split('/')[1]);
+        const percent = (hp / currentMax) * 100;
+        bar.style.width = `${percent}%`;
+        text.innerText = `${hp}/${currentMax}`;
+        if (percent < 30) bar.style.background = '#e74c3c';
+        else if (percent < 60) bar.style.background = '#f1c40f';
+        else bar.style.background = '#2ecc71';
+    }
+
+    function updateButtonParams(id, newHp, name, maxHp) {
+       const card = document.getElementById(`card-${id}`);
+       if (!card) return;
+       const btnAttack = card.querySelector('.btn-attack');
+       const btnHeal = card.querySelector('.btn-heal');
+       btnAttack.onclick = () => playerAttack(id, newHp, name);
+       if(maxHp) btnHeal.onclick = () => playerHeal(id, newHp, maxHp, name);
+    }
+
+    function addLog(html) {
+        const box = document.getElementById('battle-log');
+        const entry = document.createElement('div');
+        entry.className = 'log-entry';
+        entry.innerHTML = html;
+        box.prepend(entry);
+    }
+</script>
+
+</body>
+</html>
