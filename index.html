@@ -5,13 +5,19 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>🔥 妙蛙宸的熱血戰場 🔥</title>
     <style>
+        /* --- 基礎設定 --- */
         body { font-family: 'Segoe UI', sans-serif; background-color: #1a1a2e; color: #fff; padding: 20px; margin: 0; }
         .container { max-width: 900px; margin: 0 auto; padding-top: 20px; }
+        
+        /* --- 頂部導航列 --- */
         .navbar { display: flex; justify-content: space-between; align-items: center; background: #16213e; padding: 10px 20px; border-radius: 10px; margin-bottom: 20px; border: 1px solid #0f3460; }
         .user-info { color: #4cc9f0; font-weight: bold; }
         .btn-logout { background: transparent; border: 1px solid #e74c3c; color: #e74c3c; padding: 5px 15px; border-radius: 5px; cursor: pointer; transition: 0.3s; }
         .btn-logout:hover { background: #e74c3c; color: white; }
+
         h1 { text-align: center; color: #e94560; text-shadow: 0 0 10px #e94560; margin-bottom: 30px; }
+
+        /* --- 戰鬥佈局 --- */
         .game-area { display: flex; gap: 20px; align-items: flex-start; }
         .card-grid { flex: 2; display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 20px; }
         .battle-log-panel { flex: 1; background: #16213e; border: 2px solid #0f3460; border-radius: 10px; height: 500px; padding: 15px; overflow-y: auto; position: sticky; top: 20px; }
@@ -20,6 +26,8 @@
         .log-crit { color: #ffeb3b; font-weight: bold; }
         .log-heal { color: #2ecc71; }
         .log-die { color: #e74c3c; font-weight: bold; }
+
+        /* --- 卡片與動畫 --- */
         .card { background: #0f3460; border-radius: 15px; overflow: hidden; box-shadow: 0 4px 15px rgba(0,0,0,0.5); transition: transform 0.2s; position: relative; }
         .card:hover { transform: translateY(-5px); border: 2px solid #e94560; }
         .shaking { animation: shake 0.5s; border: 2px solid red; }
@@ -31,11 +39,16 @@
         .hp-text { float: right; font-size: 0.9em; color: #ccc; }
         .hp-bar-bg { background: #333; height: 12px; border-radius: 6px; margin: 10px 0; overflow: hidden; border: 1px solid #555; }
         .hp-bar-fill { background: linear-gradient(90deg, #e74c3c, #c0392b); height: 100%; width: 100%; transition: width 0.3s ease-out; }
+        
+        /* 按鈕樣式 */
         .btn-group { display: flex; gap: 5px; }
         button.action-btn { flex: 1; padding: 8px; border: none; border-radius: 5px; cursor: pointer; font-weight: bold; color: white; transition: 0.2s; }
         .btn-attack { background: linear-gradient(to bottom, #e74c3c, #c0392b); }
         .btn-attack:active { transform: scale(0.95); }
         .btn-heal { background: linear-gradient(to bottom, #2ecc71, #27ae60); }
+        .btn-heal:active { transform: scale(0.95); }
+        
+        /* RWD 響應式 */
         @media (max-width: 768px) { .game-area { flex-direction: column-reverse; } .battle-log-panel { width: 100%; height: 200px; } }
     </style>
 </head>
@@ -53,6 +66,7 @@
         <div id="monster-list" class="card-grid">
             <div style="text-align:center; width:100%; color:#888;">正在尋找對手...</div>
         </div>
+
         <div class="battle-log-panel">
             <h3 class="log-title">📜 戰鬥紀錄</h3>
             <div id="battle-log"></div>
@@ -62,44 +76,56 @@
 
 <script>
     // --------------------------------------------------------
-    // ⚠️ 設定區：請將這裡改成你的 Zeabur 網址
+    // ⚠️ 設定區：你的 Zeabur 網址
     const ZEABUR_DOMAIN = 'mwtpokemons.zeabur.app'; 
     // --------------------------------------------------------
 
-    // 自動組合成正確的 API 網址
+    // 自動組合成正確的 API 網址 (HTTPS 和 WSS)
     const API_URL = `https://${ZEABUR_DOMAIN}/api/v1/items/`;
     const WS_URL = `wss://${ZEABUR_DOMAIN}/ws`;
 
-    // --- 1. 門禁與登出系統 ---
-    // 這是你報錯的地方，如果這段沒跑，按鈕就會壞掉
+    // --- 1. 門禁系統 (Auth Guard) ---
     const token = localStorage.getItem('token');
     const currentUser = localStorage.getItem('user');
 
     if (!token) {
+        // 沒有識別證就踢回登入頁
         window.location.href = 'login.html';
     } else {
+        // 顯示勇者名字
         document.getElementById('player-name').innerText = currentUser || "未知勇者";
     }
 
-    // 這個函式必須在全域範圍，按鈕才找得到
     function logout() {
         localStorage.removeItem('token');
         localStorage.removeItem('user');
         window.location.href = 'login.html';
     }
 
-    // --- 2. WebSocket ---
+    // --- 2. WebSocket 連線 (即時戰報) ---
     const socket = new WebSocket(WS_URL);
+
     socket.onopen = () => {
         console.log("WebSocket 連線成功");
         addLog("✅ 已連線到即時戰場！");
     };
+
     socket.onmessage = (event) => {
-        addLog(`<span style="color: #4cc9f0;">📡 [即時] ${event.data}</span>`);
+        // 收到後端廣播的訊息
+        const msg = event.data;
+        // 1. 顯示在戰報區 (橘色字體代表即時訊息)
+        addLog(`<span style="color: #f39c12;">📡 [即時] ${msg}</span>`);
+        // 2. 重新讀取怪獸血量 (讓畫面與伺服器同步)
         fetchMonsters();
     };
 
+    socket.onclose = () => {
+        addLog(`<span style="color: red;">❌ 與伺服器斷線，請重新整理。</span>`);
+    }
+
     // --- 3. 遊戲邏輯 ---
+    
+    // 初始化：先抓一次怪獸
     fetchMonsters();
 
     async function fetchMonsters() {
@@ -114,46 +140,71 @@
                 container.innerHTML = '<p>地圖上沒有怪獸，快去 Swagger UI 召喚！</p>';
                 return;
             }
-            monsters.forEach(m => renderCard(container, m));
+
+            monsters.forEach(m => {
+                renderCard(container, m);
+            });
+
         } catch (err) {
             console.error(err);
             container.innerHTML = `<p style="color:red">伺服器連線失敗</p>`;
         }
     }
 
+    // 玩家攻擊 (包含隨機傷害)
     async function playerAttack(id, currentHp, name) {
         if (currentHp <= 0) return; 
-        const isCrit = Math.random() < 0.3; 
-        const damage = isCrit ? 30 : 15;
-        const newHp = Math.max(0, currentHp - damage);
+
+        // 🔥 隨機傷害邏輯
+        const isCrit = Math.random() < 0.3; // 30% 機率爆擊
+        const baseDamage = 15 + Math.floor(Math.random() * 15); // 傷害 15~30
+        const damage = isCrit ? baseDamage * 2 : baseDamage; // 爆擊兩倍
+        let newHp = Math.max(0, currentHp - damage);
         
-        // 視覺
+        // 1. 視覺震動特效
         const card = document.getElementById(`card-${id}`);
         card.classList.remove('shaking');
-        void card.offsetWidth; 
+        void card.offsetWidth; // 觸發重繪
         card.classList.add('shaking');
 
-        // 戰報
-        const logMsg = isCrit ? `💥 爆擊！造成 ${damage} 傷害！` : `🗡️ 攻擊！造成 ${damage} 傷害。`;
+        // 2. 本機戰報 (我看得到我打了誰)
+        const logMsg = isCrit 
+            ? `💥 爆擊！你對 [${name}] 造成了 ${damage} 點巨量傷害！`
+            : `🗡️ 你攻擊了 [${name}]，造成 ${damage} 點傷害。`;
         addLog(logMsg);
 
+        if (newHp === 0) {
+            addLog(`<span class="log-die">💀 [${name}] 被你擊敗了！</span>`);
+            card.classList.add('dead');
+        }
+
+        // 3. 先更新本機 UI (不等後端，讓體驗順暢)
         updateCardUI(id, newHp);
-        
-        // 後端
+        updateButtonParams(id, newHp, name);
+
+        // 4. 傳送給後端 (後端會廣播給其他人)
         try {
             await fetch(API_URL + id, {
                 method: 'PUT',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ hp: newHp })
             });
-        } catch (e) { console.error(e); }
+        } catch (e) {
+            console.error("同步失敗", e);
+        }
     }
 
+    // 玩家治癒
     async function playerHeal(id, currentHp, maxHp, name) {
         if (currentHp >= maxHp || currentHp <= 0) return;
-        const newHp = Math.min(maxHp, currentHp + 30);
-        addLog(`✨ 治癒！回復 30 點生命。`);
+
+        const heal = 30;
+        let newHp = Math.min(maxHp, currentHp + heal);
+
+        addLog(`<span class="log-heal">✨ 你施展了治癒術，[${name}] 回復了 ${heal} 點生命。</span>`);
         updateCardUI(id, newHp, maxHp);
+        updateButtonParams(id, newHp, name, maxHp);
+
         await fetch(API_URL + id, {
             method: 'PUT',
             headers: { 'Content-Type': 'application/json' },
@@ -161,34 +212,59 @@
         });
     }
 
+    // --- UI 輔助工具 ---
     function renderCard(container, m) {
-        const hpPercent = (m.hp / m.max_hp) * 100;
+        const hpPercent = Math.max(0, (m.hp / m.max_hp) * 100);
         const img = m.image_url || 'https://via.placeholder.com/300x200?text=Monster';
         const isDead = m.hp <= 0 ? 'dead' : '';
         const hpColor = hpPercent < 30 ? '#e74c3c' : (hpPercent < 60 ? '#f1c40f' : '#2ecc71');
 
-        container.innerHTML += `
+        const html = `
             <div class="card ${isDead}" id="card-${m.id}">
                 <img src="${img}" class="card-img">
                 <div class="card-body">
-                    <div><span class="card-title">${m.name}</span> <span class="hp-text" id="hp-text-${m.id}">${m.hp}/${m.max_hp}</span></div>
-                    <div class="hp-bar-bg"><div class="hp-bar-fill" id="hp-bar-${m.id}" style="width: ${hpPercent}%; background:${hpColor}"></div></div>
+                    <div>
+                        <span class="card-title">${m.name}</span>
+                        <span class="hp-text" id="hp-text-${m.id}">${m.hp}/${m.max_hp}</span>
+                    </div>
+                    <div class="hp-bar-bg">
+                        <div class="hp-bar-fill" id="hp-bar-${m.id}" style="width: ${hpPercent}%; background:${hpColor}"></div>
+                    </div>
                     <div class="btn-group">
                         <button class="action-btn btn-attack" onclick="playerAttack(${m.id}, ${m.hp}, '${m.name}')">👊 攻擊</button>
                         <button class="action-btn btn-heal" onclick="playerHeal(${m.id}, ${m.hp}, ${m.max_hp}, '${m.name}')">💖 治癒</button>
                     </div>
                 </div>
-            </div>`;
+            </div>
+        `;
+        container.innerHTML += html;
     }
 
     function updateCardUI(id, hp, maxHp) {
         const bar = document.getElementById(`hp-bar-${id}`);
         const text = document.getElementById(`hp-text-${id}`);
-        if(!bar) return; // 保護機制
+        if (!bar) return;
+
         const currentMax = parseInt(text.innerText.split('/')[1]);
         const percent = (hp / currentMax) * 100;
+        
         bar.style.width = `${percent}%`;
         text.innerText = `${hp}/${currentMax}`;
+        
+        if (percent < 30) bar.style.background = '#e74c3c';
+        else if (percent < 60) bar.style.background = '#f1c40f';
+        else bar.style.background = '#2ecc71';
+    }
+
+    function updateButtonParams(id, newHp, name, maxHp) {
+       const card = document.getElementById(`card-${id}`);
+       if (!card) return;
+       const btnAttack = card.querySelector('.btn-attack');
+       const btnHeal = card.querySelector('.btn-heal');
+       
+       // 更新 onclick 事件，確保下次點擊使用的是最新的 HP
+       btnAttack.onclick = () => playerAttack(id, newHp, name);
+       // btnHeal.onclick 暫時不更新，因為 maxHp 沒變
     }
 
     function addLog(html) {
@@ -196,7 +272,7 @@
         const entry = document.createElement('div');
         entry.className = 'log-entry';
         entry.innerHTML = html;
-        box.prepend(entry);
+        box.prepend(entry); // 把最新訊息插在最上面
     }
 </script>
 
