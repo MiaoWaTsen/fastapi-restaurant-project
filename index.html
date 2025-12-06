@@ -9,7 +9,7 @@
         body { font-family: 'Segoe UI', sans-serif; background-color: #1a1a2e; color: #fff; padding: 20px; margin: 0; }
         .container { max-width: 900px; margin: 0 auto; padding-top: 20px; }
         
-        /* --- 頂部導航列 (新增!) --- */
+        /* --- 頂部導航列 --- */
         .navbar { display: flex; justify-content: space-between; align-items: center; background: #16213e; padding: 10px 20px; border-radius: 10px; margin-bottom: 20px; border: 1px solid #0f3460; }
         .user-info { color: #4cc9f0; font-weight: bold; }
         .btn-logout { background: transparent; border: 1px solid #e74c3c; color: #e74c3c; padding: 5px 15px; border-radius: 5px; cursor: pointer; transition: 0.3s; }
@@ -71,33 +71,49 @@
 </div>
 
 <script>
+    // --------------------------------------------------------
+    // ⚠️ 設定區：請將這裡改成你的 Zeabur 網址
+    const ZEABUR_DOMAIN = 'https://mwtpokemons.zeabur.app/'; 
+    // --------------------------------------------------------
+
+    const API_URL = `https://${ZEABUR_DOMAIN}/api/v1/items/`;
+    const WS_URL = `wss://${ZEABUR_DOMAIN}/ws`;
+
     // --- 1. 門禁系統 (Auth Guard) ---
-    // 一進來網頁，立刻檢查有沒有識別證
     const token = localStorage.getItem('token');
     const currentUser = localStorage.getItem('user');
 
     if (!token) {
-        // 沒有識別證，踢回登入頁
         window.location.href = 'login.html';
     } else {
-        // 有識別證，顯示名字
         document.getElementById('player-name').innerText = currentUser || "未知勇者";
     }
 
     function logout() {
-        localStorage.removeItem('token'); // 撕掉識別證
+        localStorage.removeItem('token');
         localStorage.removeItem('user');
-        window.location.href = 'login.html'; // 踢回登入頁
+        window.location.href = 'login.html';
     }
-    // --------------------------------
 
-    // ⚠️ 請確認你的 Zeabur 網址
-    const API_URL = 'https://mwtpokemons.zeabur.app/api/v1/items/';
+    // --- 2. WebSocket 連線 (即時戰報) ---
+    const socket = new WebSocket(WS_URL);
 
-    // 啟動遊戲
+    socket.onopen = () => {
+        console.log("已連線到戰場廣播系統");
+        addLog("✅ 已連線到即時戰場！");
+    };
+
+    socket.onmessage = function(event) {
+        const msg = event.data;
+        // 收到廣播：1. 寫入戰報
+        addLog(`<span style="color: #4cc9f0;">📡 [即時] ${msg}</span>`);
+        // 收到廣播：2. 重新抓取資料 (讓所有人的畫面同步)
+        fetchMonsters();
+    };
+
+    // --- 3. 遊戲邏輯 ---
     fetchMonsters();
 
-    // 2. 讀取怪獸
     async function fetchMonsters() {
         const container = document.getElementById('monster-list');
         try {
@@ -119,11 +135,10 @@
         }
     }
 
-    // 3. 玩家攻擊邏輯 (含爆擊率)
     async function playerAttack(id, currentHp, name) {
         if (currentHp <= 0) return; 
 
-        // 隨機爆擊
+        // 隨機爆擊計算
         const isCrit = Math.random() < 0.3; 
         const baseDamage = 15 + Math.floor(Math.random() * 10); 
         const damage = isCrit ? baseDamage * 2 : baseDamage;
@@ -135,7 +150,7 @@
         void card.offsetWidth; 
         card.classList.add('shaking');
 
-        // 戰報
+        // 本機戰報 (自己看的)
         const logMsg = isCrit 
             ? `<span class="log-crit">💥 爆擊！你對 [${name}] 造成了 ${damage} 點巨量傷害！</span>`
             : `🗡️ 你攻擊了 [${name}]，造成 ${damage} 點傷害。`;
@@ -146,17 +161,15 @@
             card.classList.add('dead');
         }
 
+        // 先更新 UI (不等後端)
         updateCardUI(id, newHp);
         updateButtonParams(id, newHp, name);
 
-        // 後端更新
+        // 傳送給後端 (後端會廣播給其他人)
         try {
             await fetch(API_URL + id, {
                 method: 'PUT',
-                headers: { 
-                    'Content-Type': 'application/json',
-                    // 未來如果後端開啟保護，這裡要加上 'Authorization': `Bearer ${token}`
-                },
+                headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ hp: newHp })
             });
         } catch (e) {
@@ -164,7 +177,6 @@
         }
     }
 
-    // 4. 玩家治癒邏輯
     async function playerHeal(id, currentHp, maxHp, name) {
         if (currentHp >= maxHp || currentHp <= 0) return;
 
@@ -182,7 +194,7 @@
         });
     }
 
-    // UI 工具
+    // --- UI 工具 ---
     function renderCard(container, m) {
         const hpPercent = Math.max(0, (m.hp / m.max_hp) * 100);
         const img = m.image_url || 'https://via.placeholder.com/300x200?text=Monster';
@@ -213,30 +225,4 @@
     function updateCardUI(id, hp) {
         const bar = document.getElementById(`hp-bar-${id}`);
         const text = document.getElementById(`hp-text-${id}`);
-        const currentMax = parseInt(text.innerText.split('/')[1]);
-        const percent = (hp / currentMax) * 100;
-        bar.style.width = `${percent}%`;
-        text.innerText = `${hp}/${currentMax}`;
-        if (percent < 30) bar.style.background = '#e74c3c';
-        else if (percent < 60) bar.style.background = '#f1c40f';
-        else bar.style.background = '#2ecc71';
-    }
-
-    function updateButtonParams(id, newHp, name, maxHp) {
-       const card = document.getElementById(`card-${id}`);
-       const btnAttack = card.querySelector('.btn-attack');
-       const btnHeal = card.querySelector('.btn-heal');
-       btnAttack.onclick = () => playerAttack(id, newHp, name);
-    }
-
-    function addLog(html) {
-        const box = document.getElementById('battle-log');
-        const entry = document.createElement('div');
-        entry.className = 'log-entry';
-        entry.innerHTML = html;
-        box.prepend(entry);
-    }
-</script>
-
-</body>
-</html>
+        //
