@@ -1,34 +1,33 @@
 # app/common/websocket.py
 
 from fastapi import WebSocket
-from typing import List
+from typing import Dict, List
 
 class ConnectionManager:
-    """
-    這就是我們的「廣播站長」。
-    他手上有一份名單，記錄了現在所有連線進來的玩家。
-    """
     def __init__(self):
-        # 存放所有連線中的玩家
-        self.active_connections: List[WebSocket] = []
+        # 改用 Dictionary: Key是玩家ID, Value是連線物件
+        self.active_connections: Dict[int, WebSocket] = {}
 
-    async def connect(self, websocket: WebSocket):
-        """玩家連線時，把他加入名單"""
+    async def connect(self, user_id: int, websocket: WebSocket):
         await websocket.accept()
-        self.active_connections.append(websocket)
+        # 登記名字：這位 user_id 上線了
+        self.active_connections[user_id] = websocket
 
-    def disconnect(self, websocket: WebSocket):
-        """玩家斷線時，把他移出名單"""
-        self.active_connections.remove(websocket)
+    def disconnect(self, user_id: int):
+        # 劃掉名字
+        if user_id in self.active_connections:
+            del self.active_connections[user_id]
 
     async def broadcast(self, message: str):
-        """拿起大聲公，對所有人喊話"""
-        for connection in self.active_connections:
+        # 對名冊裡的所有人發送
+        for connection in self.active_connections.values():
             try:
                 await connection.send_text(message)
             except:
-                # 如果發送失敗（可能玩家剛好斷線），就忽略
                 pass
+    
+    # 🔥 新增功能：查名冊，回傳現在誰在線上的 ID 列表
+    def get_online_ids(self) -> List[int]:
+        return list(self.active_connections.keys())
 
-# 建立一個「全域」的站長實例，讓大家共用
 manager = ConnectionManager()

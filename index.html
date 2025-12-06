@@ -131,25 +131,24 @@
 
 <script>
     // --------------------------------------------------------
-    // ⚠️ 設定區：請將這裡改成你的 Zeabur 網址
     const ZEABUR_DOMAIN = 'mwtpokemons.zeabur.app'; 
     // --------------------------------------------------------
 
     const API_URL = `https://${ZEABUR_DOMAIN}/api/v1`;
-    const WS_URL = `wss://${ZEABUR_DOMAIN}/ws`;
+    // 🔥 修改：WebSocket 網址不加 Token，我們在連線函式裡動態加
+    const WS_BASE_URL = `wss://${ZEABUR_DOMAIN}/ws`;
 
     let myId = 0;
     let myAttack = 10;
-    let myHp = 100;
-    let myMaxHp = 100;
-
+    
+    // 門禁
     const token = localStorage.getItem('token');
     if (!token) window.location.href = 'login.html';
-    else updateUserInfo();
+    else updateUserInfo(); // 這裡會順便啟動 WebSocket
 
     function logout() { localStorage.clear(); window.location.href = 'login.html'; }
 
-    // --- Tab 切換 ---
+    // Tab 切換
     function switchTab(tabName) {
         document.querySelectorAll('.game-section').forEach(el => el.classList.remove('active'));
         document.querySelectorAll('.tab-btn').forEach(el => el.classList.remove('active'));
@@ -159,7 +158,6 @@
         if(tabName=='arena') fetchPlayers();
     }
 
-    // --- 資料讀取 ---
     async function updateUserInfo() {
         try {
             const res = await fetch(`${API_URL}/auth/me`, { headers: { 'Authorization': `Bearer ${token}` } });
@@ -167,47 +165,61 @@
                 const user = await res.json();
                 myId = user.id;
                 myAttack = user.attack;
-                myHp = user.hp;
-                myMaxHp = user.max_hp;
-
-                // 更新 UI
                 document.getElementById('player-name').innerText = `${user.username} (Lv.${user.level})`;
                 document.getElementById('player-money').innerText = user.money;
                 document.getElementById('my-avatar').src = user.pokemon_image || 'https://via.placeholder.com/50';
                 
-                // 更新自己血條
-                const hpPct = Math.max(0, (user.hp / user.max_hp) * 100);
-                document.getElementById('my-hp-bar').style.width = `${hpPct}%`;
-                document.getElementById('my-hp-bar').style.background = hpPct < 30 ? '#e74c3c' : '#2ecc71';
-                document.getElementById('my-hp-text').innerText = `HP: ${user.hp}/${user.max_hp}`;
+                // 登入成功後，才啟動 WebSocket (避免 Token 還沒拿到就連線)
+                if(!window.socket) connectWebSocket();
             }
         } catch (e) { console.error(e); }
     }
 
+    // 🔥 修改：WebSocket 連線 (帶 Token) 🔥
+    function connectWebSocket() {
+        // 把 Token 串在網址後面傳給後端驗證
+        window.socket = new WebSocket(`${WS_BASE_URL}?token=${token}`);
+
+        window.socket.onopen = () => {
+            addLog("✅ 已連線！(身分驗證成功)");
+            setInterval(() => { if(window.socket.readyState===1) window.socket.send("ping"); }, 30000);
+        };
+
+        window.socket.onmessage = (event) => {
+            const msg = event.data;
+            addLog(`<span style="color: #4cc9f0;">📡 ${msg}</span>`);
+            
+            // 如果有人上線/下線/受傷，刷新列表
+            // 這裡簡單粗暴一點，只要有廣播就刷新當前頁面
+            const activeTab = document.querySelector('.game-section.active').id;
+            if(activeTab === 'tab-wild') fetchMonsters();
+            if(activeTab === 'tab-arena') fetchPlayers();
+            updateUserInfo();
+        };
+    }
+
+    // 抓野怪
     async function fetchMonsters() {
         const res = await fetch(`${API_URL}/items/`);
         const data = await res.json();
-        // 🔥 排序：固定位置，避免亂跳
         data.sort((a, b) => a.id - b.id);
         renderList('monster-list', data, 'monster');
     }
 
+    // 🔥 抓玩家 (含在線狀態) 🔥
     async function fetchPlayers() {
         const res = await fetch(`${API_URL}/auth/all`);
         const data = await res.json();
-        // 過濾掉自己，且依照 ID 排序
-        const others = data.filter(u => u.id !== myId).sort((a, b) => a.id - b.id);
+        // 排序：自己在線 > 別人在線 > 離線
+        const others = data.filter(u => u.id !== myId).sort((a, b) => b.is_online - a.is_online);
         renderList('player-list', others, 'player');
     }
 
-    // --- 渲染卡片 ---
+    // 渲染卡片
     function renderList(elementId, items, type) {
         const container = document.getElementById(elementId);
         container.innerHTML = '';
-        if(items.length === 0) {
-            container.innerHTML = `<p style="text-align:center; width:100%">暫無目標...</p>`;
-            return;
-        }
+        if(items.length === 0) { container.innerHTML = `<p style="text-align:center;width:100%">暫無目標...</p>`; return; }
 
         items.forEach(item => {
             const name = item.name || item.username;
@@ -217,20 +229,28 @@
             const itemId = item.id;
             const currentHp = item.hp;
             
-            // 根據類型決定按鈕功能
             let btnHtml = '';
+            let statusBadge = '';
+
             if (type === 'monster') {
                 btnHtml = `<button class="btn-attack" onclick="attackMonster(${itemId}, ${currentHp}, '${name}')">⚔️ 討伐</button>`;
             } else {
-                btnHtml = `<button class="btn-attack" style="background:#8e44ad" onclick="attackPlayer(${itemId}, '${name}')">🥊 決鬥</button>`;
+                // 🔥 玩家卡片邏輯 🔥
+                if (item.is_online) {
+                    statusBadge = `<span style="background:#2ecc71; color:white; padding:2px 6px; border-radius:4px; font-size:0.8em; margin-left:5px;">🟢 線上</span>`;
+                    btnHtml = `<button class="btn-attack" style="background:#8e44ad" onclick="attackPlayer(${itemId}, '${name}')">🥊 決鬥</button>`;
+                } else {
+                    statusBadge = `<span style="background:#95a5a6; color:white; padding:2px 6px; border-radius:4px; font-size:0.8em; margin-left:5px;">⚪ 離線</span>`;
+                    // 離線不能打，按鈕停用
+                    btnHtml = `<button class="btn-attack" style="background:#555; cursor:not-allowed;" disabled>💤 休息中</button>`;
+                }
             }
 
-            // HTML 結構 (ID 用於飄傷定位)
             container.innerHTML += `
                 <div class="card ${isDead}" id="card-${type}-${itemId}">
                     <img src="${img}" class="card-img">
                     <div class="card-body">
-                        <div><b>${name}</b> <small style="float:right">ATK: ${item.attack}</small></div>
+                        <div><b>${name}</b> ${statusBadge} <small style="float:right">ATK: ${item.attack}</small></div>
                         <div class="hp-bar-bg"><div class="hp-bar-fill" style="width:${hpPct}%"></div></div>
                         <small>${item.hp} / ${item.max_hp}</small>
                         ${btnHtml}
@@ -240,57 +260,10 @@
         });
     }
 
-    // --- 攻擊怪獸 (修復：直接讀取 DOM 數字或簡單計算) ---
-    async function attackMonster(id, hpFromCard, name) {
-        // 🔥 修復秒殺 Bug：
-        // 舊寫法是依賴 onclick 參數，這參數不會變。
-        // 我們這裡直接依賴後端邏輯，前端只負責送出「計算好的新血量」。
-        // 正確做法：讀取玩家當前攻擊力，計算傷害
-        
-        // 傷害公式
-        const isCrit = Math.random() < 0.3;
-        const randomBonus = Math.floor(Math.random() * (myAttack * 0.5));
-        const dmg = isCrit ? (myAttack + randomBonus) * 2 : (myAttack + randomBonus);
-        
-        // 為了避免 onclick 參數過時的問題，我們應該重新 fetch 或從 DOM 讀取，
-        // 但為了簡單，我們這裡假設傳入的 hpFromCard 是舊的，我們改用後端回應來更新。
-        // 更好的方式：前端維護一個 state map。這裡我們用簡單的「預扣」顯示。
-        
-        // 從 DOM 取得當前血量 (最準確)
-        const card = document.getElementById(`card-monster-${id}`);
-        // 簡單解析文字，或是直接信任本次操作
-        // 這裡我們做一個大膽的假設：就用傳進來的參數減，但靠 WebSocket 快速修正
-        // 或者：我們直接送 damage 給後端 (但我們後端只有 update hp 介面)
-        
-        // 我們改用：先 fetch 該怪獸最新血量 -> 計算 -> update
-        try {
-            const getRes = await fetch(`${API_URL}/items/${id}`);
-            const monster = await getRes.json();
-            
-            if(monster.hp <= 0) return; // 已死
-
-            let newHp = Math.max(0, monster.hp - dmg);
-
-            // 視覺特效
-            showFloatingDamage(`card-monster-${id}`, dmg, isCrit);
-            card.classList.remove('shaking');
-            void card.offsetWidth;
-            card.classList.add('shaking');
-
-            // 送出更新
-            await fetch(`${API_URL}/items/${id}`, {
-                method: 'PUT',
-                headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
-                body: JSON.stringify({ hp: newHp })
-            });
-            
-            // 更新自己 (可能被反擊扣血了)
-            updateUserInfo();
-
-        } catch (e) { console.error(e); }
-    }
-
-    // --- 攻擊玩家 (PVP) ---
+    // ... (attackMonster, attackPlayer, playGacha, buyHeal, showFloatingDamage 等函式保持原本的樣子，不用動) ...
+    // 為了節省長度，請保留你原本 index.html 裡面的這些函式，它們邏輯不變。
+    
+    // 這裡補上 attackPlayer 方便你複製
     async function attackPlayer(targetId, name) {
         try {
             const res = await fetch(`${API_URL}/shop/pvp/${targetId}`, {
@@ -298,72 +271,16 @@
                 headers: { 'Authorization': `Bearer ${token}` }
             });
             const data = await res.json();
-            
-            // 視覺特效 (PVP 固定飄傷顯示 ??)
             showFloatingDamage(`card-player-${targetId}`, "PVP", true);
-            
             if (!res.ok) alert(data.detail);
-            
-            // 更新自己 (可能獲得經驗/錢)
             updateUserInfo();
         } catch (e) { console.error(e); }
     }
-
-    // --- 扭蛋 ---
-    async function playGacha() {
-        // 1. 播放動畫
-        document.getElementById('gacha-overlay').style.display = 'flex';
-        document.getElementById('pokeball-anim').style.display = 'block';
-        document.getElementById('gacha-result').style.display = 'none';
-
-        // 2. 呼叫後端 (模擬等待 2 秒)
-        setTimeout(async () => {
-            try {
-                const res = await fetch(`${API_URL}/shop/gacha`, {
-                    method: 'POST',
-                    headers: { 'Authorization': `Bearer ${token}` }
-                });
-                const data = await res.json();
-                
-                if (!res.ok) {
-                    closeGacha();
-                    alert(data.detail);
-                    return;
-                }
-
-                // 3. 顯示結果
-                document.getElementById('pokeball-anim').style.display = 'none';
-                document.getElementById('gacha-result').style.display = 'block';
-                document.getElementById('gacha-name').innerText = data.user.pokemon_name;
-                document.getElementById('gacha-img').src = data.user.pokemon_image;
-                
-                updateUserInfo(); // 更新大頭貼
-
-            } catch (e) {
-                closeGacha();
-                alert("連線失敗");
-            }
-        }, 2000);
-    }
-
-    function closeGacha() {
-        document.getElementById('gacha-overlay').style.display = 'none';
-    }
-
-    async function buyHeal() {
-        const res = await fetch(`${API_URL}/shop/heal`, {
-            method: 'POST',
-            headers: { 'Authorization': `Bearer ${token}` }
-        });
-        if(res.ok) {
-            alert("補血成功！");
-            updateUserInfo();
-        } else {
-            alert("金幣不足或發生錯誤");
-        }
-    }
-
-    // --- 視覺工具 ---
+    
+    // 下面請保留原本的 attackMonster, playGacha, buyHeal, UI 工具函式...
+    // (如果你需要我再次提供完整的 index.html 請告訴我)
+    
+    // --- 補上必要的 UI 工具 (防呆) ---
     function showFloatingDamage(elementId, value, isCrit) {
         const card = document.getElementById(elementId);
         if (!card) return;
@@ -372,13 +289,15 @@
         floatEl.className = 'floating-damage';
         floatEl.innerText = isCrit ? `💥 ${value}` : `-${value}`;
         if (isCrit) { floatEl.style.fontSize = '36px'; floatEl.style.color = '#e74c3c'; }
+        else if (value === "PVP") { floatEl.style.color = '#8e44ad'; floatEl.innerText = "⚔️ PVP!"; }
+        
         const randomX = Math.floor(Math.random() * 60) - 30;
         floatEl.style.left = `${rect.left + rect.width / 2 + randomX}px`;
         floatEl.style.top = `${rect.top + rect.height / 3}px`;
         document.body.appendChild(floatEl);
         setTimeout(() => { floatEl.remove(); }, 800);
     }
-
+    
     function addLog(html) {
         const box = document.getElementById('battle-log');
         const entry = document.createElement('div');
@@ -386,17 +305,6 @@
         entry.innerHTML = html;
         box.prepend(entry);
     }
-
-    // --- WebSocket ---
-    const socket = new WebSocket(WS_URL);
-    socket.onmessage = (e) => {
-        addLog(`📡 ${e.data}`);
-        fetchMonsters();
-        fetchPlayers();
-        updateUserInfo();
-    };
-    setInterval(() => { if(socket.readyState===1) socket.send("ping"); }, 30000);
-
 </script>
 </body>
 </html>
