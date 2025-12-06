@@ -142,8 +142,6 @@
 </div>
 
 <script>
-    const { createApp, ref, onMounted, computed } = Vue;
-
     // --------------------------------------------------------
     // ⚠️ 設定區：請將這裡改成你的 Zeabur 網址
     const ZEABUR_DOMAIN = 'mwtpokemons.zeabur.app'; 
@@ -151,6 +149,9 @@
 
     const API_URL = `https://${ZEABUR_DOMAIN}/api/v1`;
     const WS_URL = `wss://${ZEABUR_DOMAIN}/ws`;
+
+    // --- Vue 3 應用程式 ---
+    const { createApp, ref, onMounted, watch } = Vue;
 
     createApp({
         setup() {
@@ -171,10 +172,11 @@
             onMounted(async () => {
                 await updateUserInfo();
                 await fetchMonsters();
+                await fetchPlayers(); // 一進來先抓一次玩家
                 connectWebSocket();
             });
 
-            // 取得自己資料
+            // 1. 取得自己資料
             const updateUserInfo = async () => {
                 try {
                     const res = await fetch(`${API_URL}/auth/me`, { headers: { 'Authorization': `Bearer ${token}` } });
@@ -182,7 +184,7 @@
                 } catch (e) { console.error(e); }
             };
 
-            // 取得怪獸列表
+            // 2. 取得怪獸列表
             const fetchMonsters = async () => {
                 try {
                     const res = await fetch(`${API_URL}/items/`);
@@ -191,32 +193,31 @@
                 } catch (e) { console.error(e); }
             };
 
-            // 取得玩家列表 (含在線狀態)
+            // 3. 取得玩家列表 (含在線狀態)
             const fetchPlayers = async () => {
                 try {
                     const res = await fetch(`${API_URL}/auth/all`);
                     const data = await res.json();
-                    // 過濾掉自己
+                    // 過濾掉自己，並依狀態排序
                     players.value = data.filter(u => u.id !== user.value?.id).sort((a, b) => b.is_online - a.is_online);
                 } catch (e) { console.error(e); }
             };
 
-            // WebSocket 連線
+            // 4. WebSocket 連線
             const connectWebSocket = () => {
                 socket = new WebSocket(`${WS_URL}?token=${token}`);
                 
                 socket.onopen = () => {
                     addLog("✅ 已連線到即時戰場！");
-                    // 心跳包
                     setInterval(() => { if(socket.readyState === 1) socket.send("ping"); }, 30000);
                 };
 
+                // 🔥 修正重點：收到廣播，全部刷新！ 🔥
                 socket.onmessage = (event) => {
                     addLog(`<span style="color: #4cc9f0;">📡 ${event.data}</span>`);
-                    // 收到廣播就全部刷新，確保資料最新
-                    fetchMonsters();
-                    if(currentTab.value === 'arena') fetchPlayers();
-                    updateUserInfo();
+                    fetchMonsters();  // 刷新怪獸
+                    fetchPlayers();   // 刷新玩家狀態 (解決離線顯示問題)
+                    updateUserInfo(); // 刷新自己
                 };
 
                 socket.onclose = () => {
@@ -225,21 +226,20 @@
                 };
             };
 
-            // 攻擊怪獸
+            // 5. 戰鬥邏輯
             const attackMonster = async (monster) => {
                 if(monster.hp <= 0) return;
-
-                // 前端計算傷害 (為了視覺爽度)
+                
+                // 計算預覽傷害
                 const isCrit = Math.random() < 0.3;
                 const bonus = Math.floor(Math.random() * user.value.attack);
                 const dmg = isCrit ? (user.value.attack + bonus) * 2 : (user.value.attack + bonus);
                 
                 showFloatingDamage(`card-monster-${monster.id}`, dmg, isCrit);
                 
-                // 預先扣血 (視覺優化)
+                // 預先更新 UI (讓手感更好)
                 monster.hp = Math.max(0, monster.hp - dmg);
 
-                // 呼叫後端
                 const res = await fetch(`${API_URL}/items/${monster.id}`, {
                     method: 'PUT',
                     headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
@@ -247,7 +247,6 @@
                 });
             };
 
-            // 攻擊玩家
             const attackPlayer = async (target) => {
                 showFloatingDamage(`card-player-${target.id}`, "PVP", true);
                 const res = await fetch(`${API_URL}/shop/pvp/${target.id}`, {
@@ -260,7 +259,6 @@
                 }
             };
 
-            // 扭蛋
             const playGacha = async () => {
                 const res = await fetch(`${API_URL}/shop/gacha`, {
                     method: 'POST', headers: { 'Authorization': `Bearer ${token}` }
@@ -274,7 +272,6 @@
                 }
             };
 
-            // 補血
             const buyHeal = async () => {
                 const res = await fetch(`${API_URL}/shop/heal`, {
                     method: 'POST', headers: { 'Authorization': `Bearer ${token}` }
@@ -315,8 +312,8 @@
                 setTimeout(() => el.remove(), 800);
             };
 
-            // 監聽 Tab 切換，自動載入該 Tab 資料
-            Vue.watch(currentTab, (newTab) => {
+            // 監聽 Tab 切換 (確保切換時資料也是新的)
+            watch(currentTab, (newTab) => {
                 if(newTab === 'wild') fetchMonsters();
                 if(newTab === 'arena') fetchPlayers();
             });
