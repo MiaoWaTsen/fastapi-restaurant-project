@@ -1,92 +1,94 @@
 # app/routers/shop.py
 
 from fastapi import APIRouter, Depends, HTTPException
-from app.db.session import get_db
 from sqlalchemy.orm import Session
+from app.db.session import get_db
 from app.common.deps import get_current_user
-from app.models.user import User, UserRead
+from app.models.user import User
 from app.common.websocket import manager 
+import random
 
 router = APIRouter()
 
-# 定義商品列表 (由後端控制價格與效果，避免作弊)
-SHOP_ITEMS = {
-    "potion": {
-        "name": "大補藥 💊",
-        "price": 50,
-        "description": "回復 50 點生命值",
-        "effect": "heal",
-        "value": 50
-    },
-    "str_potion": {
-        "name": "力量藥劑 ⚔️",
-        "price": 200,
-        "description": "永久增加 5 點攻擊力",
-        "effect": "buff_atk",
-        "value": 5
-    },
-    "life_gem": {
-        "name": "生命寶石 💎",
-        "price": 500,
-        "description": "永久增加 50 點生命上限",
-        "effect": "buff_max_hp",
-        "value": 50
-    }
-}
+# 扭蛋池 (你可以自己加更多神獸)
+GACHA_POOL = [
+    {"name": "皮卡丘", "atk": 25, "hp": 150, "img": "https://img.pokemondb.net/artwork/large/pikachu.jpg", "rate": 40},
+    {"name": "耿鬼", "atk": 45, "hp": 120, "img": "https://img.pokemondb.net/artwork/large/gengar.jpg", "rate": 30},
+    {"name": "快龍", "atk": 60, "hp": 300, "img": "https://img.pokemondb.net/artwork/large/dragonite.jpg", "rate": 20},
+    {"name": "超夢", "atk": 120, "hp": 500, "img": "https://img.pokemondb.net/artwork/large/mewtwo.jpg", "rate": 5},
+    {"name": "阿爾宙斯", "atk": 999, "hp": 999, "img": "https://img.pokemondb.net/artwork/large/arceus.jpg", "rate": 1},
+]
 
-@router.get("/list")
-def get_shop_items():
-    """回傳商品列表給前端顯示"""
-    return SHOP_ITEMS
-
-@router.post("/buy/{item_id}", response_model=UserRead)
-async def buy_item(
-    item_id: str,
+@router.post("/gacha")
+async def play_gacha(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user)
 ):
-    # 1. 檢查商品是否存在
-    item = SHOP_ITEMS.get(item_id)
-    if not item:
-        raise HTTPException(status_code=404, detail="商品不存在")
-
-    # 2. 檢查錢夠不夠
-    if current_user.money < item["price"]:
-        raise HTTPException(status_code=400, detail="金幣不足！快去打怪賺錢！")
-
-    # 3. 扣錢
-    current_user.money -= item["price"]
-
-    # 4. 應用效果
-    effect = item["effect"]
-    value = item["value"]
+    cost = 200
+    if current_user.money < cost:
+        raise HTTPException(status_code=400, detail="金幣不足 (需要 200 G)")
     
-    msg = ""
-
-    if effect == "heal":
-        # 補血 (不能超過上限)
-        old_hp = current_user.hp
-        current_user.hp = min(current_user.max_hp, current_user.hp + value)
-        heal_amount = current_user.hp - old_hp
-        msg = f"使用了 [{item['name']}]，回復了 {heal_amount} 點生命！"
-
-    elif effect == "buff_atk":
-        # 加攻擊
-        current_user.attack += value
-        msg = f"喝下了 [{item['name']}]，攻擊力提升了 {value} 點！(目前: {current_user.attack})"
-
-    elif effect == "buff_max_hp":
-        # 加血量上限 (順便補滿血)
-        current_user.max_hp += value
-        current_user.hp += value
-        msg = f"裝備了 [{item['name']}]，生命上限提升了 {value} 點！"
-
-    # 5. 存檔與廣播
-    db.add(current_user)
+    current_user.money -= cost
+    
+    # 簡單的抽獎邏輯 (純隨機，不看機率權重，想更專業可以加權重)
+    prize = random.choice(GACHA_POOL)
+    
+    # 更新玩家外觀與數值 (保留等級，但更新基礎數值)
+    current_user.pokemon_name = prize["name"]
+    current_user.pokemon_image = prize["img"]
+    # 這裡讓新數值加上等級加成，避免越抽越爛
+    current_user.max_hp = prize["hp"] + (current_user.level * 10)
+    current_user.hp = current_user.max_hp # 抽到新角補滿血
+    current_user.attack = prize["atk"] + (current_user.level * 2)
+    
     db.commit()
-    db.refresh(current_user)
+    
+    msg = f"🎰 恭喜！勇者 [{current_user.username}] 抽到了 [{prize['name']}]！"
+    await manager.broadcast(msg)
+    
+    return {"message": f"你獲得了 {prize['name']}！", "user": current_user}
 
-    # 廣播給所有人看 (炫耀消費)
-    await manager.broadcast(f"💰 勇者 [{current_user.username}] {msg}")
+@router.post("/heal")
+async def buy_heal(
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    cost = 50
+    if current_user.money < cost: raise HTTPException(status_code=400, detail="金幣不足")
+    
+    current_user.money -= cost
+    current_user.hp = current_user.max_hp
+    db.commit()
+    return {"message": "體力已補滿"}
 
-    return current_user
+# 🔥 PVP 攻擊玩家 🔥
+@router.post("/pvp/{target_id}")
+async def attack_player(
+    target_id: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    target = db.query(User).filter(User.id == target_id).first()
+    if not target: raise HTTPException(status_code=404, detail="找不到對手")
+    if target.hp <= 0: raise HTTPException(status_code=400, detail="對手已經倒下了")
+    if target.id == current_user.id: raise HTTPException(status_code=400, detail="不能打自己")
+
+    # 傷害計算
+    dmg = current_user.attack + random.randint(0, 5)
+    target.hp = max(0, target.hp - dmg)
+    
+    # 獎勵
+    current_user.exp += 20
+    
+    msg = f"⚔️ PVP戰報：[{current_user.username}] 攻擊了 [{target.username}]，造成 {dmg} 點傷害！"
+    
+    if target.hp == 0:
+        win_money = int(target.money * 0.1) # 搶走對方 10% 的錢
+        target.money -= win_money
+        current_user.money += win_money
+        msg += f" [{target.username}] 倒下了！[{current_user.username}] 搶走了 {win_money} G！"
+
+    db.commit()
+    await manager.broadcast(msg)
+    
+    return {"message": "攻擊成功"}
