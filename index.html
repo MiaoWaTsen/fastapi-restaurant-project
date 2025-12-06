@@ -163,6 +163,9 @@
     const SHOP_URL = `https://${ZEABUR_DOMAIN}/api/v1/shop/buy/`;
     const WS_URL = `wss://${ZEABUR_DOMAIN}/ws`;
 
+    // 🔥 全域變數：暫存玩家攻擊力 (預設 20)
+    let currentUserAttack = 20;
+
     // --- 1. 門禁與初始載入 ---
     const token = localStorage.getItem('token');
     
@@ -178,6 +181,7 @@
         window.location.href = 'login.html';
     }
 
+    // 更新玩家資訊 (等級 & 金幣 & 攻擊力)
     async function updateUserInfo() {
         try {
             const res = await fetch(AUTH_URL, {
@@ -187,6 +191,9 @@
                 const user = await res.json();
                 document.getElementById('player-name').innerText = `${user.username} (Lv.${user.level})`;
                 document.getElementById('player-money').innerText = user.money;
+                
+                // 🔥 關鍵：更新攻擊力變數
+                currentUserAttack = user.attack;
             }
         } catch (e) { console.error(e); }
     }
@@ -210,7 +217,7 @@
             const msg = event.data;
             addLog(`<span style="color: #4cc9f0;">📡 [即時] ${msg}</span>`);
             fetchMonsters(); 
-            updateUserInfo(); 
+            updateUserInfo(); // 更新自己 (可能升級或賺錢了)
         };
 
         socket.onclose = () => {
@@ -245,16 +252,23 @@
     async function playerAttack(id, currentHp, name) {
         if (currentHp <= 0) return; 
 
+        // 🔥 傷害公式：基礎攻擊力 + (0 ~ 基礎攻擊力 的亂數)
+        // 這樣買藥水加攻擊力後，傷害就會顯著提升！
+        const randomBonus = Math.floor(Math.random() * currentUserAttack);
+        const baseDamage = currentUserAttack + randomBonus;
+
         const isCrit = Math.random() < 0.3; 
-        const damage = isCrit ? 30 : 15;
-        const newHp = Math.max(0, currentHp - damage);
+        const damage = isCrit ? baseDamage * 2 : baseDamage;
+        let newHp = Math.max(0, currentHp - damage);
         
+        // 視覺
         const card = document.getElementById(`card-${id}`);
         card.classList.remove('shaking');
         void card.offsetWidth; 
         card.classList.add('shaking');
         showFloatingDamage(`card-${id}`, damage, isCrit);
 
+        // 戰報
         const logMsg = isCrit 
             ? `💥 爆擊！你對 [${name}] 造成了 ${damage} 點巨量傷害！`
             : `🗡️ 你攻擊了 [${name}]，造成 ${damage} 點傷害。`;
