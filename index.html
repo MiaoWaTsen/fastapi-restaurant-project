@@ -6,17 +6,20 @@
     <title>🔥 妙蛙宸的熱血戰場 🔥</title>
     <style>
         /* --- 基礎設定 --- */
-        body { font-family: 'Segoe UI', sans-serif; background-color: #1a1a2e; color: #fff; padding: 20px; }
-        .container { max-width: 900px; margin: 0 auto; }
+        body { font-family: 'Segoe UI', sans-serif; background-color: #1a1a2e; color: #fff; padding: 20px; margin: 0; }
+        .container { max-width: 900px; margin: 0 auto; padding-top: 20px; }
+        
+        /* --- 頂部導航列 (新增!) --- */
+        .navbar { display: flex; justify-content: space-between; align-items: center; background: #16213e; padding: 10px 20px; border-radius: 10px; margin-bottom: 20px; border: 1px solid #0f3460; }
+        .user-info { color: #4cc9f0; font-weight: bold; }
+        .btn-logout { background: transparent; border: 1px solid #e74c3c; color: #e74c3c; padding: 5px 15px; border-radius: 5px; cursor: pointer; transition: 0.3s; }
+        .btn-logout:hover { background: #e74c3c; color: white; }
+
         h1 { text-align: center; color: #e94560; text-shadow: 0 0 10px #e94560; margin-bottom: 30px; }
 
         /* --- 戰鬥佈局 --- */
         .game-area { display: flex; gap: 20px; align-items: flex-start; }
-        
-        /* 左邊：怪獸區 */
         .card-grid { flex: 2; display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 20px; }
-        
-        /* 右邊：戰報區 */
         .battle-log-panel { flex: 1; background: #16213e; border: 2px solid #0f3460; border-radius: 10px; height: 500px; padding: 15px; overflow-y: auto; position: sticky; top: 20px; }
         .log-title { text-align: center; color: #4cc9f0; margin-top: 0; border-bottom: 1px solid #4cc9f0; padding-bottom: 10px; }
         .log-entry { margin-bottom: 8px; font-size: 0.9em; border-bottom: 1px solid #333; padding-bottom: 4px; }
@@ -27,52 +30,32 @@
         /* --- 卡片與動畫 --- */
         .card { background: #0f3460; border-radius: 15px; overflow: hidden; box-shadow: 0 4px 15px rgba(0,0,0,0.5); transition: transform 0.2s; position: relative; }
         .card:hover { transform: translateY(-5px); border: 2px solid #e94560; }
-        
-        /* 受傷震動動畫 */
-        @keyframes shake {
-            0% { transform: translate(1px, 1px) rotate(0deg); }
-            10% { transform: translate(-1px, -2px) rotate(-1deg); }
-            20% { transform: translate(-3px, 0px) rotate(1deg); }
-            30% { transform: translate(3px, 2px) rotate(0deg); }
-            40% { transform: translate(1px, -1px) rotate(1deg); }
-            50% { transform: translate(-1px, 2px) rotate(-1deg); }
-            60% { transform: translate(-3px, 1px) rotate(0deg); }
-            70% { transform: translate(3px, 1px) rotate(-1deg); }
-            80% { transform: translate(-1px, -1px) rotate(1deg); }
-            90% { transform: translate(1px, 2px) rotate(0deg); }
-            100% { transform: translate(1px, -2px) rotate(-1deg); }
-        }
         .shaking { animation: shake 0.5s; border: 2px solid red; }
-        
-        /* 死亡特效 */
+        @keyframes shake { 0% { transform: translate(1px, 1px); } 10% { transform: translate(-1px, -2px); } 20% { transform: translate(-3px, 0px); } 30% { transform: translate(3px, 2px); } 40% { transform: translate(1px, -1px); } 50% { transform: translate(-1px, 2px); } 60% { transform: translate(-3px, 1px); } 70% { transform: translate(3px, 1px); } 80% { transform: translate(-1px, -1px); } 90% { transform: translate(1px, 2px); } 100% { transform: translate(1px, -2px); } }
         .dead { filter: grayscale(100%); opacity: 0.6; pointer-events: none; }
-
         .card-img { width: 100%; height: 180px; object-fit: cover; background: #fff; }
         .card-body { padding: 15px; }
         .card-title { font-size: 1.3em; margin: 0; color: #fff; font-weight: bold; }
         .hp-text { float: right; font-size: 0.9em; color: #ccc; }
-
-        /* 血條 */
         .hp-bar-bg { background: #333; height: 12px; border-radius: 6px; margin: 10px 0; overflow: hidden; border: 1px solid #555; }
         .hp-bar-fill { background: linear-gradient(90deg, #e74c3c, #c0392b); height: 100%; width: 100%; transition: width 0.3s ease-out; }
-
-        /* 按鈕 */
         .btn-group { display: flex; gap: 5px; }
-        button { flex: 1; padding: 8px; border: none; border-radius: 5px; cursor: pointer; font-weight: bold; color: white; transition: 0.2s; }
+        button.action-btn { flex: 1; padding: 8px; border: none; border-radius: 5px; cursor: pointer; font-weight: bold; color: white; transition: 0.2s; }
         .btn-attack { background: linear-gradient(to bottom, #e74c3c, #c0392b); }
         .btn-attack:active { transform: scale(0.95); }
         .btn-heal { background: linear-gradient(to bottom, #2ecc71, #27ae60); }
         
-        /* RWD: 手機版把戰報往下放 */
-        @media (max-width: 768px) {
-            .game-area { flex-direction: column-reverse; }
-            .battle-log-panel { width: 100%; height: 200px; }
-        }
+        @media (max-width: 768px) { .game-area { flex-direction: column-reverse; } .battle-log-panel { width: 100%; height: 200px; } }
     </style>
 </head>
 <body>
 
 <div class="container">
+    <div class="navbar">
+        <div class="user-info">👤 勇者：<span id="player-name">載入中...</span></div>
+        <button class="btn-logout" onclick="logout()">登出</button>
+    </div>
+
     <h1>⚔️ 妙蛙宸的熱血戰場 ⚔️</h1>
     
     <div class="game-area">
@@ -88,13 +71,33 @@
 </div>
 
 <script>
-    // ⚠️ 記得檢查這裡是不是你的 Zeabur 網址
+    // --- 1. 門禁系統 (Auth Guard) ---
+    // 一進來網頁，立刻檢查有沒有識別證
+    const token = localStorage.getItem('token');
+    const currentUser = localStorage.getItem('user');
+
+    if (!token) {
+        // 沒有識別證，踢回登入頁
+        window.location.href = 'login.html';
+    } else {
+        // 有識別證，顯示名字
+        document.getElementById('player-name').innerText = currentUser || "未知勇者";
+    }
+
+    function logout() {
+        localStorage.removeItem('token'); // 撕掉識別證
+        localStorage.removeItem('user');
+        window.location.href = 'login.html'; // 踢回登入頁
+    }
+    // --------------------------------
+
+    // ⚠️ 請確認你的 Zeabur 網址
     const API_URL = 'https://mwtpokemons.zeabur.app/api/v1/items/';
 
     // 啟動遊戲
     fetchMonsters();
 
-    // 1. 讀取怪獸
+    // 2. 讀取怪獸
     async function fetchMonsters() {
         const container = document.getElementById('monster-list');
         try {
@@ -104,14 +107,11 @@
             
             container.innerHTML = ''; 
             if (monsters.length === 0) {
-                container.innerHTML = '<p>地圖上沒有怪獸，快去召喚！</p>';
+                container.innerHTML = '<p>地圖上沒有怪獸，快去 Swagger UI 召喚！</p>';
                 return;
             }
 
-            monsters.forEach(m => {
-                // 渲染卡片
-                renderCard(container, m);
-            });
+            monsters.forEach(m => { renderCard(container, m); });
 
         } catch (err) {
             console.error(err);
@@ -119,7 +119,70 @@
         }
     }
 
-    // 輔助函式：產生卡片 HTML
+    // 3. 玩家攻擊邏輯 (含爆擊率)
+    async function playerAttack(id, currentHp, name) {
+        if (currentHp <= 0) return; 
+
+        // 隨機爆擊
+        const isCrit = Math.random() < 0.3; 
+        const baseDamage = 15 + Math.floor(Math.random() * 10); 
+        const damage = isCrit ? baseDamage * 2 : baseDamage;
+        let newHp = Math.max(0, currentHp - damage);
+        
+        // 視覺特效
+        const card = document.getElementById(`card-${id}`);
+        card.classList.remove('shaking');
+        void card.offsetWidth; 
+        card.classList.add('shaking');
+
+        // 戰報
+        const logMsg = isCrit 
+            ? `<span class="log-crit">💥 爆擊！你對 [${name}] 造成了 ${damage} 點巨量傷害！</span>`
+            : `🗡️ 你攻擊了 [${name}]，造成 ${damage} 點傷害。`;
+        addLog(logMsg);
+
+        if (newHp === 0) {
+            addLog(`<span class="log-die">💀 [${name}] 被你擊敗了！</span>`);
+            card.classList.add('dead');
+        }
+
+        updateCardUI(id, newHp);
+        updateButtonParams(id, newHp, name);
+
+        // 後端更新
+        try {
+            await fetch(API_URL + id, {
+                method: 'PUT',
+                headers: { 
+                    'Content-Type': 'application/json',
+                    // 未來如果後端開啟保護，這裡要加上 'Authorization': `Bearer ${token}`
+                },
+                body: JSON.stringify({ hp: newHp })
+            });
+        } catch (e) {
+            console.error("同步失敗", e);
+        }
+    }
+
+    // 4. 玩家治癒邏輯
+    async function playerHeal(id, currentHp, maxHp, name) {
+        if (currentHp >= maxHp || currentHp <= 0) return;
+
+        const heal = 30;
+        let newHp = Math.min(maxHp, currentHp + heal);
+
+        addLog(`<span class="log-heal">✨ 你施展了治癒術，[${name}] 回復了 ${heal} 點生命。</span>`);
+        updateCardUI(id, newHp, maxHp);
+        updateButtonParams(id, newHp, name, maxHp);
+
+        await fetch(API_URL + id, {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ hp: newHp })
+        });
+    }
+
+    // UI 工具
     function renderCard(container, m) {
         const hpPercent = Math.max(0, (m.hp / m.max_hp) * 100);
         const img = m.image_url || 'https://via.placeholder.com/300x200?text=Monster';
@@ -134,14 +197,12 @@
                         <span class="card-title">${m.name}</span>
                         <span class="hp-text" id="hp-text-${m.id}">${m.hp}/${m.max_hp}</span>
                     </div>
-                    
                     <div class="hp-bar-bg">
                         <div class="hp-bar-fill" id="hp-bar-${m.id}" style="width: ${hpPercent}%; background:${hpColor}"></div>
                     </div>
-
                     <div class="btn-group">
-                        <button class="btn-attack" onclick="playerAttack(${m.id}, ${m.hp}, '${m.name}')">👊 攻擊</button>
-                        <button class="btn-heal" onclick="playerHeal(${m.id}, ${m.hp}, ${m.max_hp}, '${m.name}')">💖 治癒</button>
+                        <button class="action-btn btn-attack" onclick="playerAttack(${m.id}, ${m.hp}, '${m.name}')">👊 攻擊</button>
+                        <button class="action-btn btn-heal" onclick="playerHeal(${m.id}, ${m.hp}, ${m.max_hp}, '${m.name}')">💖 治癒</button>
                     </div>
                 </div>
             </div>
@@ -149,121 +210,32 @@
         container.innerHTML += html;
     }
 
-    // 2. 玩家攻擊邏輯 (含爆擊率)
-    async function playerAttack(id, currentHp, name) {
-        if (currentHp <= 0) return; // 死了不能打
-
-        // --- 遊戲邏輯區 ---
-        const isCrit = Math.random() < 0.3; // 30% 機率爆擊
-        const baseDamage = 15 + Math.floor(Math.random() * 10); // 浮動傷害 15~25
-        const damage = isCrit ? baseDamage * 2 : baseDamage;
-        
-        let newHp = Math.max(0, currentHp - damage);
-        
-        // --- 視覺特效區 ---
-        // 1. 讓卡片震動
-        const card = document.getElementById(`card-${id}`);
-        card.classList.remove('shaking'); // 重置動畫
-        void card.offsetWidth; // 強制瀏覽器重繪
-        card.classList.add('shaking');
-
-        // 2. 寫入戰報
-        const logMsg = isCrit 
-            ? `<span class="log-crit">💥 爆擊！你對 [${name}] 造成了 ${damage} 點巨量傷害！</span>`
-            : `🗡️ 你攻擊了 [${name}]，造成 ${damage} 點傷害。`;
-        addLog(logMsg);
-
-        if (newHp === 0) {
-            addLog(`<span class="log-die">💀 [${name}] 被你擊敗了！</span>`);
-            card.classList.add('dead'); // 變灰
-        }
-
-        // --- 後端溝通區 ---
-        // 先在前端更新血條 (看起來比較順)，然後再偷傳給後端
-        updateCardUI(id, newHp); // 暫時更新 UI (不等後端)
-        
-        // 這裡需要重新抓取原本的 max_hp (因為 onclick 裡的參數是舊的)
-        // 偷懶做法：直接把按鈕的 onclick 更新成新的數值
-        updateButtonParams(id, newHp, name);
-
-        try {
-            await fetch(API_URL + id, {
-                method: 'PUT',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ hp: newHp })
-            });
-        } catch (e) {
-            console.error("同步失敗", e);
-        }
-    }
-
-    // 3. 玩家治癒邏輯
-    async function playerHeal(id, currentHp, maxHp, name) {
-        if (currentHp >= maxHp) {
-            addLog(`⚠️ [${name}] 血量已滿，無需治療。`);
-            return;
-        }
-        if (currentHp <= 0) {
-            addLog(`⚠️ [${name}] 已經倒下了，無法復活。`);
-            return;
-        }
-
-        const heal = 30;
-        let newHp = Math.min(maxHp, currentHp + heal);
-
-        addLog(`<span class="log-heal">✨ 你施展了治癒術，[${name}] 回復了 ${heal} 點生命。</span>`);
-        
-        updateCardUI(id, newHp, maxHp);
-        updateButtonParams(id, newHp, name, maxHp);
-
-        await fetch(API_URL + id, {
-            method: 'PUT',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ hp: newHp })
-        });
-    }
-
-    // 更新 UI 工具
-    function updateCardUI(id, hp, maxHp) {
-        // 如果沒傳 maxHp，我們假設它沒變，這裡簡化處理，
-        // 實際開發通常會從 DOM 讀取或重新 fetch
+    function updateCardUI(id, hp) {
         const bar = document.getElementById(`hp-bar-${id}`);
         const text = document.getElementById(`hp-text-${id}`);
-        
-        // 讀取當前的 max (從文字裡偷抓)
         const currentMax = parseInt(text.innerText.split('/')[1]);
-        
         const percent = (hp / currentMax) * 100;
         bar.style.width = `${percent}%`;
         text.innerText = `${hp}/${currentMax}`;
-
-        // 血量顏色變化
         if (percent < 30) bar.style.background = '#e74c3c';
         else if (percent < 60) bar.style.background = '#f1c40f';
         else bar.style.background = '#2ecc71';
     }
 
     function updateButtonParams(id, newHp, name, maxHp) {
-       // 更新 onclick 參數，這樣下次點擊才會用新的血量計算
-       // 注意：這只是簡單的前端更新，正規做法應該重新 render 或用 Vue/React
        const card = document.getElementById(`card-${id}`);
        const btnAttack = card.querySelector('.btn-attack');
        const btnHeal = card.querySelector('.btn-heal');
-       
-       // 重新綁定事件
        btnAttack.onclick = () => playerAttack(id, newHp, name);
-       // 這裡有點偷懶，maxHp 我們需要想辦法保存，這裡先不更新 heal 的 maxHp 參數
     }
 
-    // 寫入戰報工具
     function addLog(html) {
         const box = document.getElementById('battle-log');
         const entry = document.createElement('div');
         entry.className = 'log-entry';
         entry.innerHTML = html;
-        box.prepend(entry); // 把最新的訊息插在最上面
+        box.prepend(entry);
     }
-
 </script>
 
 </body>
