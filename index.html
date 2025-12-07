@@ -3,12 +3,12 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>⚡️ 寶可夢大亂鬥 (Vue同步版) ⚡️</title>
+    <title>⚡️ 寶可夢大亂鬥 (回合制戰略版) ⚡️</title>
     <script src="https://unpkg.com/vue@3/dist/vue.global.js"></script>
     
     <style>
         /* --- 基礎樣式 --- */
-        body { font-family: 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; background-color: #1a1a2e; color: #fff; padding: 20px; margin: 0; overflow-x: hidden; }
+        body { font-family: 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; background-color: #1a1a2e; color: #fff; padding: 20px; margin: 0; overflow-x: hidden; user-select: none; }
         .container { max-width: 900px; margin: 0 auto; padding-top: 20px; position: relative; }
         
         /* Navbar */
@@ -43,7 +43,6 @@
         .hp-bar-bg { background: #333; height: 8px; border-radius: 4px; margin: 8px 0; overflow: hidden; }
         .hp-bar-fill { height: 100%; transition: width 0.3s; }
         
-        /* Buttons */
         .btn-attack { width: 100%; background: #c0392b; color: white; border: none; padding: 8px; border-radius: 5px; cursor: pointer; margin-top: 5px; transition:0.2s; }
         .btn-attack:active { transform: scale(0.95); }
         .btn-heal { background: #27ae60; }
@@ -59,55 +58,59 @@
         .floating-damage { position: absolute; color: #ffeb3b; font-weight: bold; font-size: 24px; pointer-events: none; animation: floatUp 0.8s ease-out forwards; text-shadow: 2px 2px 0 #000; z-index: 100; white-space: nowrap; }
         @keyframes floatUp { 0% { transform: translateY(0) scale(1); opacity: 1; } 100% { transform: translateY(-60px) scale(1); opacity: 0; } }
         
-        /* --- 🆕 決鬥場景專用樣式 --- */
-        .duel-overlay {
+        /* --- ⚔️ 戰鬥場景專用樣式 --- */
+        .battle-overlay {
             position: fixed; top: 0; left: 0; width: 100%; height: 100%;
-            background: rgba(20, 20, 40, 0.95); /* 深色背景 */
-            z-index: 2000; /* 最上層 */
+            background: rgba(15, 15, 30, 0.98); 
+            z-index: 2000; 
             display: flex; flex-direction: column; align-items: center; justify-content: center;
             padding: 20px; box-sizing: border-box;
-            animation: fadeIn 0.5s; /* 進場動畫 */
+            animation: fadeIn 0.3s;
         }
-        .duel-arena {
-            display: flex; justify-content: space-around; align-items: center;
-            width: 100%; max-width: 800px; margin-bottom: 30px;
-            position: relative;
+        .battle-header { width: 100%; max-width: 800px; display: flex; justify-content: space-between; margin-bottom: 20px; font-size: 1.5em; font-weight: bold; color: #f1c40f; }
+        .battle-timer { font-family: monospace; font-size: 1.5em; color: #e74c3c; border: 2px solid #e74c3c; padding: 5px 15px; border-radius: 10px; background: rgba(0,0,0,0.5); }
+        
+        .battle-arena {
+            display: flex; justify-content: space-between; align-items: flex-end;
+            width: 100%; max-width: 900px; height: 400px;
+            position: relative; margin-bottom: 20px;
+            background: url('https://img.freepik.com/free-vector/battle-versus-vs-background-design_1017-26343.jpg') no-repeat center bottom;
+            background-size: cover; border-radius: 15px; border: 2px solid #444;
         }
-        .duel-card {
-            width: 45%; max-width: 300px;
-            transform: scale(1.1); 
-            box-shadow: 0 0 30px rgba(231, 76, 60, 0.5); 
+        
+        .fighter { width: 200px; text-align: center; position: relative; transition: 0.3s; }
+        .fighter img { width: 100%; height: 200px; object-fit: contain; drop-shadow: 0 10px 10px rgba(0,0,0,0.5); }
+        .fighter-stats { background: rgba(0,0,0,0.7); padding: 10px; border-radius: 10px; margin-bottom: 10px; border: 1px solid #666; }
+        .fighter-name { font-weight: bold; font-size: 1.2em; color: #fff; margin-bottom: 5px; }
+        
+        /* 招式選單 */
+        .battle-menu {
+            width: 100%; max-width: 800px;
+            display: grid; grid-template-columns: 1fr 1fr; gap: 10px;
+            padding: 15px; background: #2c3e50; border-radius: 15px; border: 3px solid #34495e;
         }
-        .vs-text {
-            font-size: 5em; font-weight: bold; color: #f1c40f;
-            text-shadow: 0 0 20px #e74c3c;
-            font-style: italic;
-            animation: pulse-vs 1s infinite alternate;
+        .move-btn {
+            padding: 15px; border: none; border-radius: 8px; font-size: 1.1em; cursor: pointer; color: white; font-weight: bold; text-align: left; position: relative; transition: 0.2s;
+            display: flex; justify-content: space-between; align-items: center;
         }
-        .duel-actions {
-            display: flex; gap: 20px; width: 100%; max-width: 400px;
-        }
-        .btn-duel-attack {
-            flex: 2; padding: 15px; font-size: 1.2em;
-            background: linear-gradient(to bottom, #e74c3c, #c0392b);
-            border: 2px solid #f1c40f; animation: pulse-btn 2s infinite;
-        }
-        .btn-duel-escape { flex: 1; background: #555; }
+        .move-btn:hover:not(:disabled) { transform: translateY(-2px); filter: brightness(1.2); }
+        .move-btn:disabled { filter: grayscale(100%); cursor: not-allowed; opacity: 0.6; }
+        
+        .move-damage { background: #e74c3c; } /* 攻擊招式 */
+        .move-buff { background: #f39c12; }   /* 增益/特殊 */
+        .move-heal { background: #27ae60; }   /* 回復 */
+        .move-defend { background: #3498db; } /* 防禦 */
 
-        /* 強力震動特效 */
-        .duel-shake-heavy { animation: shake-heavy 0.5s; }
-        @keyframes shake-heavy {
-            0% { transform: translate(0, 0) rotate(0deg) scale(1.1); }
-            25% { transform: translate(-10px, 5px) rotate(-2deg) scale(1.1); }
-            50% { transform: translate(10px, -5px) rotate(2deg) scale(1.1); }
-            75% { transform: translate(-10px, 5px) rotate(-2deg) scale(1.1); }
-            100% { transform: translate(0, 0) rotate(0deg) scale(1.1); }
-        }
+        .move-desc { font-size: 0.7em; opacity: 0.8; font-weight: normal; margin-top: 2px; }
+
+        /* 動畫 */
+        .shake-hit { animation: shake 0.4s; }
+        .pulse-active { animation: pulse 1s infinite; border: 2px solid #f1c40f; }
+        @keyframes shake { 0% { transform: translateX(0); } 25% { transform: translateX(-15px); } 50% { transform: translateX(15px); } 75% { transform: translateX(-15px); } 100% { transform: translateX(0); } }
+        @keyframes pulse { 0% { box-shadow: 0 0 0 0 rgba(241, 196, 15, 0.7); } 70% { box-shadow: 0 0 0 10px rgba(241, 196, 15, 0); } 100% { box-shadow: 0 0 0 0 rgba(241, 196, 15, 0); } }
         @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
-        @keyframes pulse-vs { from { transform: scale(1); } to { transform: scale(1.1); } }
-        @keyframes pulse-btn { 0% { box-shadow: 0 0 0 0 rgba(241, 196, 15, 0.7); } 70% { box-shadow: 0 0 0 20px rgba(241, 196, 15, 0); } 100% { box-shadow: 0 0 0 0 rgba(241, 196, 15, 0); } }
 
-        @media (max-width: 768px) { .game-area { flex-direction: column-reverse; } .duel-arena { flex-direction: column; gap: 20px; } .duel-card { width: 80%; } }
+        @media (max-width: 768px) { .battle-arena { height: 300px; } .fighter { width: 140px; } .fighter img { height: 140px; } .battle-menu { grid-template-columns: 1fr; } }
     </style>
 </head>
 <body>
@@ -115,7 +118,7 @@
 <div id="app" class="container">
     
     <div class="navbar" v-if="user">
-        <div class="user-section">
+        <div class="user-info">
             <img :src="user.pokemon_image || 'https://via.placeholder.com/50'" class="user-avatar">
             <div class="user-stats">
                 <div class="user-name">
@@ -125,84 +128,109 @@
                 <div class="player-hp-box">
                     <div class="player-hp-fill" :style="{ width: hpPercent(user) + '%', background: hpColor(user) }"></div>
                 </div>
-                <div style="font-size:0.8em; color:#ccc">HP: {{ user.hp }}/{{ user.max_hp }} | ATK: {{ user.attack }}</div>
+                <div style="font-size:0.8em; color:#ccc">HP: {{ user.hp }}/{{ user.max_hp }}</div>
             </div>
         </div>
         <button class="btn-logout" @click="logout">登出</button>
     </div>
 
-    <h1 style="text-align: center; color: #e94560;" v-show="!isDueling">⚔️ 妙蛙宸的熱血戰場 ⚔️</h1>
+    <h1 style="text-align: center; color: #e94560;" v-show="!battleState.isActive">⚔️ 妙蛙宸的熱血戰場 ⚔️</h1>
 
-    <div v-if="isDueling && duelTarget" class="duel-overlay">
-        <h2 style="color:#f1c40f; margin-bottom: 30px;">⚔️ 宿命的對決 ⚔️</h2>
+    <div v-if="battleState.isActive" class="battle-overlay">
         
-        <div class="duel-arena">
-            <div class="card duel-card" id="duel-my-card">
-                <img :src="user.pokemon_image" class="card-img">
-                <div class="card-body">
-                    <div style="text-align:center; font-size:1.2em; color:#4cc9f0;">{{ user.username }} (我方)</div>
-                    <div class="hp-bar-bg"><div class="hp-bar-fill" :style="{ width: hpPercent(user) + '%', background: hpColor(user) }"></div></div>
-                    <div style="text-align:center;">{{ user.hp }} / {{ user.max_hp }}</div>
+        <div class="battle-header">
+            <div>{{ battleState.mode === 'wild' ? '🌲 野外遭遇戰' : '🏟️ 玩家對決' }}</div>
+            <div class="battle-timer" v-if="battleState.winner === null">⏱️ {{ battleState.timer }}</div>
+        </div>
+
+        <div class="battle-arena">
+            <div class="fighter" id="fighter-me" :class="{ 'shake-hit': battleState.shakeMe }">
+                <div class="fighter-stats">
+                    <div class="fighter-name">{{ user.username }}</div>
+                    <div class="player-hp-box">
+                        <div class="player-hp-fill" :style="{ width: hpPercent(user) + '%', background: hpColor(user) }"></div>
+                    </div>
+                    <small>{{ user.hp }} / {{ user.max_hp }}</small>
                 </div>
+                <img :src="user.pokemon_image">
             </div>
 
-            <div class="vs-text">VS</div>
-
-            <div class="card duel-card" :class="{ dead: duelTarget.hp <= 0 }" id="duel-target-card">
-                <img :src="duelTarget.pokemon_image" class="card-img">
-                <div class="card-body">
-                    <div style="text-align:center; font-size:1.2em; color:#e74c3c;">{{ duelTarget.username }} (對手)</div>
-                    <div class="hp-bar-bg"><div class="hp-bar-fill" :style="{ width: hpPercent(duelTarget) + '%', background: hpColor(duelTarget) }"></div></div>
-                    <div style="text-align:center;">{{ duelTarget.hp }} / {{ duelTarget.max_hp }}</div>
+            <div class="fighter" id="fighter-target" :class="{ 'shake-hit': battleState.shakeTarget }">
+                <div class="fighter-stats">
+                    <div class="fighter-name">{{ battleState.target.name || battleState.target.username }}</div>
+                    <div class="player-hp-box">
+                        <div class="player-hp-fill" :style="{ width: hpPercent(battleState.target) + '%', background: hpColor(battleState.target) }"></div>
+                    </div>
+                    <small>{{ battleState.target.hp }} / {{ battleState.target.max_hp }}</small>
                 </div>
+                <img :src="battleState.target.image_url || battleState.target.pokemon_image">
             </div>
         </div>
 
-        <div class="duel-actions" v-if="duelTarget.hp > 0">
-            <button class="action-btn btn-attack btn-duel-attack" @click="executeDuelAttack">👊 全力攻擊!</button>
-            <button class="action-btn btn-attack btn-duel-escape" @click="endDuel">🏳️ 戰略撤退</button>
+        <div v-if="battleState.winner" style="text-align: center;">
+            <h2 style="color: #f1c40f; font-size: 2em; margin-bottom: 20px;">
+                {{ battleState.winner === 'player' ? '🎉 勝利！' : '💀 你倒下了...' }}
+            </h2>
+            <button class="gacha-btn" @click="endBattle">離開戰鬥</button>
         </div>
-        <div v-else>
-            <h3 style="color:#f1c40f; font-size: 2em;">🎉 勝利！</h3>
-            <button class="action-btn btn-attack btn-duel-attack" @click="endDuel">回到大廳</button>
+
+        <div v-else class="battle-menu">
+            <button v-for="(move, idx) in myMoves" :key="idx" 
+                class="move-btn" 
+                :class="getMoveClass(move)"
+                :disabled="!isMyTurn"
+                @click="executePlayerMove(move)">
+                <div>
+                    <div>{{ move.name }}</div>
+                    <div class="move-desc">{{ move.desc }}</div>
+                </div>
+                <div style="font-size:0.9em">威力: {{ move.dmg > 0 ? move.dmg : '-' }}</div>
+            </button>
+
+            <button class="move-btn move-defend" 
+                :disabled="!isMyTurn || battleState.defenseCount <= 0"
+                @click="executeDefense">
+                <div>
+                    <div>🛡️ 防禦架勢</div>
+                    <div class="move-desc">減輕傷害 (剩餘 {{ battleState.defenseCount }} 次)</div>
+                </div>
+            </button>
         </div>
+        
+        <div style="margin-top: 10px; color: #aaa;">
+            {{ isMyTurn ? '👉 輪到你了！請選擇行動 (10秒)' : '⏳ 對手思考中...' }}
+        </div>
+
     </div>
-    <div class="tabs" v-show="!isDueling">
+    <div class="tabs" v-show="!battleState.isActive">
         <button class="tab-btn" :class="{ active: currentTab === 'wild' }" @click="currentTab = 'wild'">🌲 野外探險</button>
         <button class="tab-btn" :class="{ active: currentTab === 'arena' }" @click="currentTab = 'arena'">🏟️ 玩家競技場</button>
         <button class="tab-btn" :class="{ active: currentTab === 'shop' }" @click="currentTab = 'shop'">🛒 商店 & 扭蛋</button>
     </div>
 
-    <div class="game-area" v-show="!isDueling">
+    <div class="game-area" v-show="!battleState.isActive">
         
         <div v-if="currentTab === 'wild'" class="card-grid">
             <div v-if="monsters.length === 0" style="text-align:center; width:100%; color:#888;">沒有怪獸...</div>
-            <div v-for="m in monsters" :key="m.id" class="card" :class="{ dead: m.hp <= 0 }" :id="'card-monster-' + m.id">
+            <div v-for="m in monsters" :key="m.id" class="card">
                 <img :src="m.image_url" class="card-img">
                 <div class="card-body">
-                    <div><b>{{ m.name }}</b> <small style="float:right">ATK: {{ m.attack }}</small></div>
+                    <div><b>{{ m.name }}</b> <small>ATK: {{ m.attack }}</small></div>
                     <div class="hp-bar-bg"><div class="hp-bar-fill" :style="{ width: hpPercent(m) + '%', background: hpColor(m) }"></div></div>
                     <small>{{ m.hp }} / {{ m.max_hp }}</small>
-                    <button class="btn-attack" @click="attackMonster(m)">⚔️ 討伐</button>
+                    <button class="btn-attack" @click="initBattle(m, 'wild')">⚔️ 遭遇</button>
                 </div>
             </div>
         </div>
 
         <div v-if="currentTab === 'arena'" class="card-grid">
-            <div v-if="players.length === 0" style="text-align:center; width:100%; color:#888;">沒有其他玩家...</div>
-            <div v-for="p in players" :key="p.id" class="card" :class="{ dead: p.hp <= 0 }" :id="'card-player-' + p.id">
+            <div v-for="p in players" :key="p.id" class="card">
                 <img :src="p.pokemon_image" class="card-img">
                 <div class="card-body">
-                    <div>
-                        <b>{{ p.username }}</b> 
-                        <span v-if="p.is_online" style="color:#2ecc71; font-size:0.8em;">● 線上</span>
-                        <span v-else style="color:#95a5a6; font-size:0.8em;">● 離線</span>
-                    </div>
+                    <div><b>{{ p.username }}</b> <span v-if="p.is_online" style="color:#2ecc71">●</span></div>
                     <div class="hp-bar-bg"><div class="hp-bar-fill" :style="{ width: hpPercent(p) + '%', background: hpColor(p) }"></div></div>
-                    <small>{{ p.hp }} / {{ p.max_hp }}</small>
-                    
-                    <button v-if="p.is_online" class="btn-attack btn-pvp" @click="startDuel(p)">🥊 決鬥</button>
-                    <button v-else class="btn-attack btn-disabled" disabled>💤 休息中</button>
+                    <button v-if="p.is_online" class="btn-attack btn-pvp" @click="initBattle(p, 'pvp')">🥊 決鬥</button>
+                    <button v-else class="btn-attack btn-disabled" disabled>💤</button>
                 </div>
             </div>
         </div>
@@ -210,10 +238,9 @@
         <div v-if="currentTab === 'shop'" style="width: 100%;">
             <div class="gacha-box">
                 <h2 style="color:#f1c40f;">🌟 傳說扭蛋機 🌟</h2>
-                <p>消耗 200 G，隨機獲得強力寶可夢！</p>
                 <button class="gacha-btn" @click="playGacha">🔮 召喚 (200G)</button>
                 <br><br>
-                <button class="btn-attack btn-heal" style="width:auto; padding:10px 30px;" @click="buyHeal">💊 醫院補血 (50G)</button>
+                <button class="btn-attack btn-heal" style="width:auto;" @click="buyHeal">💊 補血 (50G)</button>
             </div>
         </div>
 
@@ -226,15 +253,54 @@
 </div>
 
 <script>
-    const { createApp, ref, onMounted, watch } = Vue;
+    const { createApp, ref, onMounted, computed, watch } = Vue;
 
     // --------------------------------------------------------
-    // ⚠️ 設定區：請將這裡改成你的 Zeabur 網址
+    // ⚠️ 設定區：請修改網址
     const ZEABUR_DOMAIN = 'mwtpokemons.zeabur.app'; 
     // --------------------------------------------------------
 
     const API_URL = `https://${ZEABUR_DOMAIN}/api/v1`;
     const WS_URL = `wss://${ZEABUR_DOMAIN}/ws`;
+
+    // 🔥 資料庫：寶可夢招式表 (根據 PDF) 🔥
+    const MOVES_DB = {
+        "妙蛙種子": [
+            { name: "藤鞭", dmg: 20, desc: "用藤蔓鞭打", type: "dmg" },
+            { name: "寄生藤蔓", dmg: 8, desc: "持續傷害", type: "buff" }, 
+            { name: "陽光烈焰", dmg: 10, heal: 0.1, desc: "回復10%血量", type: "heal" }
+        ],
+        "傑尼龜": [
+            { name: "水槍", dmg: 24, desc: "噴射水流", type: "dmg" },
+            { name: "水流尾", dmg: 15, buff: 0.05, desc: "提升5%攻擊", type: "buff" },
+            { name: "冰凍光束", dmg: 22, desc: "有機會凍結", type: "dmg" }
+        ],
+        "小火龍": [
+            { name: "火花", dmg: 26, desc: "小型火焰", type: "dmg" },
+            { name: "噴射火焰", dmg: 18, buff: 0.05, desc: "提升5%攻擊", type: "buff" },
+            { name: "火焰漩渦", dmg: 40, selfDmg: 0.1, desc: "威力大但反噬10%", type: "dmg" }
+        ],
+        "皮卡丘": [
+            { name: "電光一閃", dmg: 5, buff: 0.05, type: "buff" },
+            { name: "十萬伏特", dmg: 8, type: "dmg" },
+            { name: "打雷", dmg: 15, selfDmg: 0.05, type: "dmg" }
+        ],
+        "卡拉卡拉": [
+            { name: "骨頭迴力鏢", dmg: 8, buff: 0.05, type: "buff" },
+            { name: "泥巴射擊", dmg: 12, type: "dmg" },
+            { name: "挖洞", dmg: 4, heal: 0.2, type: "heal" }
+        ],
+        "喵喵": [
+            { name: "抓", dmg: 12, debuff: 0.05, type: "dmg" },
+            { name: "撒嬌", dmg: 5, heal: 0.1, buff: 0.05, type: "heal" },
+            { name: "欺詐", dmg: 10, type: "dmg" }
+        ],
+        "default": [ // 未知怪獸的預設招式
+            { name: "撞擊", dmg: 10, desc: "普通撞擊", type: "dmg" },
+            { name: "瞪眼", dmg: 0, desc: "嚇唬對手", type: "buff" },
+            { name: "猛撞", dmg: 15, desc: "強力撞擊", type: "dmg" }
+        ]
+    };
 
     createApp({
         setup() {
@@ -244,12 +310,22 @@
             const players = ref([]);
             const logs = ref([]);
             const currentTab = ref('wild');
-            
-            // 🆕 決鬥狀態
-            const isDueling = ref(false);
-            const duelTarget = ref(null);
-
             let socket = null;
+            let timerInterval = null;
+
+            // 🔥 戰鬥狀態機 🔥
+            const battleState = ref({
+                isActive: false,
+                mode: 'wild', // 'wild' or 'pvp'
+                target: null,
+                turn: 'player', // 'player' or 'enemy'
+                timer: 10,
+                defenseCount: 2,
+                isDefending: false, // 本回合是否防禦中
+                winner: null,
+                shakeMe: false,
+                shakeTarget: false
+            });
 
             if (!token) window.location.href = 'login.html';
 
@@ -260,178 +336,270 @@
                 connectWebSocket();
             });
 
+            // --- 核心邏輯 ---
+            
+            // 1. 初始化戰鬥
+            const initBattle = (target, mode) => {
+                if (target.hp <= 0) return alert("目標已經倒下了");
+                
+                // 設定狀態
+                battleState.value = {
+                    isActive: true,
+                    mode: mode,
+                    target: target,
+                    turn: 'player',
+                    timer: 10,
+                    defenseCount: 2,
+                    isDefending: false,
+                    winner: null,
+                    shakeMe: false,
+                    shakeTarget: false
+                };
+
+                addLog(`⚔️ 戰鬥開始！遭遇了 [${target.name || target.username}]`);
+                
+                // 如果是 PVP，通知後端 (保持你的同步邏輯)
+                if (mode === 'pvp') {
+                    fetch(`${API_URL.replace('/items', '')}/shop/duel/start/${target.id}`, {
+                        method: 'POST', headers: { 'Authorization': `Bearer ${token}` }
+                    });
+                }
+
+                startTimer();
+            };
+
+            // 2. 玩家出招
+            const executePlayerMove = async (move) => {
+                if (!isMyTurn.value) return;
+                clearInterval(timerInterval);
+
+                addLog(`👊 你使用了 [${move.name}]！`);
+                
+                // 計算基礎傷害 (包含 Buff 效果這裡暫時簡化)
+                let finalDmg = move.dmg + Math.floor(Math.random() * 5); // 浮動傷害
+                
+                // 特殊效果處理
+                if (move.heal) {
+                    const healAmt = Math.floor(user.value.max_hp * move.heal);
+                    // 這裡只是前端預覽，實際補血要靠後端
+                    showFloatingDamage('fighter-me', healAmt, false, true); // 綠字
+                }
+                if (move.selfDmg) {
+                    const selfDmg = Math.floor(user.value.max_hp * move.selfDmg);
+                    showFloatingDamage('fighter-me', selfDmg, false);
+                }
+
+                // 視覺特效
+                battleState.value.shakeTarget = true;
+                setTimeout(() => battleState.value.shakeTarget = false, 500);
+                showFloatingDamage('fighter-target', finalDmg, false);
+
+                // 扣除對手血量 (前端預扣)
+                battleState.value.target.hp = Math.max(0, battleState.value.target.hp - finalDmg);
+
+                // 傳送給後端
+                const endpoint = battleState.value.mode === 'wild' 
+                    ? `${API_URL}/items/${battleState.value.target.id}`
+                    : `${API_URL.replace('/items', '')}/shop/pvp/${battleState.value.target.id}`;
+                
+                const method = battleState.value.mode === 'wild' ? 'PUT' : 'POST';
+                
+                await fetch(endpoint, {
+                    method: method,
+                    headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ hp: battleState.value.target.hp })
+                });
+
+                checkWinCondition();
+                
+                // 換對手回合
+                if (!battleState.value.winner) {
+                    battleState.value.turn = 'enemy';
+                    battleState.value.timer = 3; // AI 思考時間
+                    setTimeout(executeEnemyTurn, 1500); // 1.5秒後 AI 行動
+                }
+            };
+
+            // 3. 玩家防禦
+            const executeDefense = () => {
+                if (battleState.value.defenseCount <= 0) return;
+                clearInterval(timerInterval);
+                
+                battleState.value.defenseCount--;
+                battleState.value.isDefending = true;
+                addLog(`🛡️ 你採取了防禦架勢！(剩餘 ${battleState.value.defenseCount} 次)`);
+                
+                battleState.value.turn = 'enemy';
+                setTimeout(executeEnemyTurn, 1500);
+            };
+
+            // 4. 對手回合 (AI 或 PVP同步)
+            const executeEnemyTurn = () => {
+                if (battleState.value.winner) return;
+
+                // 取得對手招式
+                const enemyName = battleState.value.target.name || battleState.value.target.pokemon_name;
+                // 用 split 處理名字可能有的 (Lv.1) 後綴
+                const cleanName = enemyName ? enemyName.split('(')[0].trim() : 'default';
+                const moves = MOVES_DB[cleanName] || MOVES_DB['default'];
+                
+                // 隨機選一招
+                const move = moves[Math.floor(Math.random() * moves.length)];
+                
+                addLog(`⚠️ 對手 [${enemyName}] 使用了 [${move.name}]！`);
+
+                let dmg = move.dmg + Math.floor(Math.random() * 5);
+                
+                // 計算防禦減傷
+                if (battleState.value.isDefending) {
+                    dmg = Math.floor(dmg * 0.5); // 減傷 50%
+                    addLog(`🛡️ 防禦生效！傷害減半！`);
+                    battleState.value.isDefending = false; // 重置
+                }
+
+                // 玩家扣血
+                battleState.value.shakeMe = true;
+                setTimeout(() => battleState.value.shakeMe = false, 500);
+                showFloatingDamage('fighter-me', dmg, true); // 紅字
+
+                // 這裡我們不需要手動扣前端 user.hp，因為後端廣播會透過 WebSocket 更新
+                // 但為了即時感，我們先扣
+                user.value.hp = Math.max(0, user.value.hp - dmg);
+
+                checkWinCondition();
+
+                // 換回玩家回合
+                if (!battleState.value.winner) {
+                    battleState.value.turn = 'player';
+                    startTimer();
+                }
+            };
+
+            // 5. 倒數計時器
+            const startTimer = () => {
+                battleState.value.timer = 10;
+                clearInterval(timerInterval);
+                timerInterval = setInterval(() => {
+                    battleState.value.timer--;
+                    if (battleState.value.timer <= 0) {
+                        clearInterval(timerInterval);
+                        addLog("⏰ 時間到！你放棄了這回合！");
+                        battleState.value.turn = 'enemy';
+                        setTimeout(executeEnemyTurn, 1000);
+                    }
+                }, 1000);
+            };
+
+            // 6. 判定勝負
+            const checkWinCondition = () => {
+                if (battleState.value.target.hp <= 0) {
+                    battleState.value.winner = 'player';
+                    clearInterval(timerInterval);
+                } else if (user.value.hp <= 0) {
+                    battleState.value.winner = 'enemy';
+                    clearInterval(timerInterval);
+                }
+            };
+
+            const endBattle = () => {
+                battleState.value.isActive = false;
+                fetchMonsters(); // 刷新列表狀態
+                fetchPlayers();
+            };
+
+            // --- 輔助屬性 ---
+            const myMoves = computed(() => {
+                if (!user.value) return [];
+                const name = user.value.pokemon_name || 'default';
+                return MOVES_DB[name] || MOVES_DB['default'];
+            });
+
+            const isMyTurn = computed(() => battleState.value.turn === 'player' && !battleState.value.winner);
+
+            const getMoveClass = (move) => {
+                if (move.type === 'buff') return 'move-buff';
+                if (move.type === 'heal') return 'move-heal';
+                return 'move-damage';
+            };
+
+            // --- 原有函式保持 ---
             const updateUserInfo = async () => {
                 try {
                     const res = await fetch(`${API_URL}/auth/me`, { headers: { 'Authorization': `Bearer ${token}` } });
                     if (res.ok) user.value = await res.json();
                 } catch (e) { console.error(e); }
             };
-
             const fetchMonsters = async () => {
-                try {
-                    const res = await fetch(`${API_URL}/items/`);
-                    const data = await res.json();
-                    monsters.value = data.sort((a, b) => a.id - b.id);
-                } catch (e) { console.error(e); }
+                const res = await fetch(`${API_URL}/items/`);
+                const data = await res.json();
+                monsters.value = data.sort((a, b) => a.id - b.id);
             };
-
             const fetchPlayers = async () => {
-                try {
-                    const res = await fetch(`${API_URL}/auth/all`);
-                    const data = await res.json();
-                    players.value = data.filter(u => u.id !== user.value?.id).sort((a, b) => b.is_online - a.is_online);
-                } catch (e) { console.error(e); }
+                const res = await fetch(`${API_URL}/auth/all`);
+                const data = await res.json();
+                players.value = data.filter(u => u.id !== user.value?.id).sort((a, b) => b.is_online - a.is_online);
             };
-
             const connectWebSocket = () => {
                 socket = new WebSocket(`${WS_URL}?token=${token}`);
-                socket.onopen = () => {
-                    addLog("✅ 已連線到即時戰場！");
-                    setInterval(() => { if(socket.readyState === 1) socket.send("ping"); }, 30000);
-                };
+                socket.onopen = () => setInterval(() => { if(socket.readyState === 1) socket.send("ping"); }, 30000);
                 socket.onmessage = (event) => {
                     const msg = event.data;
-
-                    // 🔥 1. 處理特殊事件：決鬥開始 🔥
+                    
+                    // 處理 PVP 邀請
                     if (msg.startsWith("EVENT:DUEL_START")) {
-                        const parts = msg.split("|"); 
-                        const p1Id = parseInt(parts[1]);
-                        const p2Id = parseInt(parts[3]);
-
-                        // 如果我是當事人之一
+                        const parts = msg.split("|");
+                        const p1Id = parseInt(parts[1]); const p2Id = parseInt(parts[3]);
                         if (user.value.id === p1Id || user.value.id === p2Id) {
-                            isDueling.value = true;
                             const opponentId = (user.value.id === p1Id) ? p2Id : p1Id;
-                            
-                            // 重新抓取玩家資料，找出對手物件
                             fetchPlayers().then(() => {
                                 const opponent = players.value.find(p => p.id === opponentId);
-                                if (opponent) {
-                                    duelTarget.value = opponent;
-                                    addLog(`⚔️ 宿命對決開始！對手是 [${opponent.username}]`);
-                                }
+                                if (opponent) initBattle(opponent, 'pvp');
                             });
                         }
-                        return; // 不顯示在普通戰報
+                        return;
                     }
 
-                    // 2. 普通戰報
                     addLog(`<span style="color: #4cc9f0;">📡 ${msg}</span>`);
+                    fetchMonsters(); fetchPlayers(); updateUserInfo();
                     
-                    // 3. 同步資料
-                    // 🔥 關鍵修正：如果正在決鬥，必須同步更新介面上的 duelTarget 🔥
-                    if (isDueling.value && duelTarget.value) {
-                         fetchPlayers().then(() => {
-                             const updatedTarget = players.value.find(p => p.id === duelTarget.value.id);
-                             if(updatedTarget) duelTarget.value = updatedTarget; // 這會觸發 Vue 畫面更新
-                             if(updatedTarget.hp <= 0) showFloatingDamage('duel-target-card', "K.O.", true, true);
-                         });
-                         // 也要更新自己
-                         updateUserInfo();
+                    // 同步戰鬥中數據
+                    if (battleState.value.isActive && battleState.value.target) {
+                        const newTarget = battleState.value.mode === 'wild' 
+                            ? monsters.value.find(m => m.id === battleState.value.target.id)
+                            : players.value.find(p => p.id === battleState.value.target.id);
+                        if(newTarget) {
+                            battleState.value.target.hp = newTarget.hp;
+                            checkWinCondition();
+                        }
                     }
-
-                    fetchMonsters();
-                    if(currentTab.value === 'arena') fetchPlayers();
-                    // updateUserInfo(); // 上面已經更新過了
                 };
                 socket.onclose = () => setTimeout(connectWebSocket, 3000);
             };
-
-            // --- 戰鬥相關 ---
-            const attackMonster = async (monster) => {
-                if(monster.hp <= 0) return;
-                const isCrit = Math.random() < 0.3;
-                const bonus = Math.floor(Math.random() * user.value.attack);
-                const dmg = isCrit ? (user.value.attack + bonus) * 2 : (user.value.attack + bonus);
-                
-                showFloatingDamage(`card-monster-${monster.id}`, dmg, isCrit);
-                
-                // 視覺預扣
-                monster.hp = Math.max(0, monster.hp - dmg);
-
-                const res = await fetch(`${API_URL}/items/${monster.id}`, {
-                    method: 'PUT',
-                    headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ hp: monster.hp })
-                });
-            };
-
-            // 🔥 發起決鬥 (呼叫後端) 🔥
-            const startDuel = async (target) => {
-                try {
-                    await fetch(`${API_URL.replace('/items', '')}/shop/duel/start/${target.id}`, {
-                        method: 'POST',
-                        headers: { 'Authorization': `Bearer ${token}` }
-                    });
-                } catch (e) { console.error(e); }
-            };
-
-            // 🔥 執行決鬥攻擊 🔥
-            const executeDuelAttack = async () => {
-                if(!duelTarget.value || duelTarget.value.hp <= 0) return;
-
-                // 視覺特效
-                const targetCard = document.getElementById('duel-target-card');
-                if(targetCard) {
-                    targetCard.classList.remove('duel-shake-heavy');
-                    void targetCard.offsetWidth; 
-                    targetCard.classList.add('duel-shake-heavy');
-                }
-                showFloatingDamage('duel-target-card', "PVP衝擊!", true, true);
-
-                const res = await fetch(`${API_URL.replace('/items', '')}/shop/pvp/${duelTarget.value.id}`, {
-                    method: 'POST',
-                    headers: { 'Authorization': `Bearer ${token}` }
-                });
-                if(!res.ok) {
-                    const err = await res.json();
-                    alert(err.detail);
-                }
-            };
-
-            const endDuel = () => {
-                isDueling.value = false;
-                duelTarget.value = null;
-                fetchPlayers();
-            };
-
-            // --- 商店相關 ---
+            
             const playGacha = async () => {
                 const res = await fetch(`${API_URL.replace('/items', '')}/shop/gacha`, { method: 'POST', headers: { 'Authorization': `Bearer ${token}` } });
                 const data = await res.json();
                 if(res.ok) { alert(`🎉 ${data.message}`); updateUserInfo(); } else { alert(data.detail); }
             };
-
             const buyHeal = async () => {
                 const res = await fetch(`${API_URL.replace('/items', '')}/shop/heal`, { method: 'POST', headers: { 'Authorization': `Bearer ${token}` } });
-                if(res.ok) { alert("補血成功！"); updateUserInfo(); } else { alert("金幣不足"); }
+                if(res.ok) { alert("補血成功！"); updateUserInfo(); }
             };
-
-            // --- 工具 ---
             const logout = () => { localStorage.clear(); window.location.href = 'login.html'; };
-            
-            const addLog = (msg) => {
-                logs.value.unshift(msg);
-                if(logs.value.length > 50) logs.value.pop();
-            };
-
+            const addLog = (msg) => { logs.value.unshift(msg); if(logs.value.length > 50) logs.value.pop(); };
             const hpPercent = (u) => Math.max(0, (u.hp / u.max_hp) * 100);
-            const hpColor = (u) => {
-                const p = hpPercent(u);
-                return p < 30 ? '#e74c3c' : (p < 60 ? '#f1c40f' : '#2ecc71');
-            };
-
-            const showFloatingDamage = (elementId, value, isCrit, isMega = false) => {
+            const hpColor = (u) => { const p = hpPercent(u); return p < 30 ? '#e74c3c' : (p < 60 ? '#f1c40f' : '#2ecc71'); };
+            const showFloatingDamage = (elementId, value, isCrit, isHeal = false) => {
                 const card = document.getElementById(elementId);
                 if (!card) return;
                 const rect = card.getBoundingClientRect();
                 const el = document.createElement('div');
                 el.className = 'floating-damage';
-                el.innerText = isCrit ? `💥 ${value}` : `-${value}`;
+                el.innerText = isHeal ? `+${value}` : `-${value}`;
                 el.style.left = `${rect.left + rect.width/2}px`;
                 el.style.top = `${rect.top}px`;
                 if(isCrit) { el.style.fontSize='36px'; el.style.color='#e74c3c'; }
-                if(isMega) { el.style.fontSize='60px'; el.style.color='#f1c40f'; el.style.textShadow='0 0 20px red'; el.style.zIndex = 3000; }
+                if(isHeal) { el.style.color='#2ecc71'; }
                 document.body.appendChild(el);
                 setTimeout(() => el.remove(), 800);
             };
@@ -442,11 +610,9 @@
             });
 
             return {
-                user, monsters, players, logs, currentTab, 
-                isDueling, duelTarget, 
-                hpPercent, hpColor, logout, attackMonster, 
-                startDuel, executeDuelAttack, endDuel, 
-                playGacha, buyHeal
+                user, monsters, players, logs, currentTab, battleState, myMoves, isMyTurn,
+                hpPercent, hpColor, logout, initBattle, executePlayerMove, executeDefense, endBattle, 
+                playGacha, buyHeal, getMoveClass
             };
         }
     }).mount('#app');
