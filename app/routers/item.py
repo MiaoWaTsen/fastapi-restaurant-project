@@ -5,11 +5,12 @@ from typing import List
 from pydantic import BaseModel
 import random
 
+# 🔥 補上這一行！修正 NameError 🔥
+from sqlalchemy.orm import Session
+
 from app.db.session import get_db
 from app.models.user import User
 from app.common.deps import get_current_user
-# 為了避免循環匯入，我們在這裡簡單重寫升級邏輯，或者從 auth 匯入
-# 假設 auth.py 裡有 check_levelup，這裡為了獨立性，我直接寫在下面
 
 router = APIRouter()
 
@@ -82,7 +83,7 @@ class AttackWildSchema(BaseModel):
 @router.post("/wild/attack")
 async def attack_wild(
     data: AttackWildSchema,
-    db: Session = Depends(get_db), # 這裡要用 db 來存 User 的變更
+    db: Session = Depends(get_db), # 這裡要用 db 來存 User 的變更 (需要 import Session)
     current_user: User = Depends(get_current_user)
 ):
     msg = ""
