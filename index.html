@@ -236,21 +236,22 @@
 
 <script>
     const { createApp, ref, onMounted, computed, watch } = Vue;
+
     // --------------------------------------------------------
-    // ⚠️ 設定區：請將這裡改成你的 Zeabur 網址
+    // ⚠️ 設定區：請確認網址
     const ZEABUR_DOMAIN = 'mwtpokemons.zeabur.app'; 
     // --------------------------------------------------------
     const API_URL = `https://${ZEABUR_DOMAIN}/api/v1`;
     const WS_URL = `wss://${ZEABUR_DOMAIN}/ws`;
 
-    // 招式與圖鑑 (保持不變，省略)
+    // --- 資料庫 (保持在外層) ---
     const MOVES_DB = {
-        "妙蛙種子": [ { name: "藤鞭", dmg: 20 }, { name: "寄生藤蔓", dmg: 8, seed: true }, { name: "陽光烈焰", dmg: 10, heal: 0.1 } ],
-        "傑尼龜": [ { name: "水槍", dmg: 24 }, { name: "水流尾", dmg: 15, buff: 0.05 }, { name: "冰凍光束", dmg: 22 } ],
-        "小火龍": [ { name: "火花", dmg: 26 }, { name: "噴射火焰", dmg: 18, buff: 0.05 }, { name: "火焰漩渦", dmg: 40, selfDmg: 0.1 } ],
-        "皮卡丘": [ { name: "電光一閃", dmg: 5, buff: 0.05 }, { name: "十萬伏特", dmg: 8 }, { name: "打雷", dmg: 15, selfDmg: 0.05 } ],
-        "卡拉卡拉": [ { name: "骨頭迴力鏢", dmg: 8, buff: 0.05 }, { name: "泥巴射擊", dmg: 12 }, { name: "挖洞", dmg: 4, heal: 0.2 } ],
-        "喵喵": [ { name: "抓", dmg: 12, debuff: 0.05 }, { name: "撒嬌", dmg: 5, heal: 0.1, buff: 0.05 }, { name: "欺詐", dmg: 10 } ],
+        "妙蛙種子": [ { name: "藤鞭", dmg: 20, desc: "傷害:20", type: "dmg" }, { name: "寄生藤蔓", dmg: 8, seed: true, desc: "傷害:8, 每2回合扣對手6點", type: "buff" }, { name: "陽光烈焰", dmg: 10, heal: 0.1, desc: "傷害:10, 回復10%血量", type: "heal" } ],
+        "傑尼龜": [ { name: "水槍", dmg: 24, desc: "傷害:24", type: "dmg" }, { name: "水流尾", dmg: 15, buff: 0.05, desc: "傷害:15, 提升5%攻擊", type: "buff" }, { name: "冰凍光束", dmg: 22, desc: "傷害:22", type: "dmg" } ],
+        "小火龍": [ { name: "火花", dmg: 26, desc: "傷害:26", type: "dmg" }, { name: "噴射火焰", dmg: 18, buff: 0.05, desc: "傷害:18, 提升5%攻擊", type: "buff" }, { name: "火焰漩渦", dmg: 40, selfDmg: 0.1, desc: "傷害:40, 降低己方10%血量", type: "dmg" } ],
+        "皮卡丘": [ { name: "電光一閃", dmg: 5, buff: 0.05, desc: "傷害:5, 提升5%攻擊", type: "buff" }, { name: "十萬伏特", dmg: 8, desc: "傷害:8", type: "dmg" }, { name: "打雷", dmg: 15, selfDmg: 0.05, desc: "傷害:15, 降低己方5%血量", type: "dmg" } ],
+        "卡拉卡拉": [ { name: "骨頭迴力鏢", dmg: 8, buff: 0.05, desc: "傷害:8, 提升5%攻擊", type: "buff" }, { name: "泥巴射擊", dmg: 12, desc: "傷害:12", type: "dmg" }, { name: "挖洞", dmg: 4, heal: 0.2, desc: "傷害:4, 回復20%血量", type: "heal" } ],
+        "喵喵": [ { name: "抓", dmg: 12, debuff: 0.05, desc: "傷害:12, 降低對手5%攻擊", type: "dmg" }, { name: "撒嬌", dmg: 5, heal: 0.1, buff: 0.05, desc: "傷害:5, 回血10%並提升攻擊", type: "heal" }, { name: "欺詐", dmg: 10, desc: "傷害:10", type: "dmg" } ],
         "伊布": [ {name:"抓",dmg:24,debuff:0.05}, {name:"挖洞",dmg:6,heal:0.2}, {name:"高速星星",dmg:16} ],
         "大蔥鴨": [ {name:"空氣斬",dmg:20}, {name:"燕返",dmg:12,nextDmg:10}, {name:"葉刃",dmg:14,buff:0.1} ],
         "呆呆獸": [ {name:"水槍",dmg:24}, {name:"念力",dmg:16,buff:0.05}, {name:"精神衝擊",dmg:16,debuff:0.05} ],
@@ -261,34 +262,52 @@
         "幸福蛋": [ {name:"治療",dmg:5,heal:0.15}, {name:"撞擊",dmg:18}, {name:"瘋狂伏特",dmg:14,debuff:0.05} ],
         "default": [ { name: "撞擊", dmg: 10 }, { name: "猛撞", dmg: 15 }, { name: "休息", dmg: 0, heal: 0.1 } ]
     };
-    const ALL_POKEMON = { "妙蛙種子": {img: "https://img.pokemondb.net/artwork/large/bulbasaur.jpg"}, "小火龍": {img: "https://img.pokemondb.net/artwork/large/charmander.jpg"}, "傑尼龜": {img: "https://img.pokemondb.net/artwork/large/squirtle.jpg"}, "皮卡丘": {img: "https://img.pokemondb.net/artwork/large/pikachu.jpg"}, "卡拉卡拉": {img: "https://img.pokemondb.net/artwork/large/cubone.jpg"}, "喵喵": {img: "https://img.pokemondb.net/artwork/large/meowth.jpg"}, "伊布": {img: "https://img.pokemondb.net/artwork/large/eevee.jpg"}, "大蔥鴨": {img: "https://img.pokemondb.net/artwork/large/farfetchd.jpg"}, "呆呆獸": {img: "https://img.pokemondb.net/artwork/large/slowpoke.jpg"}, "可達鴨": {img: "https://img.pokemondb.net/artwork/large/psyduck.jpg"}, "毛辮羊": {img: "https://img.pokemondb.net/artwork/large/wooloo.jpg"}, "拉普拉斯": {img: "https://img.pokemondb.net/artwork/large/lapras.jpg"}, "吉利蛋": {img: "https://img.pokemondb.net/artwork/large/chansey.jpg"}, "幸福蛋": {img: "https://img.pokemondb.net/artwork/large/blissey.jpg"} };
+
+    const ALL_POKEMON = {
+        "妙蛙種子": {img: "https://img.pokemondb.net/artwork/large/bulbasaur.jpg"}, "小火龍": {img: "https://img.pokemondb.net/artwork/large/charmander.jpg"}, "傑尼龜": {img: "https://img.pokemondb.net/artwork/large/squirtle.jpg"}, "皮卡丘": {img: "https://img.pokemondb.net/artwork/large/pikachu.jpg"}, "卡拉卡拉": {img: "https://img.pokemondb.net/artwork/large/cubone.jpg"}, "喵喵": {img: "https://img.pokemondb.net/artwork/large/meowth.jpg"}, "伊布": {img: "https://img.pokemondb.net/artwork/large/eevee.jpg"}, "大蔥鴨": {img: "https://img.pokemondb.net/artwork/large/farfetchd.jpg"}, "呆呆獸": {img: "https://img.pokemondb.net/artwork/large/slowpoke.jpg"}, "可達鴨": {img: "https://img.pokemondb.net/artwork/large/psyduck.jpg"}, "毛辮羊": {img: "https://img.pokemondb.net/artwork/large/wooloo.jpg"}, "拉普拉斯": {img: "https://img.pokemondb.net/artwork/large/lapras.jpg"}, "吉利蛋": {img: "https://img.pokemondb.net/artwork/large/chansey.jpg"}, "幸福蛋": {img: "https://img.pokemondb.net/artwork/large/blissey.jpg"}
+    };
 
     createApp({
         setup() {
+            // 1. 定義響應式變數 (Refs)
             const user = ref(null);
             const token = localStorage.getItem('token');
             const monsters = ref([]);
             const players = ref([]);
             const logs = ref([]);
             const currentTab = ref('wild');
-            let socket = null;
-            let timerInterval = null;
-
             const battleState = ref({ isActive: false, mode: 'wild', target: null, turn: 'player', timer: 10, defenseCount: 2, isDefending: false, winner: null, shakeMe: false, shakeTarget: false, buffs: { me: 0, target: 0 }, leechSeed: { onMe: false, onTarget: false }, turnCount: 0 });
             const inviteState = ref({ show: false, senderId: null, senderName: '' });
             const gachaResult = ref({ show: false, prize: null, isNew: false });
+            
+            let socket = null;
+            let timerInterval = null;
 
+            // 🔥 2. 定義計算屬性 (Computed) - 移到這裡確保 myMoves 被定義 🔥
+            const myMoves = computed(() => {
+                if (!user.value) return [];
+                const name = user.value.pokemon_name || 'default';
+                return MOVES_DB[name] || MOVES_DB['default'];
+            });
+
+            const isMyTurn = computed(() => battleState.value.turn === 'player' && !battleState.value.winner);
+            
+            // 3. 檢查登入
             if (!token) window.location.href = 'login.html';
 
-            onMounted(async () => { await updateUserInfo(); await fetchMonsters(); await fetchPlayers(); connectWebSocket(); });
+            onMounted(async () => {
+                await updateUserInfo();
+                await fetchMonsters();
+                await fetchPlayers();
+                connectWebSocket();
+            });
 
-            // 核心邏輯
+            // --- 函式定義 ---
             const updateUserInfo = async () => {
                 try {
                     const res = await fetch(`${API_URL}/auth/me`, { headers: { 'Authorization': `Bearer ${token}` } });
                     if (res.ok) user.value = await res.json();
-                    else throw new Error("API Error");
-                } catch (e) { console.error(e); alert("無法取得使用者資料，請重新登入"); logout(); }
+                } catch (e) { console.error(e); }
             };
 
             const fetchMonsters = async () => {
@@ -308,25 +327,47 @@
                 } catch(e) { console.error(e); }
             };
 
-            // ... (其他戰鬥、Gacha、PVP 函式保持不變，直接沿用上面的版本) ...
-            const initBattle = (target, mode) => { clearInterval(timerInterval); if (target.hp <= 0) return alert("目標已經倒下了"); battleState.value = { isActive: true, mode: mode, target: JSON.parse(JSON.stringify(target)), turn: 'player', timer: 10, defenseCount: 2, isDefending: false, winner: null, shakeMe: false, shakeTarget: false, buffs: { me: 0, target: 0 }, leechSeed: { onMe: false, onTarget: false }, turnCount: 1 }; addLog(`⚔️ 戰鬥開始！遭遇了 [${target.name || target.username}]`); if (mode === 'wild') startTimer(); };
+            const initBattle = (target, mode) => {
+                clearInterval(timerInterval);
+                if (target.hp <= 0) return alert("目標已經倒下了");
+                battleState.value = {
+                    isActive: true, mode: mode, target: JSON.parse(JSON.stringify(target)),
+                    turn: 'player', timer: 10, defenseCount: 2, isDefending: false, winner: null,
+                    shakeMe: false, shakeTarget: false,
+                    buffs: { me: 0, target: 0 },
+                    leechSeed: { onMe: false, onTarget: false },
+                    turnCount: 1
+                };
+                addLog(`⚔️ 戰鬥開始！遭遇了 [${target.name || target.username}]`);
+                if (mode === 'wild') startTimer();
+            };
+
             const sendInvite = async (target) => { try { await fetch(`${API_URL.replace('/items', '')}/shop/duel/invite/${target.id}`, { method: 'POST', headers: { 'Authorization': `Bearer ${token}` } }); alert("邀請已發送"); } catch(e) { alert("邀請失敗"); } };
             const respondInvite = async (accept) => { const endpoint = accept ? 'accept' : 'reject'; inviteState.value.show = false; await fetch(`${API_URL.replace('/items', '')}/shop/duel/${endpoint}/${inviteState.value.senderId}`, { method: 'POST', headers: { 'Authorization': `Bearer ${token}` } }); };
-            const endBattle = async () => { clearInterval(timerInterval); if (battleState.value.mode === 'pvp' && battleState.value.target) await fetch(`${API_URL.replace('/items', '')}/shop/duel/end/${battleState.value.target.id}`, { method: 'POST', headers: { 'Authorization': `Bearer ${token}` } }); battleState.value.isActive = false; battleState.value.winner = null; battleState.value.target = null; fetchMonsters(); fetchPlayers(); updateUserInfo(); };
             
+            const endBattle = async () => {
+                clearInterval(timerInterval);
+                if (battleState.value.mode === 'pvp' && battleState.value.target) await fetch(`${API_URL.replace('/items', '')}/shop/duel/end/${battleState.value.target.id}`, { method: 'POST', headers: { 'Authorization': `Bearer ${token}` } });
+                battleState.value.isActive = false; battleState.value.winner = null; battleState.value.target = null;
+                fetchMonsters(); fetchPlayers(); updateUserInfo();
+            };
+
             const executePlayerMove = async (move) => {
                 if (!isMyTurn.value) return;
                 clearInterval(timerInterval);
                 addLog(`👊 你使用了 [${move.name}]！`);
                 let atkBonus = 1 + (battleState.value.buffs.me * 0.05);
                 let finalDmg = Math.floor((user.value.attack + move.dmg) * atkBonus) + Math.floor(Math.random() * 3);
+                
                 if(move.buff) { battleState.value.buffs.me++; showFloatingDamage('fighter-me', "ATK UP", false, true); }
                 if(move.heal) { const healAmt = Math.floor(user.value.max_hp * move.heal); user.value.hp = Math.min(user.value.max_hp, user.value.hp + healAmt); showFloatingDamage('fighter-me', healAmt, false, true); }
                 if(move.selfDmg) { const selfDmg = Math.floor(user.value.max_hp * move.selfDmg); user.value.hp = Math.max(0, user.value.hp - selfDmg); showFloatingDamage('fighter-me', selfDmg, false); }
                 if(move.seed) { battleState.value.leechSeed.onTarget = true; addLog(`🌱 對手被寄生了！`); }
+
                 battleState.value.shakeTarget = true; setTimeout(() => battleState.value.shakeTarget = false, 500);
                 if(move.dmg > 0) showFloatingDamage('fighter-target', finalDmg, false);
                 battleState.value.target.hp = Math.max(0, battleState.value.target.hp - finalDmg);
+
                 if (battleState.value.mode === 'wild') {
                     if (battleState.value.target.hp <= 0) await fetch(`${API_URL}/items/wild/attack`, { method: 'POST', headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' }, body: JSON.stringify({ monster_name: battleState.value.target.name, is_dead: true }) });
                     checkWinCondition();
@@ -336,12 +377,28 @@
                     battleState.value.turn = 'enemy';
                 }
             };
+
             const executeDefense = () => { if (battleState.value.defenseCount <= 0) return; clearInterval(timerInterval); battleState.value.defenseCount--; battleState.value.isDefending = true; addLog(`🛡️ 你採取了防禦架勢！`); battleState.value.turn = 'enemy'; if(battleState.value.mode === 'wild') setTimeout(executeEnemyTurn, 1500); else fetch(`${API_URL.replace('/items', '')}/shop/pvp/${battleState.value.target.id}`, { method: 'POST', headers: { 'Authorization': `Bearer ${token}` } }); };
             const executeEnemyTurn = () => { if (battleState.value.winner) return; const enemyName = battleState.value.target.name.split('(')[0].trim(); const moves = MOVES_DB[enemyName] || MOVES_DB['default']; const move = moves[Math.floor(Math.random() * moves.length)]; addLog(`⚠️ 對手 [${enemyName}] 使用了 [${move.name}]！`); let dmg = move.dmg + 5; if (battleState.value.isDefending) dmg = Math.floor(dmg * 0.5); showFloatingDamage('fighter-me', dmg, true); user.value.hp = Math.max(0, user.value.hp - dmg); checkWinCondition(); if (!battleState.value.winner) { battleState.value.turn = 'player'; battleState.value.turnCount++; applyTurnEffects(); startTimer(); } };
             const startTimer = () => { clearInterval(timerInterval); battleState.value.timer = 10; timerInterval = setInterval(() => { if (!battleState.value.isActive) { clearInterval(timerInterval); return; } battleState.value.timer--; if (battleState.value.timer <= 0) { clearInterval(timerInterval); addLog("⏰ 時間到！回合跳過！"); if(battleState.value.mode === 'wild') { battleState.value.turn = 'enemy'; setTimeout(executeEnemyTurn, 1000); } else { fetch(`${API_URL.replace('/items', '')}/shop/pvp/${battleState.value.target.id}`, { method: 'POST', headers: { 'Authorization': `Bearer ${token}` } }); battleState.value.turn = 'enemy'; } } }, 1000); };
             const checkWinCondition = () => { if (battleState.value.target.hp <= 0) { battleState.value.winner = 'player'; clearInterval(timerInterval); return true; } else if (user.value.hp <= 0) { battleState.value.winner = 'enemy'; clearInterval(timerInterval); return true; } return false; };
             const applyTurnEffects = () => { if(battleState.value.winner || !battleState.value.isActive) return; if (battleState.value.turnCount % 2 === 0) { const dmg = 6; if(battleState.value.leechSeed.onTarget) { battleState.value.target.hp = Math.max(0, battleState.value.target.hp - dmg); showFloatingDamage('fighter-target', dmg, false); } if(battleState.value.leechSeed.onMe) { user.value.hp = Math.max(0, user.value.hp - dmg); showFloatingDamage('fighter-me', dmg, false); } } };
-            const connectWebSocket = () => { socket = new WebSocket(`${WS_URL}?token=${token}`); socket.onopen = () => setInterval(() => { if(socket.readyState===1) socket.send("ping"); }, 30000); socket.onmessage = (event) => { const msg = event.data; const parts = msg.split("|"); if (msg.startsWith("EVENT:DUEL_INVITE")) { if (parseInt(parts[3]) === user.value.id) inviteState.value = { show: true, senderId: parts[1], senderName: parts[2] }; } else if (msg.startsWith("EVENT:DUEL_START")) { const p1Id = parseInt(parts[1]); const p2Id = parseInt(parts[3]); if (user.value.id === p1Id || user.value.id === p2Id) { inviteState.value.show = false; const opponentId = (user.value.id === p1Id) ? p2Id : p1Id; fetchPlayers().then(() => { const opponent = players.value.find(p => p.id === opponentId); if(opponent) { initBattle(opponent, 'pvp'); battleState.value.turn = (user.value.id === p1Id) ? 'player' : 'enemy'; if(battleState.value.turn === 'player') startTimer(); } else { initBattle({ id: opponentId, username: "對手", hp: 100, max_hp: 100, pokemon_image: "https://via.placeholder.com/200" }, 'pvp'); } }); } return; } else if (msg.startsWith("EVENT:DUEL_REJECT")) { if (parseInt(parts[3]) === user.value.id) alert("對方拒絕了挑戰"); } else if (msg.startsWith("EVENT:PVP_MOVE")) { const targetId = parseInt(parts[2]); if (battleState.value.isActive && user.value.id === targetId) { fetchPlayers().then(() => { const me = players.value.find(p => p.id === user.value.id); if(me) user.value.hp = me.hp; const attackerId = parseInt(parts[1]); const opp = players.value.find(p => p.id === attackerId); if(opp) battleState.value.target.hp = opp.hp; showFloatingDamage('fighter-me', "受傷", true); checkWinCondition(); if (!battleState.value.winner) { battleState.value.turn = 'player'; battleState.value.turnCount++; applyTurnEffects(); startTimer(); } }); } } fetchMonsters(); fetchPlayers(); updateUserInfo(); }; socket.onclose = () => setTimeout(connectWebSocket, 3000); };
+            
+            const connectWebSocket = () => {
+                socket = new WebSocket(`${WS_URL}?token=${token}`);
+                socket.onopen = () => setInterval(() => { if(socket.readyState===1) socket.send("ping"); }, 30000);
+                socket.onmessage = (event) => {
+                    const msg = event.data;
+                    const parts = msg.split("|");
+                    if (msg.startsWith("EVENT:DUEL_INVITE")) { if (parseInt(parts[3]) === user.value.id) inviteState.value = { show: true, senderId: parts[1], senderName: parts[2] }; }
+                    else if (msg.startsWith("EVENT:DUEL_START")) { const p1Id = parseInt(parts[1]); const p2Id = parseInt(parts[3]); if (user.value.id === p1Id || user.value.id === p2Id) { inviteState.value.show = false; const opponentId = (user.value.id === p1Id) ? p2Id : p1Id; fetchPlayers().then(() => { const opponent = players.value.find(p => p.id === opponentId); if(opponent) { initBattle(opponent, 'pvp'); battleState.value.turn = (user.value.id === p1Id) ? 'player' : 'enemy'; if(battleState.value.turn === 'player') startTimer(); } else { initBattle({ id: opponentId, username: "對手", hp: 100, max_hp: 100, pokemon_image: "https://via.placeholder.com/200" }, 'pvp'); } }); } return; }
+                    else if (msg.startsWith("EVENT:DUEL_REJECT")) { if (parseInt(parts[3]) === user.value.id) alert("對方拒絕了挑戰"); }
+                    else if (msg.startsWith("EVENT:PVP_MOVE")) { const targetId = parseInt(parts[2]); if (battleState.value.isActive && user.value.id === targetId) { fetchPlayers().then(() => { const me = players.value.find(p => p.id === user.value.id); if(me) user.value.hp = me.hp; const attackerId = parseInt(parts[1]); const opp = players.value.find(p => p.id === attackerId); if(opp) battleState.value.target.hp = opp.hp; showFloatingDamage('fighter-me', "受傷", true); checkWinCondition(); if (!battleState.value.winner) { battleState.value.turn = 'player'; battleState.value.turnCount++; applyTurnEffects(); startTimer(); } }); } }
+                    fetchMonsters(); fetchPlayers(); updateUserInfo();
+                };
+                socket.onclose = () => setTimeout(connectWebSocket, 3000);
+            };
+
             const playGacha = async (type) => { const res = await fetch(`${API_URL.replace('/items', '')}/shop/gacha/${type}`, { method: 'POST', headers: { 'Authorization': `Bearer ${token}` } }); const data = await res.json(); if(res.ok) { gachaResult.value = { show: true, prize: data.prize, isNew: data.is_new }; updateUserInfo(); } else { alert(data.detail); } };
             const confirmSwap = async (swap) => { if (swap) { await fetch(`${API_URL.replace('/items', '')}/shop/swap/${gachaResult.value.prize.name}`, { method: 'POST', headers: { 'Authorization': `Bearer ${token}` } }); alert("變身成功！"); } gachaResult.value.show = false; updateUserInfo(); };
             const swapFromDex = async (name) => { if (!isUnlocked(name)) return alert("尚未解鎖！"); if (confirm(`要變身成 ${name} 嗎？`)) { await fetch(`${API_URL.replace('/items', '')}/shop/swap/${name}`, { method: 'POST', headers: { 'Authorization': `Bearer ${token}` } }); alert("變身成功！"); updateUserInfo(); } };
@@ -350,13 +407,20 @@
             const logout = () => { localStorage.clear(); window.location.href = 'login.html'; };
             const addLog = (msg) => { logs.value.unshift(msg); if(logs.value.length > 50) logs.value.pop(); };
             const hpPercent = (u) => Math.max(0, (u.hp / u.max_hp) * 100);
-            const xpPercent = (u) => Math.min(100, (u.exp / u.next_level_exp) * 100); // XP 百分比
+            const xpPercent = (u) => Math.min(100, (u.exp / (u.next_level_exp || 9999)) * 100);
             const hpColor = (u) => { const p = hpPercent(u); return p < 30 ? '#e74c3c' : (p < 60 ? '#f1c40f' : '#2ecc71'); };
             const showFloatingDamage = (elementId, value, isCrit, isHeal = false) => { const card = document.getElementById(elementId); if (!card) return; const rect = card.getBoundingClientRect(); const el = document.createElement('div'); el.className = 'floating-damage'; el.innerText = isHeal ? `+${value}` : (isCrit ? `💥 ${value}` : `-${value}`); el.style.left = `${rect.left + rect.width/2}px`; el.style.top = `${rect.top}px`; if(isCrit) { el.style.fontSize='36px'; el.style.color='#e74c3c'; } if(isHeal) { el.style.color='#2ecc71'; } document.body.appendChild(el); setTimeout(() => el.remove(), 800); };
+            const getMoveClass = (move) => { if (move.type === 'buff') return 'move-buff'; if (move.type === 'heal') return 'move-heal'; return 'move-damage'; };
             
             watch(currentTab, (newTab) => { if(newTab === 'wild') fetchMonsters(); if(newTab === 'arena') fetchPlayers(); });
 
-            return { user, monsters, players, logs, currentTab, battleState, myMoves, isMyTurn, inviteState, gachaResult, ALL_POKEMON, hpPercent, xpPercent, hpColor, logout, initBattle, executePlayerMove, executeDefense, endBattle, playGacha, buyHeal, getMoveClass, sendInvite, respondInvite, confirmSwap, swapFromDex, isUnlocked };
+            return {
+                user, monsters, players, logs, currentTab, battleState, 
+                // 🔥 確保這裡有 myMoves 🔥
+                myMoves, isMyTurn, inviteState, gachaResult, ALL_POKEMON, 
+                hpPercent, xpPercent, hpColor, logout, initBattle, executePlayerMove, executeDefense, endBattle, 
+                playGacha, buyHeal, getMoveClass, sendInvite, respondInvite, confirmSwap, swapFromDex, isUnlocked
+            };
         }
     }).mount('#app');
 </script>
