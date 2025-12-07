@@ -92,3 +92,20 @@ async def attack_player(
     await manager.broadcast(msg)
     
     return {"message": "攻擊成功"}
+
+# 🔥 新增：發起決鬥 API 🔥
+@router.post("/duel/start/{target_id}")
+async def start_duel_api(
+    target_id: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    target = db.query(User).filter(User.id == target_id).first()
+    if not target: raise HTTPException(status_code=404, detail="找不到對手")
+    
+    # 廣播決鬥開始訊號 (格式自訂，前端要看得懂)
+    # 格式：EVENT:DUEL_START|發起者ID|發起者名字|受害者ID|受害者名字
+    msg = f"EVENT:DUEL_START|{current_user.id}|{current_user.username}|{target.id}|{target.username}"
+    await manager.broadcast(msg)
+    
+    return {"message": "決鬥請求已發送"}

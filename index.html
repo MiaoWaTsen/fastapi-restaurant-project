@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>⚡️ 寶可夢大亂鬥 (Vue熱血版) ⚡️</title>
+    <title>⚡️ 寶可夢大亂鬥 (Vue同步版) ⚡️</title>
     <script src="https://unpkg.com/vue@3/dist/vue.global.js"></script>
     
     <style>
@@ -75,8 +75,8 @@
         }
         .duel-card {
             width: 45%; max-width: 300px;
-            transform: scale(1.1); /* 比普通卡片大一點 */
-            box-shadow: 0 0 30px rgba(231, 76, 60, 0.5); /* 發光特效 */
+            transform: scale(1.1); 
+            box-shadow: 0 0 30px rgba(231, 76, 60, 0.5); 
         }
         .vs-text {
             font-size: 5em; font-weight: bold; color: #f1c40f;
@@ -107,7 +107,7 @@
         @keyframes pulse-vs { from { transform: scale(1); } to { transform: scale(1.1); } }
         @keyframes pulse-btn { 0% { box-shadow: 0 0 0 0 rgba(241, 196, 15, 0.7); } 70% { box-shadow: 0 0 0 20px rgba(241, 196, 15, 0); } 100% { box-shadow: 0 0 0 0 rgba(241, 196, 15, 0); } }
 
-        @media (max-width: 768px) { .game-area { flex-direction: column-reverse; } }
+        @media (max-width: 768px) { .game-area { flex-direction: column-reverse; } .duel-arena { flex-direction: column; gap: 20px; } .duel-card { width: 80%; } }
     </style>
 </head>
 <body>
@@ -290,19 +290,49 @@
                     setInterval(() => { if(socket.readyState === 1) socket.send("ping"); }, 30000);
                 };
                 socket.onmessage = (event) => {
-                    addLog(`<span style="color: #4cc9f0;">📡 ${event.data}</span>`);
+                    const msg = event.data;
+
+                    // 🔥 1. 處理特殊事件：決鬥開始 🔥
+                    if (msg.startsWith("EVENT:DUEL_START")) {
+                        const parts = msg.split("|"); 
+                        const p1Id = parseInt(parts[1]);
+                        const p2Id = parseInt(parts[3]);
+
+                        // 如果我是當事人之一
+                        if (user.value.id === p1Id || user.value.id === p2Id) {
+                            isDueling.value = true;
+                            const opponentId = (user.value.id === p1Id) ? p2Id : p1Id;
+                            
+                            // 重新抓取玩家資料，找出對手物件
+                            fetchPlayers().then(() => {
+                                const opponent = players.value.find(p => p.id === opponentId);
+                                if (opponent) {
+                                    duelTarget.value = opponent;
+                                    addLog(`⚔️ 宿命對決開始！對手是 [${opponent.username}]`);
+                                }
+                            });
+                        }
+                        return; // 不顯示在普通戰報
+                    }
+
+                    // 2. 普通戰報
+                    addLog(`<span style="color: #4cc9f0;">📡 ${msg}</span>`);
                     
-                    // 收到廣播時，如果正在決鬥，更新對手資料
+                    // 3. 同步資料
+                    // 🔥 關鍵修正：如果正在決鬥，必須同步更新介面上的 duelTarget 🔥
                     if (isDueling.value && duelTarget.value) {
                          fetchPlayers().then(() => {
                              const updatedTarget = players.value.find(p => p.id === duelTarget.value.id);
-                             if(updatedTarget) duelTarget.value = updatedTarget;
+                             if(updatedTarget) duelTarget.value = updatedTarget; // 這會觸發 Vue 畫面更新
+                             if(updatedTarget.hp <= 0) showFloatingDamage('duel-target-card', "K.O.", true, true);
                          });
+                         // 也要更新自己
+                         updateUserInfo();
                     }
 
                     fetchMonsters();
                     if(currentTab.value === 'arena') fetchPlayers();
-                    updateUserInfo();
+                    // updateUserInfo(); // 上面已經更新過了
                 };
                 socket.onclose = () => setTimeout(connectWebSocket, 3000);
             };
@@ -310,43 +340,48 @@
             // --- 戰鬥相關 ---
             const attackMonster = async (monster) => {
                 if(monster.hp <= 0) return;
-                // 前端預覽傷害 (視覺用)
                 const isCrit = Math.random() < 0.3;
                 const bonus = Math.floor(Math.random() * user.value.attack);
                 const dmg = isCrit ? (user.value.attack + bonus) * 2 : (user.value.attack + bonus);
+                
                 showFloatingDamage(`card-monster-${monster.id}`, dmg, isCrit);
                 
-                // 呼叫後端 API (實際傷害由後端計算)
-                // 為了觸發後端的反擊邏輯，我們傳送一個 dummy hp (只要不是 None 就好)
-                // 更好的做法是後端開一個專門的 attack endpoint
+                // 視覺預扣
+                monster.hp = Math.max(0, monster.hp - dmg);
+
                 const res = await fetch(`${API_URL}/items/${monster.id}`, {
                     method: 'PUT',
                     headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ hp: monster.hp }) // 這裡後端會忽略數值，只看有沒有傳
+                    body: JSON.stringify({ hp: monster.hp })
                 });
             };
 
-            // 🔥 🆕 開始決鬥 (進入場景) 🔥
-            const startDuel = (target) => {
-                duelTarget.value = target;
-                isDueling.value = true;
-                addLog(`⚔️ 與 [${target.username}] 的宿命對決開始了！`);
+            // 🔥 發起決鬥 (呼叫後端) 🔥
+            const startDuel = async (target) => {
+                try {
+                    await fetch(`${API_URL.replace('/items', '')}/shop/duel/start/${target.id}`, {
+                        method: 'POST',
+                        headers: { 'Authorization': `Bearer ${token}` }
+                    });
+                } catch (e) { console.error(e); }
             };
 
-            // 🔥 🆕 執行決鬥攻擊 (在場景內) 🔥
+            // 🔥 執行決鬥攻擊 🔥
             const executeDuelAttack = async () => {
                 if(!duelTarget.value || duelTarget.value.hp <= 0) return;
 
                 // 視覺特效
                 const targetCard = document.getElementById('duel-target-card');
-                targetCard.classList.remove('duel-shake-heavy');
-                void targetCard.offsetWidth; 
-                targetCard.classList.add('duel-shake-heavy');
-                showFloatingDamage('duel-target-card', "PVP衝擊!", true, true); // 大傷害特效
+                if(targetCard) {
+                    targetCard.classList.remove('duel-shake-heavy');
+                    void targetCard.offsetWidth; 
+                    targetCard.classList.add('duel-shake-heavy');
+                }
+                showFloatingDamage('duel-target-card', "PVP衝擊!", true, true);
 
-                // 呼叫 API
-                const res = await fetch(`${API_URL}/shop/pvp/${duelTarget.value.id}`, {
-                    method: 'POST', headers: { 'Authorization': `Bearer ${token}` }
+                const res = await fetch(`${API_URL.replace('/items', '')}/shop/pvp/${duelTarget.value.id}`, {
+                    method: 'POST',
+                    headers: { 'Authorization': `Bearer ${token}` }
                 });
                 if(!res.ok) {
                     const err = await res.json();
@@ -354,7 +389,6 @@
                 }
             };
 
-            // 🔥 🆕 結束決鬥 🔥
             const endDuel = () => {
                 isDueling.value = false;
                 duelTarget.value = null;
@@ -363,21 +397,29 @@
 
             // --- 商店相關 ---
             const playGacha = async () => {
-                const res = await fetch(`${API_URL}/shop/gacha`, { method: 'POST', headers: { 'Authorization': `Bearer ${token}` } });
+                const res = await fetch(`${API_URL.replace('/items', '')}/shop/gacha`, { method: 'POST', headers: { 'Authorization': `Bearer ${token}` } });
                 const data = await res.json();
                 if(res.ok) { alert(`🎉 ${data.message}`); updateUserInfo(); } else { alert(data.detail); }
             };
 
             const buyHeal = async () => {
-                const res = await fetch(`${API_URL}/shop/heal`, { method: 'POST', headers: { 'Authorization': `Bearer ${token}` } });
+                const res = await fetch(`${API_URL.replace('/items', '')}/shop/heal`, { method: 'POST', headers: { 'Authorization': `Bearer ${token}` } });
                 if(res.ok) { alert("補血成功！"); updateUserInfo(); } else { alert("金幣不足"); }
             };
 
             // --- 工具 ---
             const logout = () => { localStorage.clear(); window.location.href = 'login.html'; };
-            const addLog = (msg) => { logs.value.unshift(msg); if(logs.value.length > 50) logs.value.pop(); };
+            
+            const addLog = (msg) => {
+                logs.value.unshift(msg);
+                if(logs.value.length > 50) logs.value.pop();
+            };
+
             const hpPercent = (u) => Math.max(0, (u.hp / u.max_hp) * 100);
-            const hpColor = (u) => { const p = hpPercent(u); return p < 30 ? '#e74c3c' : (p < 60 ? '#f1c40f' : '#2ecc71'); };
+            const hpColor = (u) => {
+                const p = hpPercent(u);
+                return p < 30 ? '#e74c3c' : (p < 60 ? '#f1c40f' : '#2ecc71');
+            };
 
             const showFloatingDamage = (elementId, value, isCrit, isMega = false) => {
                 const card = document.getElementById(elementId);
@@ -401,9 +443,9 @@
 
             return {
                 user, monsters, players, logs, currentTab, 
-                isDueling, duelTarget, // 輸出新狀態
+                isDueling, duelTarget, 
                 hpPercent, hpColor, logout, attackMonster, 
-                startDuel, executeDuelAttack, endDuel, // 輸出新函式
+                startDuel, executeDuelAttack, endDuel, 
                 playGacha, buyHeal
             };
         }
