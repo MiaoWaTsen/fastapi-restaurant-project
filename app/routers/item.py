@@ -2,100 +2,113 @@
 
 from fastapi import APIRouter, Depends, HTTPException
 from typing import List
-import random 
+from pydantic import BaseModel
+import random
 
-from app.services.item_service import ItemService
-from app.common.deps import get_item_service, get_current_user
-from app.models.item import ItemRead, ItemCreate, ItemUpdate
+from app.db.session import get_db
 from app.models.user import User
-from app.common.websocket import manager 
+from app.common.deps import get_current_user
+# 為了避免循環匯入，我們在這裡簡單重寫升級邏輯，或者從 auth 匯入
+# 假設 auth.py 裡有 check_levelup，這裡為了獨立性，我直接寫在下面
 
 router = APIRouter()
 
-@router.post("/", response_model=ItemRead)
-def create_item(item_in: ItemCreate, service: ItemService = Depends(get_item_service)):
-    return service.create_item(item_in)
+# --- 🌲 野怪資料 (PDF source: 6-20) ---
+WILD_DATA = [
+    {"name": "皮卡丘", "base_hp": 80, "base_xp": 25, "base_gold": 55, "img": "https://img.pokemondb.net/artwork/large/pikachu.jpg"},
+    {"name": "卡拉卡拉", "base_hp": 50, "base_xp": 25, "base_gold": 55, "img": "https://img.pokemondb.net/artwork/large/cubone.jpg"},
+    {"name": "喵喵", "base_hp": 70, "base_xp": 25, "base_gold": 55, "img": "https://img.pokemondb.net/artwork/large/meowth.jpg"}
+]
 
-@router.get("/", response_model=List[ItemRead])
-def read_items(service: ItemService = Depends(get_item_service)):
-    return service.get_all_items()
+# 升級經驗表 (PDF source: 36-44)
+LEVEL_XP = {
+    1: 50, 2: 100, 3: 200, 4: 350, 5: 600, 
+    6: 1000, 7: 1800, 8: 3000
+}
 
-@router.get("/{item_id}", response_model=ItemRead)
-def read_item(item_id: int, service: ItemService = Depends(get_item_service)):
-    db_item = service.get_item(item_id=item_id)
-    if db_item is None: raise HTTPException(status_code=404, detail="Item not found")
-    return db_item
+def check_levelup(user: User):
+    """檢查並執行升級 (PDF source: 45)"""
+    required_xp = LEVEL_XP.get(user.level, 999999)
+    if user.exp >= required_xp:
+        user.level += 1
+        user.exp -= required_xp
+        # 升級獎勵: 最大血量*1.4 (四雪五入取整), 攻擊力*1.5
+        user.max_hp = int(user.max_hp * 1.4)
+        user.hp = user.max_hp # 升級補滿
+        user.attack = int(user.attack * 1.5)
+        return True
+    return False
 
-@router.put("/{item_id}", response_model=ItemRead)
-async def update_item(
-    item_id: int,
-    item_in: ItemUpdate,
-    service: ItemService = Depends(get_item_service),
+# --- API ---
+
+# 1. 取得野怪列表 (動態生成，不存資料庫)
+@router.get("/wild")
+def get_wild_monsters(current_user: User = Depends(get_current_user)):
+    monsters = []
+    level = current_user.level
+    
+    # 規則：每種怪各生成 1 + (level-1) 隻 -> 其實就是 level 隻 (PDF source: 4-5)
+    # PDF 說初始各2隻，之後每升1級各多1隻 => 數量 = 1 + level
+    count = 1 + level 
+    
+    monster_id_counter = 1
+    
+    for m_data in WILD_DATA:
+        for i in range(count):
+            # 野怪強度隨等級上升 (PDF source: 3)
+            # 這裡假設野怪等級跟隨玩家等級，係數設為 1.1
+            hp = int(m_data["base_hp"] * (1.1 ** (level-1)))
+            
+            monsters.append({
+                "id": monster_id_counter, # 這是臨時ID，只給前端識別用
+                "name": f"{m_data['name']} (Lv.{level})",
+                "hp": hp,
+                "max_hp": hp,
+                "attack": int(5 * (1.1 ** (level-1))), # 基礎攻擊力估算
+                "image_url": m_data["img"],
+                # 這裡把獎勵基礎值傳給前端參考，但實際結算在後端
+                "base_xp": m_data["base_xp"], 
+                "base_gold": m_data["base_gold"]
+            })
+            monster_id_counter += 1
+            
+    return monsters
+
+# 2. 攻擊野怪結算
+class AttackWildSchema(BaseModel):
+    monster_name: str # 用名字來判斷是哪種怪
+    is_dead: bool
+
+@router.post("/wild/attack")
+async def attack_wild(
+    data: AttackWildSchema,
+    db: Session = Depends(get_db), # 這裡要用 db 來存 User 的變更
     current_user: User = Depends(get_current_user)
 ):
-    updated_monster = service.update_item(item_id, item_in)
-    if updated_monster is None:
-        raise HTTPException(status_code=404, detail="Monster not found")
+    msg = ""
     
-    # 如果是攻擊行為 (有傳送 hp 變更)
-    if item_in.hp is not None:
+    # 如果野怪死了，計算獎勵
+    if data.is_dead:
+        # 根據名字判斷基礎數值 (簡單 parse)
+        base_xp = 25
+        base_gold = 55
         
-        # 1. 怪獸反擊！(扣玩家血量)
-        # 傷害公式：怪獸攻擊力 + (-5 ~ +5 浮動)
-        monster_dmg = max(1, updated_monster.attack + random.randint(-5, 5))
-        current_user.hp = max(0, current_user.hp - monster_dmg)
+        # PDF 公式: 25 + (lv * 5) 
+        # 这里的 lv 指的是野怪等級，也就是玩家等級
+        lv = current_user.level
         
-        # 廣播戰報 (雙方受傷)
-        msg = f"⚔️ 交戰：[{current_user.username}] 對 [{updated_monster.name}] 造成傷害，但也被反擊受了 {monster_dmg} 點傷！"
-        await manager.broadcast(msg)
-
-        # 2. 玩家死亡判定
-        if current_user.hp <= 0:
-            current_user.money = int(current_user.money * 0.8) # 死亡懲罰：掉 20% 錢
-            current_user.hp = current_user.max_hp # 免費復活但回城
-            await manager.broadcast(f"⚰️ 悲報：勇者 [{current_user.username}] 被野怪打死，噴了 20% 金幣...")
-
-        # 3. 玩家獲得經驗 (沒死才有)
-        else:
-            exp_gain = 10
-            current_user.exp += exp_gain
-            if current_user.exp >= 100:
-                current_user.level += 1
-                current_user.exp = 0 
-                current_user.max_hp += 50
-                current_user.hp = current_user.max_hp
-                current_user.attack += 5
-                await manager.broadcast(f"🎉 升級！勇者 [{current_user.username}] 升到了 {current_user.level} 等！")
-
-        # 儲存玩家狀態 (扣血/升級/扣錢)
-        service.db.add(current_user)
-
-        # 4. 怪獸死亡與轉生 (保持原本邏輯)
-        if updated_monster.hp <= 0:
-            gold_drop = random.randint(50, 100)
-            current_user.money += gold_drop
+        xp_gain = base_xp + (lv * 5)
+        gold_gain = base_gold + (lv * 5)
+        
+        current_user.exp += xp_gain
+        current_user.money += gold_gain
+        msg = f"擊敗 {data.monster_name}！獲得 {xp_gain} XP, {gold_gain} Gold"
+        
+        # 檢查升級
+        if check_levelup(current_user):
+            msg += f" 🎉 升級了！(Lv.{current_user.level})"
             
-            await manager.broadcast(f"💀 擊殺：[{updated_monster.name}] 倒下！[{current_user.username}] 獲得 {gold_drop} G！")
-            
-            new_max_hp = int(updated_monster.max_hp * 1.2)
-            new_attack = int(updated_monster.attack * 1.1)
-            
-            revive_data = ItemUpdate(
-                hp=new_max_hp, max_hp=new_max_hp, attack=new_attack,
-                description=f"更強的 {updated_monster.name} (Lv Up) 復活了！"
-            )
-            revived_monster = service.update_item(item_id, revive_data)
-            await manager.broadcast(f"⚠️ 警告：[{revived_monster.name}] 轉生復活！")
-            
-            service.db.commit()
-            return revived_monster # 回傳滿血怪獸
-
-        service.db.commit()
+        db.add(current_user)
+        db.commit()
     
-    return updated_monster
-
-@router.delete("/{item_id}")
-def delete_item(item_id: int, service: ItemService = Depends(get_item_service)):
-    deleted_item = service.delete_item(item_id)
-    if deleted_item is None: raise HTTPException(status_code=404, detail="Item not found")
-    return {"message": "Item deleted successfully", "id": item_id}
+    return {"message": msg, "user": current_user}

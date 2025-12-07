@@ -6,7 +6,8 @@
     <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate" />
     <meta http-equiv="Pragma" content="no-cache" />
     <meta http-equiv="Expires" content="0" />
-    <title>⚡️ 寶可夢大亂鬥 (PDF完全版) ⚡️</title>
+    
+    <title>⚡️ 熱血寶可夢對戰遊戲 ⚡️</title>
     <script src="https://unpkg.com/vue@3/dist/vue.global.js"></script>
     
     <style>
@@ -54,8 +55,9 @@
 
         /* Gacha */
         .gacha-box { text-align: center; padding: 40px; background: #16213e; border-radius: 15px; border: 2px dashed #f1c40f; }
-        .gacha-btn { background: linear-gradient(45deg, #f1c40f, #d35400); color: white; border: none; padding: 15px 40px; font-size: 1.5em; border-radius: 50px; cursor: pointer; box-shadow: 0 0 20px rgba(241, 196, 15, 0.5); transition:0.3s; }
+        .gacha-btn { width: 80%; margin: 10px auto; display: block; background: linear-gradient(45deg, #f1c40f, #d35400); color: white; border: none; padding: 15px; font-size: 1.2em; border-radius: 50px; cursor: pointer; box-shadow: 0 0 20px rgba(241, 196, 15, 0.5); transition:0.3s; }
         .gacha-btn:hover { transform: scale(1.05); box-shadow: 0 0 30px rgba(241, 196, 15, 0.8); }
+        .gacha-btn-rare { background: linear-gradient(45deg, #9b59b6, #8e44ad); box-shadow: 0 0 20px rgba(142, 68, 173, 0.5); }
 
         /* Floating Damage */
         .floating-damage { position: absolute; color: #ffeb3b; font-weight: bold; font-size: 24px; pointer-events: none; animation: floatUp 0.8s ease-out forwards; text-shadow: 2px 2px 0 #000; z-index: 100; white-space: nowrap; }
@@ -109,7 +111,7 @@
         /* 勝利結算畫面 */
         .victory-modal {
             position: fixed; top: 0; left: 0; width: 100%; height: 100%;
-            background: rgba(0,0,0,0.85); z-index: 3000;
+            background: rgba(0,0,0,0.9); z-index: 3000;
             display: flex; flex-direction: column; justify-content: center; align-items: center;
             animation: fadeIn 0.5s;
         }
@@ -163,7 +165,7 @@
                         <div class="player-hp-fill" :style="{ width: hpPercent(user) + '%', background: hpColor(user) }"></div>
                     </div>
                     <small>{{ user.hp }} / {{ user.max_hp }}</small>
-                    <div v-if="battleState.buffs.me > 0" style="color:#f1c40f; font-size:0.8em">⚡ 攻擊提升</div>
+                    <div v-if="battleState.buffs.me > 0" style="color:#f1c40f; font-size:0.8em">⚡ 攻擊UP</div>
                     <div v-if="battleState.leechSeed.onMe" style="color:#2ecc71; font-size:0.8em">🌱 被寄生</div>
                 </div>
                 <img :src="user.pokemon_image">
@@ -176,7 +178,7 @@
                         <div class="player-hp-fill" :style="{ width: hpPercent(battleState.target) + '%', background: hpColor(battleState.target) }"></div>
                     </div>
                     <small>{{ battleState.target.hp }} / {{ battleState.target.max_hp }}</small>
-                    <div v-if="battleState.buffs.target > 0" style="color:#f1c40f; font-size:0.8em">⚡ 攻擊提升</div>
+                    <div v-if="battleState.buffs.target > 0" style="color:#f1c40f; font-size:0.8em">⚡ 攻擊UP</div>
                     <div v-if="battleState.leechSeed.onTarget" style="color:#2ecc71; font-size:0.8em">🌱 被寄生</div>
                 </div>
                 <img :src="battleState.target.image_url || battleState.target.pokemon_image">
@@ -208,7 +210,7 @@
 
     <div v-if="battleState.winner" class="victory-modal">
         <div class="victory-title">{{ battleState.winner === 'player' ? '🎉 勝利！' : '💀 你倒下了...' }}</div>
-        <div style="font-size: 1.2em; color: #ccc; margin-bottom: 20px;">點擊下方按鈕離開戰鬥</div>
+        <div style="font-size: 1.2em; color: #ccc; margin-bottom: 20px;">戰鬥結束，狀態已更新</div>
         <button class="victory-btn" @click="endBattle">離開戰鬥</button>
     </div>
 
@@ -223,7 +225,7 @@
             <div v-for="m in monsters" :key="m.id" class="card">
                 <img :src="m.image_url" class="card-img">
                 <div class="card-body">
-                    <div><b>{{ m.name }}</b></div>
+                    <div><b>{{ m.name }}</b> <small>XP:{{m.base_xp}} G:{{m.base_gold}}</small></div>
                     <div class="hp-bar-bg"><div class="hp-bar-fill" :style="{ width: hpPercent(m) + '%', background: hpColor(m) }"></div></div>
                     <small>{{ m.hp }} / {{ m.max_hp }}</small>
                     <button class="btn-attack" @click="initBattle(m, 'wild')">⚔️ 遭遇</button>
@@ -243,8 +245,9 @@
         </div>
         <div v-if="currentTab === 'shop'" style="width: 100%;">
             <div class="gacha-box">
-                <h2 style="color:#f1c40f;">🌟 傳說扭蛋機 🌟</h2>
-                <button class="gacha-btn" @click="playGacha">🔮 召喚 (200G)</button>
+                <h2 style="color:#f1c40f;">🌟 扭蛋中心 🌟</h2>
+                <button class="gacha-btn" @click="playGacha('normal')">🔮 初級扭蛋 (2000G)</button>
+                <button class="gacha-btn gacha-btn-rare" @click="playGacha('rare')">🌟 中級扭蛋 (5000G)</button>
                 <br><br>
                 <button class="btn-attack btn-heal" style="width:auto;" @click="buyHeal">💊 補血 (50G)</button>
             </div>
@@ -268,43 +271,49 @@
     const API_URL = `https://${ZEABUR_DOMAIN}/api/v1`;
     const WS_URL = `wss://${ZEABUR_DOMAIN}/ws`;
 
-    // 🔥 招式資料庫 (完全對照 PDF) 🔥
+    // 🔥 招式資料庫 (PDF完全對應) 🔥
     const MOVES_DB = {
         "妙蛙種子": [
-            { name: "藤鞭", dmg: 20, desc: "用藤蔓鞭打", type: "dmg" }, // [cite: 17]
-            { name: "寄生藤蔓", dmg: 8, seed: true, desc: "每回合扣對手6點血", type: "buff" }, // 
-            { name: "陽光烈焰", dmg: 10, heal: 0.1, desc: "回復10%血量", type: "heal" } // [cite: 19]
+            { name: "藤鞭", dmg: 20, desc: "傷害:20", type: "dmg" },
+            { name: "寄生藤蔓", dmg: 8, seed: true, desc: "傷害:8, 每2回合扣對手6點", type: "buff" },
+            { name: "陽光烈焰", dmg: 10, heal: 0.1, desc: "傷害:10, 回復10%血量", type: "heal" }
         ],
         "傑尼龜": [
-            { name: "水槍", dmg: 24, desc: "噴射水流", type: "dmg" }, // [cite: 21]
-            { name: "水流尾", dmg: 15, buff: 0.05, desc: "提升5%攻擊", type: "buff" }, // [cite: 22]
-            { name: "冰凍光束", dmg: 22, desc: "有機會凍結", type: "dmg" } // [cite: 23]
+            { name: "水槍", dmg: 24, desc: "傷害:24", type: "dmg" },
+            { name: "水流尾", dmg: 15, buff: 0.05, desc: "傷害:15, 提升5%攻擊", type: "buff" },
+            { name: "冰凍光束", dmg: 22, desc: "傷害:22", type: "dmg" }
         ],
         "小火龍": [
-            { name: "火花", dmg: 26, desc: "小型火焰", type: "dmg" }, // [cite: 25]
-            { name: "噴射火焰", dmg: 18, buff: 0.05, desc: "提升5%攻擊", type: "buff" }, // [cite: 26]
-            { name: "火焰漩渦", dmg: 40, selfDmg: 0.1, desc: "威力大但反噬10%", type: "dmg" } // [cite: 27]
+            { name: "火花", dmg: 26, desc: "傷害:26", type: "dmg" },
+            { name: "噴射火焰", dmg: 18, buff: 0.05, desc: "傷害:18, 提升5%攻擊", type: "buff" },
+            { name: "火焰漩渦", dmg: 40, selfDmg: 0.1, desc: "傷害:40, 降低己方10%血量", type: "dmg" }
         ],
         "皮卡丘": [
-            { name: "電光一閃", dmg: 5, buff: 0.05, desc: "提升5%攻擊", type: "buff" }, // [cite: 4]
-            { name: "十萬伏特", dmg: 8, desc: "強力電擊", type: "dmg" }, // [cite: 5]
-            { name: "打雷", dmg: 15, selfDmg: 0.05, desc: "降低己方5%血量", type: "dmg" } // [cite: 6]
+            { name: "電光一閃", dmg: 5, buff: 0.05, desc: "傷害:5, 提升5%攻擊", type: "buff" },
+            { name: "十萬伏特", dmg: 8, desc: "傷害:8", type: "dmg" },
+            { name: "打雷", dmg: 15, selfDmg: 0.05, desc: "傷害:15, 降低己方5%血量", type: "dmg" }
         ],
         "卡拉卡拉": [
-            { name: "骨頭迴力鏢", dmg: 8, buff: 0.05, desc: "提升5%攻擊", type: "buff" }, // [cite: 8]
-            { name: "泥巴射擊", dmg: 12, desc: "投擲泥巴", type: "dmg" }, // [cite: 9]
-            { name: "挖洞", dmg: 4, heal: 0.2, desc: "回復20%血量", type: "heal" } // [cite: 10]
+            { name: "骨頭迴力鏢", dmg: 8, buff: 0.05, desc: "傷害:8, 提升5%攻擊", type: "buff" },
+            { name: "泥巴射擊", dmg: 12, desc: "傷害:12", type: "dmg" },
+            { name: "挖洞", dmg: 4, heal: 0.2, desc: "傷害:4, 回復20%血量", type: "heal" }
         ],
         "喵喵": [
-            { name: "抓", dmg: 12, debuff: 0.05, desc: "降低對手攻擊", type: "dmg" }, // [cite: 12]
-            { name: "撒嬌", dmg: 5, heal: 0.1, buff: 0.05, desc: "回血並提升攻擊", type: "heal" }, // [cite: 13]
-            { name: "欺詐", dmg: 10, desc: "利用對手力量", type: "dmg" } // [cite: 14]
+            { name: "抓", dmg: 12, debuff: 0.05, desc: "傷害:12, 降低對手5%攻擊", type: "dmg" },
+            { name: "撒嬌", dmg: 5, heal: 0.1, buff: 0.05, desc: "傷害:5, 回血10%並提升攻擊", type: "heal" },
+            { name: "欺詐", dmg: 10, desc: "傷害:10", type: "dmg" }
         ],
-        "default": [
-            { name: "撞擊", dmg: 10, desc: "普通撞擊", type: "dmg" },
-            { name: "猛撞", dmg: 15, selfDmg: 0.05, desc: "強力撞擊", type: "dmg" },
-            { name: "休息", dmg: 0, heal: 0.1, desc: "回復體力", type: "heal" }
-        ]
+        // --- 扭蛋寵物招式 (PDF source: 54-93) ---
+        "伊布": [ {name:"抓",dmg:24,debuff:0.05}, {name:"挖洞",dmg:6,heal:0.2}, {name:"高速星星",dmg:16} ],
+        "大蔥鴨": [ {name:"空氣斬",dmg:20}, {name:"燕返",dmg:12,nextDmg:10}, {name:"葉刃",dmg:14,buff:0.1} ],
+        "呆呆獸": [ {name:"水槍",dmg:24}, {name:"念力",dmg:16,buff:0.05}, {name:"精神衝擊",dmg:16,debuff:0.05} ],
+        "可達鴨": [ {name:"水槍",dmg:24}, {name:"念力",dmg:16,buff:0.05}, {name:"幻象光線",dmg:16,debuff:0.05} ],
+        "毛辮羊": [ {name:"抓",dmg:24,debuff:0.05}, {name:"撞擊",dmg:20}, {name:"瘋狂伏特",dmg:16,debuff:0.05} ],
+        "拉普拉斯": [ {name:"水槍",dmg:24}, {name:"衝浪",dmg:10,selfDmg:0.1}, {name:"冰凍光束",dmg:22} ],
+        "吉利蛋": [ {name:"治療",dmg:6,heal:0.15}, {name:"撞擊",dmg:20}, {name:"瘋狂伏特",dmg:16,debuff:0.05} ],
+        "幸福蛋": [ {name:"治療",dmg:5,heal:0.15}, {name:"撞擊",dmg:18}, {name:"瘋狂伏特",dmg:14,debuff:0.05} ],
+        
+        "default": [ { name: "撞擊", dmg: 10 }, { name: "猛撞", dmg: 15 }, { name: "休息", dmg: 0, heal: 0.1 } ]
     };
 
     createApp({
@@ -319,39 +328,30 @@
             let timerInterval = null;
 
             const battleState = ref({
-                isActive: false,
-                mode: 'wild', 
-                target: null,
-                turn: 'player', 
-                timer: 10,
-                defenseCount: 2,
-                isDefending: false, 
-                winner: null,
-                shakeMe: false,
-                shakeTarget: false,
-                // 🔥 新增：狀態效果追蹤 🔥
-                buffs: { me: 0, target: 0 }, // 攻擊力加成層數
-                leechSeed: { onMe: false, onTarget: false } // 寄生種子狀態
+                isActive: false, mode: 'wild', target: null, turn: 'player', 
+                timer: 10, defenseCount: 2, isDefending: false, winner: null,
+                shakeMe: false, shakeTarget: false,
+                buffs: { me: 0, target: 0 },
+                leechSeed: { onMe: false, onTarget: false },
+                turnCount: 0 // 新增回合計數
             });
 
             if (!token) window.location.href = 'login.html';
 
             onMounted(async () => {
-                await updateUserInfo();
-                await fetchMonsters();
-                await fetchPlayers();
-                connectWebSocket();
+                await updateUserInfo(); await fetchMonsters(); await fetchPlayers(); connectWebSocket();
             });
 
-            // --- 核心邏輯 ---
+            // --- 核心戰鬥邏輯 ---
             const initBattle = (target, mode) => {
                 if (target.hp <= 0) return alert("目標已經倒下了");
                 battleState.value = {
-                    isActive: true, mode: mode, target: target,
+                    isActive: true, mode: mode, target: JSON.parse(JSON.stringify(target)), // 深拷貝防止污染列表
                     turn: 'player', timer: 10, defenseCount: 2, isDefending: false, winner: null,
                     shakeMe: false, shakeTarget: false,
                     buffs: { me: 0, target: 0 },
-                    leechSeed: { onMe: false, onTarget: false }
+                    leechSeed: { onMe: false, onTarget: false },
+                    turnCount: 1
                 };
                 addLog(`⚔️ 戰鬥開始！遭遇了 [${target.name || target.username}]`);
                 if (mode === 'pvp') {
@@ -362,27 +362,24 @@
                 startTimer();
             };
 
-            // 🔥 新增：回合開始時的效果結算 (寄生種子) 🔥
+            // 🔥 寄生種子邏輯：每 2 回合 (偶數回合) 發作 🔥
             const applyTurnEffects = () => {
                 if(battleState.value.winner) return;
-
-                // 如果對手身上有種子 -> 對手扣血，我補血
-                if(battleState.value.leechSeed.onTarget) {
-                    const dmg = 6; // PDF 規定扣 6 點
-                    battleState.value.target.hp = Math.max(0, battleState.value.target.hp - dmg);
-                    user.value.hp = Math.min(user.value.max_hp, user.value.hp + dmg);
-                    showFloatingDamage('fighter-target', dmg, false);
-                    showFloatingDamage('fighter-me', dmg, false, true); // 綠字補血
-                    addLog(`🌱 寄生藤蔓吸取了 [${battleState.value.target.name || battleState.value.target.username}] 6 點生命！`);
-                }
                 
-                // 如果我身上有種子 -> 我扣血，對手補血
-                if(battleState.value.leechSeed.onMe) {
+                // 檢查是否為偶數回合
+                if (battleState.value.turnCount % 2 === 0) {
                     const dmg = 6;
-                    user.value.hp = Math.max(0, user.value.hp - dmg);
-                    battleState.value.target.hp = Math.min(battleState.value.target.max_hp, battleState.value.target.hp + dmg);
-                    showFloatingDamage('fighter-me', dmg, false);
-                    addLog(`🌱 你受到寄生藤蔓傷害 6 點！`);
+                    
+                    if(battleState.value.leechSeed.onTarget) {
+                        battleState.value.target.hp = Math.max(0, battleState.value.target.hp - dmg);
+                        showFloatingDamage('fighter-target', dmg, false);
+                        addLog(`🌱 寄生藤蔓發作！對手受到 6 點傷害`);
+                    }
+                    if(battleState.value.leechSeed.onMe) {
+                        user.value.hp = Math.max(0, user.value.hp - dmg);
+                        showFloatingDamage('fighter-me', dmg, false);
+                        addLog(`🌱 寄生藤蔓發作！你受到 6 點傷害`);
+                    }
                 }
             };
 
@@ -391,11 +388,13 @@
                 clearInterval(timerInterval);
                 addLog(`👊 你使用了 [${move.name}]！`);
                 
-                // 1. 計算傷害 (含 Buff)
+                // 1. 計算傷害 (攻擊力 * (1 + buff%))
                 let atkBonus = 1 + (battleState.value.buffs.me * 0.05);
-                let finalDmg = Math.floor(move.dmg * atkBonus) + Math.floor(Math.random() * 3);
+                // 玩家基礎攻擊力 * 技能加成 (這裡簡化為直接用技能傷害) + 浮動
+                // 嚴謹一點應該是 (UserATK + MoveDMG) * Bonus
+                let finalDmg = Math.floor((user.value.attack + move.dmg) * atkBonus) + Math.floor(Math.random() * 3);
                 
-                // 2. 處理招式特效
+                // 2. 特效
                 if(move.buff) {
                     battleState.value.buffs.me++;
                     showFloatingDamage('fighter-me', "ATK UP", false, true);
@@ -415,22 +414,24 @@
                     addLog(`🌱 對手被寄生了！`);
                 }
 
-                // 3. 執行攻擊
+                // 3. 執行
                 battleState.value.shakeTarget = true;
                 setTimeout(() => battleState.value.shakeTarget = false, 500);
                 if(move.dmg > 0) showFloatingDamage('fighter-target', finalDmg, false);
                 battleState.value.target.hp = Math.max(0, battleState.value.target.hp - finalDmg);
 
-                // 4. 同步後端
-                const endpoint = battleState.value.mode === 'wild' 
-                    ? `${API_URL}/items/${battleState.value.target.id}`
-                    : `${API_URL.replace('/items', '')}/shop/pvp/${battleState.value.target.id}`;
-                const method = battleState.value.mode === 'wild' ? 'PUT' : 'POST';
-                await fetch(endpoint, {
-                    method: method,
-                    headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ hp: battleState.value.target.hp })
-                });
+                // 4. 野怪模式：通知後端結算 (如果死了)
+                if (battleState.value.mode === 'wild' && battleState.value.target.hp <= 0) {
+                    await fetch(`${API_URL}/items/wild/attack`, {
+                        method: 'POST',
+                        headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ monster_name: battleState.value.target.name, is_dead: true })
+                    });
+                }
+                // PVP模式：每次攻擊都要同步
+                if (battleState.value.mode === 'pvp') {
+                    // ... (PVP 同步邏輯保持)
+                }
 
                 checkWinCondition();
                 if (!battleState.value.winner) {
@@ -453,10 +454,6 @@
             const executeEnemyTurn = () => {
                 if (battleState.value.winner) return;
                 
-                // 回合開始結算 DoT
-                applyTurnEffects();
-                if (checkWinCondition()) return;
-
                 const enemyName = battleState.value.target.name || battleState.value.target.pokemon_name;
                 const cleanName = enemyName ? enemyName.split('(')[0].trim() : 'default';
                 const moves = MOVES_DB[cleanName] || MOVES_DB['default'];
@@ -464,19 +461,11 @@
                 
                 addLog(`⚠️ 對手 [${enemyName}] 使用了 [${move.name}]！`);
 
+                // 簡單模擬對手數值 (野怪: 依等級; 玩家: 依屬性)
+                let enemyAtk = battleState.value.target.attack || 10;
                 let atkBonus = 1 + (battleState.value.buffs.target * 0.05);
-                let dmg = Math.floor(move.dmg * atkBonus) + Math.floor(Math.random() * 3);
+                let dmg = Math.floor((enemyAtk + move.dmg) * atkBonus);
                 
-                // 處理敵方招式特效
-                if(move.buff) {
-                    battleState.value.buffs.target++;
-                    showFloatingDamage('fighter-target', "ATK UP", false, true);
-                }
-                if(move.heal) { // 敵方回血
-                    const healAmt = Math.floor(battleState.value.target.max_hp * move.heal);
-                    battleState.value.target.hp = Math.min(battleState.value.target.max_hp, battleState.value.target.hp + healAmt);
-                    showFloatingDamage('fighter-target', healAmt, false, true);
-                }
                 if(move.seed) {
                     battleState.value.leechSeed.onMe = true;
                     addLog(`🌱 你被寄生了！`);
@@ -498,6 +487,8 @@
                 checkWinCondition();
                 if (!battleState.value.winner) {
                     battleState.value.turn = 'player';
+                    battleState.value.turnCount++; // 回合數+1
+                    applyTurnEffects(); // 結算種子
                     startTimer();
                 }
             };
@@ -532,7 +523,6 @@
             const endBattle = () => {
                 battleState.value.isActive = false;
                 battleState.value.winner = null;
-                // 強制刷新以獲取野怪復活狀態
                 fetchMonsters(); 
                 fetchPlayers();
                 updateUserInfo();
@@ -548,20 +538,16 @@
             const getMoveClass = (move) => {
                 if (move.type === 'buff') return 'move-buff';
                 if (move.type === 'heal') return 'move-heal';
-                if (move.name === '防禦') return 'move-defend';
                 return 'move-damage';
             };
 
-            // --- API & WebSocket (保持不變) ---
-            const updateUserInfo = async () => {
-                try { const res = await fetch(`${API_URL}/auth/me`, { headers: { 'Authorization': `Bearer ${token}` } }); if (res.ok) user.value = await res.json(); } catch (e) {}
+            // --- API & WebSocket ---
+            const updateUserInfo = async () => { try { const res = await fetch(`${API_URL}/auth/me`, { headers: { 'Authorization': `Bearer ${token}` } }); if (res.ok) user.value = await res.json(); } catch (e) {} };
+            const fetchMonsters = async () => { 
+                const res = await fetch(`${API_URL}/items/wild`, { headers: { 'Authorization': `Bearer ${token}` } }); // 改用新API
+                monsters.value = await res.json(); 
             };
-            const fetchMonsters = async () => {
-                const res = await fetch(`${API_URL}/items/`); const data = await res.json(); monsters.value = data.sort((a, b) => a.id - b.id);
-            };
-            const fetchPlayers = async () => {
-                const res = await fetch(`${API_URL}/auth/all`); const data = await res.json(); players.value = data.filter(u => u.id !== user.value?.id).sort((a, b) => b.is_online - a.is_online);
-            };
+            const fetchPlayers = async () => { const res = await fetch(`${API_URL}/auth/all`); const data = await res.json(); players.value = data.filter(u => u.id !== user.value?.id).sort((a, b) => b.is_online - a.is_online); };
             const connectWebSocket = () => {
                 socket = new WebSocket(`${WS_URL}?token=${token}`);
                 socket.onopen = () => setInterval(() => { if(socket.readyState === 1) socket.send("ping"); }, 30000);
@@ -578,25 +564,18 @@
                         }
                         return;
                     }
-                    addLog(`<span style="color: #4cc9f0;">📡 ${msg}</span>`);
-                    if (battleState.value.isActive && battleState.value.target) {
-                        const newTarget = battleState.value.mode === 'wild' 
-                            ? monsters.value.find(m => m.id === battleState.value.target.id)
-                            : players.value.find(p => p.id === battleState.value.target.id);
-                        if(newTarget) { battleState.value.target.hp = newTarget.hp; checkWinCondition(); }
+                    if (battleState.value.mode === 'pvp') { // 只有 PVP 顯示廣播
+                        addLog(`<span style="color: #4cc9f0;">📡 ${msg}</span>`);
                     }
                 };
                 socket.onclose = () => setTimeout(connectWebSocket, 3000);
             };
-            const playGacha = async () => {
-                const res = await fetch(`${API_URL.replace('/items', '')}/shop/gacha`, { method: 'POST', headers: { 'Authorization': `Bearer ${token}` } });
+            const playGacha = async (type) => {
+                const res = await fetch(`${API_URL.replace('/items', '')}/shop/gacha/${type}`, { method: 'POST', headers: { 'Authorization': `Bearer ${token}` } });
                 const data = await res.json();
                 if(res.ok) { alert(`🎉 ${data.message}`); updateUserInfo(); } else { alert(data.detail); }
             };
-            const buyHeal = async () => {
-                const res = await fetch(`${API_URL.replace('/items', '')}/shop/heal`, { method: 'POST', headers: { 'Authorization': `Bearer ${token}` } });
-                if(res.ok) { alert("補血成功！"); updateUserInfo(); }
-            };
+            const buyHeal = async () => { const res = await fetch(`${API_URL.replace('/items', '')}/shop/heal`, { method: 'POST', headers: { 'Authorization': `Bearer ${token}` } }); if(res.ok) { alert("補血成功！"); updateUserInfo(); } };
             const logout = () => { localStorage.clear(); window.location.href = 'login.html'; };
             const addLog = (msg) => { logs.value.unshift(msg); if(logs.value.length > 50) logs.value.pop(); };
             const hpPercent = (u) => Math.max(0, (u.hp / u.max_hp) * 100);

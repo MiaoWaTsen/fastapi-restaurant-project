@@ -1,52 +1,82 @@
-# app/routers/shop.py
-
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
+from typing import Dict
+import random
+
 from app.db.session import get_db
 from app.common.deps import get_current_user
 from app.models.user import User
 from app.common.websocket import manager 
-import random
 
 router = APIRouter()
 
-# 扭蛋池 (你可以自己加更多神獸)
-GACHA_POOL = [
-    {"name": "皮卡丘", "atk": 25, "hp": 150, "img": "https://img.pokemondb.net/artwork/large/pikachu.jpg", "rate": 40},
-    {"name": "耿鬼", "atk": 45, "hp": 120, "img": "https://img.pokemondb.net/artwork/large/gengar.jpg", "rate": 30},
-    {"name": "快龍", "atk": 60, "hp": 300, "img": "https://img.pokemondb.net/artwork/large/dragonite.jpg", "rate": 20},
-    {"name": "超夢", "atk": 120, "hp": 500, "img": "https://img.pokemondb.net/artwork/large/mewtwo.jpg", "rate": 5},
-    {"name": "阿爾宙斯", "atk": 999, "hp": 999, "img": "https://img.pokemondb.net/artwork/large/arceus.jpg", "rate": 1},
+# --- 扭蛋機率表 (PDF Source 75-100, 101-121) ---
+
+# 初級扭蛋 (2000G)
+GACHA_NORMAL = [
+    {"name": "伊布", "rate": 30, "hp": 260, "img": "https://img.pokemondb.net/artwork/large/eevee.jpg"},
+    {"name": "大蔥鴨", "rate": 25, "hp": 220, "img": "https://img.pokemondb.net/artwork/large/farfetchd.jpg"},
+    {"name": "呆呆獸", "rate": 20, "hp": 250, "img": "https://img.pokemondb.net/artwork/large/slowpoke.jpg"},
+    {"name": "可達鴨", "rate": 20, "hp": 250, "img": "https://img.pokemondb.net/artwork/large/psyduck.jpg"},
+    {"name": "毛辮羊", "rate": 5, "hp": 300, "img": "https://img.pokemondb.net/artwork/large/wooloo.jpg"},
 ]
 
-@router.post("/gacha")
+# 中級扭蛋 (5000G)
+GACHA_RARE = [
+    {"name": "伊布", "rate": 20, "hp": 260, "img": "https://img.pokemondb.net/artwork/large/eevee.jpg"},
+    {"name": "大蔥鴨", "rate": 20, "hp": 220, "img": "https://img.pokemondb.net/artwork/large/farfetchd.jpg"},
+    {"name": "呆呆獸", "rate": 15, "hp": 250, "img": "https://img.pokemondb.net/artwork/large/slowpoke.jpg"},
+    {"name": "可達鴨", "rate": 15, "hp": 250, "img": "https://img.pokemondb.net/artwork/large/psyduck.jpg"},
+    {"name": "毛辮羊", "rate": 10, "hp": 300, "img": "https://img.pokemondb.net/artwork/large/wooloo.jpg"},
+    {"name": "拉普拉斯", "rate": 4, "hp": 320, "img": "https://img.pokemondb.net/artwork/large/lapras.jpg"},
+    {"name": "吉利蛋", "rate": 3, "hp": 350, "img": "https://img.pokemondb.net/artwork/large/chansey.jpg"},
+    {"name": "幸福蛋", "rate": 3, "hp": 380, "img": "https://img.pokemondb.net/artwork/large/blissey.jpg"},
+]
+
+# --- PVP 狀態管理 (記憶體) ---
+# Key: tuple(id1, id2) (id小在前) -> Value: { "turn": current_player_id }
+ACTIVE_BATTLES = {}
+
+@router.post("/gacha/{gacha_type}")
 async def play_gacha(
+    gacha_type: str, # 'normal' or 'rare'
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user)
 ):
-    cost = 200
+    pool = GACHA_NORMAL if gacha_type == 'normal' else GACHA_RARE
+    cost = 2000 if gacha_type == 'normal' else 5000 # [cite: 75, 101]
+    
     if current_user.money < cost:
-        raise HTTPException(status_code=400, detail="金幣不足 (需要 200 G)")
+        raise HTTPException(status_code=400, detail=f"金幣不足！需要 {cost} G")
     
     current_user.money -= cost
     
-    # 簡單的抽獎邏輯 (純隨機，不看機率權重，想更專業可以加權重)
-    prize = random.choice(GACHA_POOL)
-    
-    # 更新玩家外觀與數值 (保留等級，但更新基礎數值)
+    # 根據機率權重抽獎
+    r = random.randint(1, 100)
+    acc = 0
+    prize = pool[0] # 預設
+    for p in pool:
+        acc += p["rate"]
+        if r <= acc:
+            prize = p
+            break
+            
+    # 更新玩家寶可夢 (數值繼承等級加成邏輯暫時簡化為直接替換基礎值，或你需要保留等級加成？)
+    # 這裡我們直接替換成新寶可夢的基礎數值，因為 PDF 給定的是基礎血量
     current_user.pokemon_name = prize["name"]
     current_user.pokemon_image = prize["img"]
-    # 這裡讓新數值加上等級加成，避免越抽越爛
-    current_user.max_hp = prize["hp"] + (current_user.level * 10)
-    current_user.hp = current_user.max_hp # 抽到新角補滿血
-    current_user.attack = prize["atk"] + (current_user.level * 2)
+    current_user.max_hp = prize["hp"]
+    current_user.hp = prize["hp"] # 補滿血
+    
+    # 攻擊力 PDF 沒有明寫扭蛋怪的基礎攻擊，這裡給一個與血量成正比的估算值
+    current_user.attack = int(prize["hp"] * 0.15) 
     
     db.commit()
     
-    msg = f"🎰 恭喜！勇者 [{current_user.username}] 抽到了 [{prize['name']}]！"
+    msg = f"🎰 恭喜！勇者 [{current_user.username}] 透過{gacha_type}扭蛋獲得了 [{prize['name']}]！"
     await manager.broadcast(msg)
     
-    return {"message": f"你獲得了 {prize['name']}！", "user": current_user}
+    return {"message": f"獲得了 {prize['name']}！", "user": current_user}
 
 @router.post("/heal")
 async def buy_heal(
@@ -54,46 +84,16 @@ async def buy_heal(
     current_user: User = Depends(get_current_user)
 ):
     cost = 50
-    if current_user.money < cost: raise HTTPException(status_code=400, detail="金幣不足")
+    if current_user.money < cost:
+        raise HTTPException(status_code=400, detail="金幣不足")
     
     current_user.money -= cost
     current_user.hp = current_user.max_hp
     db.commit()
     return {"message": "體力已補滿"}
 
-# 🔥 PVP 攻擊玩家 🔥
-@router.post("/pvp/{target_id}")
-async def attack_player(
-    target_id: int,
-    db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user)
-):
-    target = db.query(User).filter(User.id == target_id).first()
-    if not target: raise HTTPException(status_code=404, detail="找不到對手")
-    if target.hp <= 0: raise HTTPException(status_code=400, detail="對手已經倒下了")
-    if target.id == current_user.id: raise HTTPException(status_code=400, detail="不能打自己")
+# --- PVP 系統 (含回合鎖) ---
 
-    # 傷害計算
-    dmg = current_user.attack + random.randint(0, 5)
-    target.hp = max(0, target.hp - dmg)
-    
-    # 獎勵
-    current_user.exp += 20
-    
-    msg = f"⚔️ PVP戰報：[{current_user.username}] 攻擊了 [{target.username}]，造成 {dmg} 點傷害！"
-    
-    if target.hp == 0:
-        win_money = int(target.money * 0.1) # 搶走對方 10% 的錢
-        target.money -= win_money
-        current_user.money += win_money
-        msg += f" [{target.username}] 倒下了！[{current_user.username}] 搶走了 {win_money} G！"
-
-    db.commit()
-    await manager.broadcast(msg)
-    
-    return {"message": "攻擊成功"}
-
-# 🔥 新增：發起決鬥 API 🔥
 @router.post("/duel/start/{target_id}")
 async def start_duel_api(
     target_id: int,
@@ -103,9 +103,63 @@ async def start_duel_api(
     target = db.query(User).filter(User.id == target_id).first()
     if not target: raise HTTPException(status_code=404, detail="找不到對手")
     
-    # 廣播決鬥開始訊號 (格式自訂，前端要看得懂)
-    # 格式：EVENT:DUEL_START|發起者ID|發起者名字|受害者ID|受害者名字
+    # 初始化戰鬥狀態
+    # 確保 key 順序一致 (小 ID 在前)，這樣 A打B 和 B打A 會對應到同一個戰鬥
+    battle_key = tuple(sorted((current_user.id, target.id)))
+    
+    # 設定：發起者先攻
+    ACTIVE_BATTLES[battle_key] = {"turn": current_user.id}
+    
+    # 廣播訊號
     msg = f"EVENT:DUEL_START|{current_user.id}|{current_user.username}|{target.id}|{target.username}"
     await manager.broadcast(msg)
     
-    return {"message": "決鬥請求已發送"}
+    return {"message": "決鬥開始"}
+
+@router.post("/pvp/{target_id}")
+async def pvp_attack(
+    target_id: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    # 1. 驗證對手
+    target = db.query(User).filter(User.id == target_id).first()
+    if not target: raise HTTPException(status_code=404, detail="找不到對手")
+    
+    # 2. 驗證回合 (防止手速作弊)
+    battle_key = tuple(sorted((current_user.id, target_id)))
+    
+    # 如果戰鬥不存在 (可能伺服器重啟過)，重新初始化
+    if battle_key not in ACTIVE_BATTLES:
+        ACTIVE_BATTLES[battle_key] = {"turn": current_user.id}
+        
+    battle = ACTIVE_BATTLES[battle_key]
+    
+    # 🔥 關鍵檢查：是不是你的回合？ 🔥
+    if battle["turn"] != current_user.id:
+        raise HTTPException(status_code=400, detail="還沒輪到你！請等待對手行動。")
+    
+    # 3. 執行傷害 (這裡簡單計算，實際數值由前端傳來可能不安全，建議後端重算，但為了配合前端目前的設計，我們這裡做簡單扣血)
+    # 為了安全性，最好是在後端計算傷害。這裡模擬一下：
+    damage = int(current_user.attack * 1.0) # 基礎傷害
+    target.hp = max(0, target.hp - damage)
+    
+    # 4. 交換回合
+    battle["turn"] = target_id
+    
+    # 5. 結算
+    msg = f"⚔️ PVP: [{current_user.username}] 攻擊了 [{target.username}]！"
+    
+    if target.hp <= 0:
+        win_money = int(target.money * 0.1)
+        target.money -= win_money
+        current_user.money += win_money
+        msg = f"🏆 勝利！[{current_user.username}] 擊敗了 [{target.username}] 並搶走了 {win_money} G！"
+        # 戰鬥結束，移除狀態
+        if battle_key in ACTIVE_BATTLES:
+            del ACTIVE_BATTLES[battle_key]
+    
+    db.commit()
+    await manager.broadcast(msg)
+    
+    return {"message": "攻擊成功", "turn_swapped": True}
