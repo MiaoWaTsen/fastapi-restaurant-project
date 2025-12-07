@@ -1,9 +1,10 @@
 # app/routers/auth.py
 
 from fastapi import APIRouter, Depends, HTTPException
+# 🔥 補上這一行！修正 NameError 🔥
+from fastapi.security import OAuth2PasswordBearer, OAuth2PasswordRequestForm
 from sqlalchemy.orm import Session
 from typing import List
-from pydantic import BaseModel
 
 from app.db.session import get_db
 from app.models.user import User, UserCreate, UserRead
@@ -23,7 +24,7 @@ STARTERS = {
 # 升級所需 XP 表
 LEVEL_XP = { 1: 50, 2: 100, 3: 200, 4: 350, 5: 600, 6: 1000, 7: 1800, 8: 3000 }
 
-# 擴充回傳格式：多一個 max_exp 欄位給前端畫條
+# 擴充回傳格式
 class UserReadWithExp(UserRead):
     next_level_exp: int
     is_online: bool = False
@@ -50,7 +51,7 @@ def register(user: UserCreate, db: Session = Depends(get_db)):
     new_user = User(
         username=user.username, hashed_password=hashed_pw,
         pokemon_name=starter["name"], pokemon_image=starter["img"],
-        unlocked_monsters=starter["name"], # 確保這裡有寫入
+        unlocked_monsters=starter["name"], 
         hp=starter["hp"], max_hp=starter["hp"], attack=starter["atk"], money=300
     )
     db.add(new_user)
@@ -65,7 +66,6 @@ def login(form_data: OAuth2PasswordRequestForm = Depends(), db: Session = Depend
         raise HTTPException(status_code=400, detail="Incorrect username or password")
     return {"access_token": create_access_token(data={"sub": user.username}), "token_type": "bearer"}
 
-# 修改：回傳帶有 next_level_exp 的資料
 @router.get("/me", response_model=UserReadWithExp)
 def read_users_me(token: str = Depends(oauth2_scheme), db: Session = Depends(get_db)):
     from jose import jwt, JWTError
@@ -78,10 +78,8 @@ def read_users_me(token: str = Depends(oauth2_scheme), db: Session = Depends(get
     user = db.query(User).filter(User.username == username).first()
     if not user: raise HTTPException(status_code=401)
     
-    # 計算下一級所需經驗
     req_xp = LEVEL_XP.get(user.level, 999999)
     
-    # 轉換成 Pydantic 模型並附加額外欄位
     user_dict = UserRead.model_validate(user).model_dump()
     user_dict['next_level_exp'] = req_xp
     return user_dict
