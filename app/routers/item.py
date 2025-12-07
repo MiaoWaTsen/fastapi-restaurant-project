@@ -12,12 +12,12 @@ from app.common.deps import get_current_user
 
 router = APIRouter()
 
-# --- 🌲 野怪資料 (數值已平衡調整) ---
-# 為了達成「5回合擊殺」，基礎血量調整為原本 PDF 的 3 倍左右
+# --- 🌲 野怪資料 (難度調降) ---
+# 基礎血量下修為 PDF 原始數值的約 2 倍 (原本是 3 倍)
 WILD_DATA = [
-    {"name": "皮卡丘", "base_hp": 240, "base_xp": 25, "base_gold": 55, "img": "https://img.pokemondb.net/artwork/large/pikachu.jpg"},
-    {"name": "卡拉卡拉", "base_hp": 180, "base_xp": 25, "base_gold": 55, "img": "https://img.pokemondb.net/artwork/large/cubone.jpg"},
-    {"name": "喵喵", "base_hp": 210, "base_xp": 25, "base_gold": 55, "img": "https://img.pokemondb.net/artwork/large/meowth.jpg"}
+    {"name": "皮卡丘", "base_hp": 160, "base_xp": 25, "base_gold": 55, "img": "https://img.pokemondb.net/artwork/large/pikachu.jpg"},
+    {"name": "卡拉卡拉", "base_hp": 100, "base_xp": 25, "base_gold": 55, "img": "https://img.pokemondb.net/artwork/large/cubone.jpg"},
+    {"name": "喵喵", "base_hp": 140, "base_xp": 25, "base_gold": 55, "img": "https://img.pokemondb.net/artwork/large/meowth.jpg"}
 ]
 
 # 升級經驗表 (PDF source: 36-44)
@@ -54,18 +54,17 @@ def get_wild_monsters(current_user: User = Depends(get_current_user)):
     
     for m_data in WILD_DATA:
         for i in range(count):
-            # 🔥 平衡核心：野怪成長係數改為 1.5 🔥
-            # 這樣才能跟上玩家攻擊力(1.5)的成長，維持永遠都要打 5 回合的難度
-            scaling_factor = 1.5 ** (level - 1)
+            # 🔥 平衡修正：成長係數下修為 1.25 🔥
+            # 玩家成長是 1.5，怪物是 1.25 -> 代表等級越高，你打怪越輕鬆 (爽感來源)
+            scaling_factor = 1.25 ** (level - 1)
             
             hp = int(m_data["base_hp"] * scaling_factor)
             
-            # 野怪攻擊力設計：
-            # 讓野怪攻擊力約為玩家血量的 15% ~ 20%
-            # 假設玩家血量成長是 1.4倍，野怪攻擊力成長設為 1.42倍
-            base_player_hp = 200 # 參考值
-            target_dmg = base_player_hp * 0.18 # 每次打玩家 36 點 (約6下死)
-            attack = int(target_dmg * (1.42 ** (level - 1)))
+            # 野怪攻擊力下修：
+            # 設為玩家基礎血量(約200)的 12% (約24點)，隨等級成長
+            base_player_hp = 200 
+            target_dmg = base_player_hp * 0.12 
+            attack = int(target_dmg * scaling_factor)
 
             monsters.append({
                 "id": monster_id_counter, 

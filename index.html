@@ -265,37 +265,14 @@
     const API_URL = `https://${ZEABUR_DOMAIN}/api/v1`;
     const WS_URL = `wss://${ZEABUR_DOMAIN}/ws`;
 
+    // 招式資料庫 (保持不變)
     const MOVES_DB = {
-        "妙蛙種子": [
-            { name: "藤鞭", dmg: 20, desc: "傷害:20", type: "dmg" },
-            { name: "寄生藤蔓", dmg: 8, seed: true, desc: "傷害:8, 每2回合扣對手6點", type: "buff" },
-            { name: "陽光烈焰", dmg: 10, heal: 0.1, desc: "傷害:10, 回復10%血量", type: "heal" }
-        ],
-        "傑尼龜": [
-            { name: "水槍", dmg: 24, desc: "傷害:24", type: "dmg" },
-            { name: "水流尾", dmg: 15, buff: 0.05, desc: "傷害:15, 提升5%攻擊", type: "buff" },
-            { name: "冰凍光束", dmg: 22, desc: "傷害:22", type: "dmg" }
-        ],
-        "小火龍": [
-            { name: "火花", dmg: 26, desc: "傷害:26", type: "dmg" },
-            { name: "噴射火焰", dmg: 18, buff: 0.05, desc: "傷害:18, 提升5%攻擊", type: "buff" },
-            { name: "火焰漩渦", dmg: 40, selfDmg: 0.1, desc: "傷害:40, 降低己方10%血量", type: "dmg" }
-        ],
-        "皮卡丘": [
-            { name: "電光一閃", dmg: 5, buff: 0.05, desc: "傷害:5, 提升5%攻擊", type: "buff" },
-            { name: "十萬伏特", dmg: 8, desc: "傷害:8", type: "dmg" },
-            { name: "打雷", dmg: 15, selfDmg: 0.05, desc: "傷害:15, 降低己方5%血量", type: "dmg" }
-        ],
-        "卡拉卡拉": [
-            { name: "骨頭迴力鏢", dmg: 8, buff: 0.05, desc: "傷害:8, 提升5%攻擊", type: "buff" },
-            { name: "泥巴射擊", dmg: 12, desc: "傷害:12", type: "dmg" },
-            { name: "挖洞", dmg: 4, heal: 0.2, desc: "傷害:4, 回復20%血量", type: "heal" }
-        ],
-        "喵喵": [
-            { name: "抓", dmg: 12, debuff: 0.05, desc: "傷害:12, 降低對手5%攻擊", type: "dmg" },
-            { name: "撒嬌", dmg: 5, heal: 0.1, buff: 0.05, desc: "傷害:5, 回血10%並提升攻擊", type: "heal" },
-            { name: "欺詐", dmg: 10, desc: "傷害:10", type: "dmg" }
-        ],
+        "妙蛙種子": [ { name: "藤鞭", dmg: 20, desc: "傷害:20", type: "dmg" }, { name: "寄生藤蔓", dmg: 8, seed: true, desc: "傷害:8, 每2回合扣對手6點", type: "buff" }, { name: "陽光烈焰", dmg: 10, heal: 0.1, desc: "傷害:10, 回復10%血量", type: "heal" } ],
+        "傑尼龜": [ { name: "水槍", dmg: 24, desc: "傷害:24", type: "dmg" }, { name: "水流尾", dmg: 15, buff: 0.05, desc: "傷害:15, 提升5%攻擊", type: "buff" }, { name: "冰凍光束", dmg: 22, desc: "傷害:22", type: "dmg" } ],
+        "小火龍": [ { name: "火花", dmg: 26, desc: "傷害:26", type: "dmg" }, { name: "噴射火焰", dmg: 18, buff: 0.05, desc: "傷害:18, 提升5%攻擊", type: "buff" }, { name: "火焰漩渦", dmg: 40, selfDmg: 0.1, desc: "傷害:40, 降低己方10%血量", type: "dmg" } ],
+        "皮卡丘": [ { name: "電光一閃", dmg: 5, buff: 0.05, desc: "傷害:5, 提升5%攻擊", type: "buff" }, { name: "十萬伏特", dmg: 8, desc: "傷害:8", type: "dmg" }, { name: "打雷", dmg: 15, selfDmg: 0.05, desc: "傷害:15, 降低己方5%血量", type: "dmg" } ],
+        "卡拉卡拉": [ { name: "骨頭迴力鏢", dmg: 8, buff: 0.05, desc: "傷害:8, 提升5%攻擊", type: "buff" }, { name: "泥巴射擊", dmg: 12, desc: "傷害:12", type: "dmg" }, { name: "挖洞", dmg: 4, heal: 0.2, desc: "傷害:4, 回復20%血量", type: "heal" } ],
+        "喵喵": [ { name: "抓", dmg: 12, debuff: 0.05, desc: "傷害:12, 降低對手5%攻擊", type: "dmg" }, { name: "撒嬌", dmg: 5, heal: 0.1, buff: 0.05, desc: "傷害:5, 回血10%並提升攻擊", type: "heal" }, { name: "欺詐", dmg: 10, desc: "傷害:10", type: "dmg" } ],
         "伊布": [ {name:"抓",dmg:24,debuff:0.05}, {name:"挖洞",dmg:6,heal:0.2}, {name:"高速星星",dmg:16} ],
         "大蔥鴨": [ {name:"空氣斬",dmg:20}, {name:"燕返",dmg:12,nextDmg:10}, {name:"葉刃",dmg:14,buff:0.1} ],
         "呆呆獸": [ {name:"水槍",dmg:24}, {name:"念力",dmg:16,buff:0.05}, {name:"精神衝擊",dmg:16,debuff:0.05} ],
@@ -317,6 +294,7 @@
             const currentTab = ref('wild');
             let socket = null;
             let timerInterval = null;
+            let aiTimeout = null; // 🔥 新增：AI 思考的計時器
 
             const battleState = ref({
                 isActive: false, mode: 'wild', target: null, turn: 'player', 
@@ -333,8 +311,32 @@
                 await updateUserInfo(); await fetchMonsters(); await fetchPlayers(); connectWebSocket();
             });
 
+            // --- 戰鬥控制 ---
+            
+            // 🔥 強制結束戰鬥 (修復視窗關不掉的問題) 🔥
+            const endBattle = () => {
+                // 1. 清除所有計時器
+                clearInterval(timerInterval);
+                clearTimeout(aiTimeout);
+                
+                // 2. 重置狀態
+                battleState.value.isActive = false;
+                battleState.value.winner = null;
+                battleState.value.target = null; // 清空目標，避免殘留數據
+                
+                // 3. 刷新數據
+                fetchMonsters(); 
+                fetchPlayers();
+                updateUserInfo();
+            };
+
             const initBattle = (target, mode) => {
                 if (target.hp <= 0) return alert("目標已經倒下了");
+                
+                // 重置所有戰鬥狀態
+                clearInterval(timerInterval);
+                clearTimeout(aiTimeout);
+
                 battleState.value = {
                     isActive: true, mode: mode, target: JSON.parse(JSON.stringify(target)),
                     turn: 'player', timer: 10, defenseCount: 2, isDefending: false, winner: null,
@@ -343,7 +345,9 @@
                     leechSeed: { onMe: false, onTarget: false },
                     turnCount: 1
                 };
+                
                 addLog(`⚔️ 戰鬥開始！遭遇了 [${target.name || target.username}]`);
+                
                 if (mode === 'pvp') {
                     fetch(`${API_URL.replace('/items', '')}/shop/duel/start/${target.id}`, {
                         method: 'POST', headers: { 'Authorization': `Bearer ${token}` }
@@ -352,8 +356,9 @@
                 startTimer();
             };
 
+            // ... (applyTurnEffects 保持不變) ...
             const applyTurnEffects = () => {
-                if(battleState.value.winner) return;
+                if(battleState.value.winner || !battleState.value.isActive) return;
                 if (battleState.value.turnCount % 2 === 0) {
                     const dmg = 6;
                     if(battleState.value.leechSeed.onTarget) {
@@ -370,7 +375,9 @@
             };
 
             const executePlayerMove = async (move) => {
-                if (!isMyTurn.value) return;
+                // 🔥 嚴格檢查：如果戰鬥已結束，禁止執行 🔥
+                if (!isMyTurn.value || !battleState.value.isActive) return;
+                
                 clearInterval(timerInterval);
                 addLog(`👊 你使用了 [${move.name}]！`);
                 
@@ -393,8 +400,10 @@
                 battleState.value.shakeTarget = true;
                 setTimeout(() => battleState.value.shakeTarget = false, 500);
                 if(move.dmg > 0) showFloatingDamage('fighter-target', finalDmg, false);
+                
                 battleState.value.target.hp = Math.max(0, battleState.value.target.hp - finalDmg);
 
+                // API Calls
                 if (battleState.value.mode === 'wild' && battleState.value.target.hp <= 0) {
                     await fetch(`${API_URL}/items/wild/attack`, {
                         method: 'POST',
@@ -403,32 +412,34 @@
                     });
                 }
                 if (battleState.value.mode === 'pvp') {
-                    // PVP 傷害同步交給後端處理
                     await fetch(`${API_URL.replace('/items', '')}/shop/pvp/${battleState.value.target.id}`, {
                         method: 'POST', headers: { 'Authorization': `Bearer ${token}` }
                     });
                 }
 
-                checkWinCondition();
-                if (!battleState.value.winner) {
-                    battleState.value.turn = 'enemy';
-                    battleState.value.timer = 3; 
-                    setTimeout(executeEnemyTurn, 1500);
-                }
+                // 檢查勝負
+                if(checkWinCondition()) return; // 如果結束了，就停止
+
+                // 換對手回合
+                battleState.value.turn = 'enemy';
+                battleState.value.timer = 3; 
+                // 🔥 將 timeout 存起來，以便 endBattle 可以取消它 🔥
+                aiTimeout = setTimeout(executeEnemyTurn, 1500);
             };
 
             const executeDefense = () => {
-                if (battleState.value.defenseCount <= 0) return;
+                if (battleState.value.defenseCount <= 0 || !battleState.value.isActive) return;
                 clearInterval(timerInterval);
                 battleState.value.defenseCount--;
                 battleState.value.isDefending = true;
                 addLog(`🛡️ 你採取了防禦架勢！`);
                 battleState.value.turn = 'enemy';
-                setTimeout(executeEnemyTurn, 1500);
+                aiTimeout = setTimeout(executeEnemyTurn, 1500);
             };
 
             const executeEnemyTurn = () => {
-                if (battleState.value.winner) return;
+                // 🔥 嚴格檢查：如果戰鬥已結束，直接離開 🔥
+                if (battleState.value.winner || !battleState.value.isActive) return;
                 
                 const enemyName = battleState.value.target.name || battleState.value.target.pokemon_name;
                 const cleanName = enemyName ? enemyName.split('(')[0].trim() : 'default';
@@ -461,50 +472,51 @@
                     user.value.hp = Math.max(0, user.value.hp - dmg);
                 }
 
-                checkWinCondition();
-                if (!battleState.value.winner) {
-                    battleState.value.turn = 'player';
-                    battleState.value.turnCount++; 
-                    applyTurnEffects(); 
-                    startTimer();
-                }
+                if(checkWinCondition()) return;
+
+                battleState.value.turn = 'player';
+                battleState.value.turnCount++; 
+                applyTurnEffects(); 
+                startTimer();
             };
 
             const startTimer = () => {
+                // 🔥 檢查戰鬥狀態 🔥
+                if (!battleState.value.isActive) return;
+
                 battleState.value.timer = 10;
                 clearInterval(timerInterval);
                 timerInterval = setInterval(() => {
+                    if (!battleState.value.isActive) { clearInterval(timerInterval); return; }
+                    
                     battleState.value.timer--;
                     if (battleState.value.timer <= 0) {
                         clearInterval(timerInterval);
                         addLog("⏰ 時間到！你放棄了這回合！");
                         battleState.value.turn = 'enemy';
-                        setTimeout(executeEnemyTurn, 1000);
+                        aiTimeout = setTimeout(executeEnemyTurn, 1000);
                     }
                 }, 1000);
             };
 
             const checkWinCondition = () => {
+                if (!battleState.value.isActive) return true;
+
                 if (battleState.value.target.hp <= 0) {
                     battleState.value.winner = 'player';
                     clearInterval(timerInterval);
+                    clearTimeout(aiTimeout);
                     return true;
                 } else if (user.value.hp <= 0) {
                     battleState.value.winner = 'enemy';
                     clearInterval(timerInterval);
+                    clearTimeout(aiTimeout);
                     return true;
                 }
                 return false;
             };
 
-            const endBattle = () => {
-                battleState.value.isActive = false;
-                battleState.value.winner = null;
-                fetchMonsters(); 
-                fetchPlayers();
-                updateUserInfo();
-            };
-
+            // --- 輔助 & WebSocket ---
             const myMoves = computed(() => {
                 if (!user.value) return [];
                 const name = user.value.pokemon_name || 'default';
@@ -537,10 +549,14 @@
                         return;
                     }
                     if (battleState.value.mode === 'pvp') addLog(`<span style="color: #4cc9f0;">📡 ${msg}</span>`);
+                    
+                    // PVP 同步更新
                     if (battleState.value.isActive && battleState.value.target && battleState.value.mode === 'pvp') {
-                        // PVP 同步血量
                         const newTarget = players.value.find(p => p.id === battleState.value.target.id);
-                        if(newTarget) { battleState.value.target.hp = newTarget.hp; checkWinCondition(); }
+                        if(newTarget) { 
+                            battleState.value.target.hp = newTarget.hp; 
+                            checkWinCondition(); 
+                        }
                     }
                 };
                 socket.onclose = () => setTimeout(connectWebSocket, 3000);
