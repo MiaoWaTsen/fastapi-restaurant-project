@@ -6,12 +6,10 @@
     <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate" />
     <meta http-equiv="Pragma" content="no-cache" />
     <meta http-equiv="Expires" content="0" />
-    
-    <title>⚡️ 熱血寶可夢對戰遊戲 ⚡️</title>
+    <title>⚡️ 寶可夢大亂鬥 (平衡版) ⚡️</title>
     <script src="https://unpkg.com/vue@3/dist/vue.global.js"></script>
     
     <style>
-        /* --- 基礎樣式 --- */
         body { font-family: 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; background-color: #1a1a2e; color: #fff; padding: 20px; margin: 0; overflow-x: hidden; user-select: none; }
         .container { max-width: 900px; margin: 0 auto; padding-top: 20px; position: relative; }
         
@@ -63,7 +61,7 @@
         .floating-damage { position: absolute; color: #ffeb3b; font-weight: bold; font-size: 24px; pointer-events: none; animation: floatUp 0.8s ease-out forwards; text-shadow: 2px 2px 0 #000; z-index: 100; white-space: nowrap; }
         @keyframes floatUp { 0% { transform: translateY(0) scale(1); opacity: 1; } 100% { transform: translateY(-60px) scale(1); opacity: 0; } }
         
-        /* --- ⚔️ 戰鬥場景專用樣式 --- */
+        /* Battle Overlay */
         .battle-overlay {
             position: fixed; top: 0; left: 0; width: 100%; height: 100%;
             background: rgba(15, 15, 30, 0.98); 
@@ -88,7 +86,6 @@
         .fighter-stats { background: rgba(0,0,0,0.7); padding: 10px; border-radius: 10px; margin-bottom: 10px; border: 1px solid #666; }
         .fighter-name { font-weight: bold; font-size: 1.2em; color: #fff; margin-bottom: 5px; }
         
-        /* 招式選單 */
         .battle-menu {
             width: 100%; max-width: 800px;
             display: grid; grid-template-columns: 1fr 1fr; gap: 10px;
@@ -105,10 +102,8 @@
         .move-buff { background: #f39c12; }   
         .move-heal { background: #27ae60; }   
         .move-defend { background: #3498db; } 
-
         .move-desc { font-size: 0.7em; opacity: 0.8; font-weight: normal; margin-top: 2px; }
 
-        /* 勝利結算畫面 */
         .victory-modal {
             position: fixed; top: 0; left: 0; width: 100%; height: 100%;
             background: rgba(0,0,0,0.9); z-index: 3000;
@@ -118,7 +113,6 @@
         .victory-title { font-size: 4em; color: #f1c40f; text-shadow: 0 0 20px #e74c3c; margin-bottom: 20px; animation: pulse 1s infinite; }
         .victory-btn { padding: 15px 40px; font-size: 1.5em; background: #27ae60; color: white; border: none; border-radius: 50px; cursor: pointer; }
 
-        /* 動畫 */
         .shake-hit { animation: shake 0.4s; }
         @keyframes shake { 0% { transform: translateX(0); } 25% { transform: translateX(-15px); } 50% { transform: translateX(15px); } 75% { transform: translateX(-15px); } 100% { transform: translateX(0); } }
         @keyframes pulse { 0% { transform: scale(1); } 50% { transform: scale(1.1); } 100% { transform: scale(1); } }
@@ -210,7 +204,7 @@
 
     <div v-if="battleState.winner" class="victory-modal">
         <div class="victory-title">{{ battleState.winner === 'player' ? '🎉 勝利！' : '💀 你倒下了...' }}</div>
-        <div style="font-size: 1.2em; color: #ccc; margin-bottom: 20px;">戰鬥結束，狀態已更新</div>
+        <div style="font-size: 1.2em; color: #ccc; margin-bottom: 20px;">戰鬥結束</div>
         <button class="victory-btn" @click="endBattle">離開戰鬥</button>
     </div>
 
@@ -271,7 +265,6 @@
     const API_URL = `https://${ZEABUR_DOMAIN}/api/v1`;
     const WS_URL = `wss://${ZEABUR_DOMAIN}/ws`;
 
-    // 🔥 招式資料庫 (PDF完全對應) 🔥
     const MOVES_DB = {
         "妙蛙種子": [
             { name: "藤鞭", dmg: 20, desc: "傷害:20", type: "dmg" },
@@ -303,7 +296,6 @@
             { name: "撒嬌", dmg: 5, heal: 0.1, buff: 0.05, desc: "傷害:5, 回血10%並提升攻擊", type: "heal" },
             { name: "欺詐", dmg: 10, desc: "傷害:10", type: "dmg" }
         ],
-        // --- 扭蛋寵物招式 (PDF source: 54-93) ---
         "伊布": [ {name:"抓",dmg:24,debuff:0.05}, {name:"挖洞",dmg:6,heal:0.2}, {name:"高速星星",dmg:16} ],
         "大蔥鴨": [ {name:"空氣斬",dmg:20}, {name:"燕返",dmg:12,nextDmg:10}, {name:"葉刃",dmg:14,buff:0.1} ],
         "呆呆獸": [ {name:"水槍",dmg:24}, {name:"念力",dmg:16,buff:0.05}, {name:"精神衝擊",dmg:16,debuff:0.05} ],
@@ -312,7 +304,6 @@
         "拉普拉斯": [ {name:"水槍",dmg:24}, {name:"衝浪",dmg:10,selfDmg:0.1}, {name:"冰凍光束",dmg:22} ],
         "吉利蛋": [ {name:"治療",dmg:6,heal:0.15}, {name:"撞擊",dmg:20}, {name:"瘋狂伏特",dmg:16,debuff:0.05} ],
         "幸福蛋": [ {name:"治療",dmg:5,heal:0.15}, {name:"撞擊",dmg:18}, {name:"瘋狂伏特",dmg:14,debuff:0.05} ],
-        
         "default": [ { name: "撞擊", dmg: 10 }, { name: "猛撞", dmg: 15 }, { name: "休息", dmg: 0, heal: 0.1 } ]
     };
 
@@ -333,7 +324,7 @@
                 shakeMe: false, shakeTarget: false,
                 buffs: { me: 0, target: 0 },
                 leechSeed: { onMe: false, onTarget: false },
-                turnCount: 0 // 新增回合計數
+                turnCount: 0
             });
 
             if (!token) window.location.href = 'login.html';
@@ -342,11 +333,10 @@
                 await updateUserInfo(); await fetchMonsters(); await fetchPlayers(); connectWebSocket();
             });
 
-            // --- 核心戰鬥邏輯 ---
             const initBattle = (target, mode) => {
                 if (target.hp <= 0) return alert("目標已經倒下了");
                 battleState.value = {
-                    isActive: true, mode: mode, target: JSON.parse(JSON.stringify(target)), // 深拷貝防止污染列表
+                    isActive: true, mode: mode, target: JSON.parse(JSON.stringify(target)),
                     turn: 'player', timer: 10, defenseCount: 2, isDefending: false, winner: null,
                     shakeMe: false, shakeTarget: false,
                     buffs: { me: 0, target: 0 },
@@ -362,14 +352,10 @@
                 startTimer();
             };
 
-            // 🔥 寄生種子邏輯：每 2 回合 (偶數回合) 發作 🔥
             const applyTurnEffects = () => {
                 if(battleState.value.winner) return;
-                
-                // 檢查是否為偶數回合
                 if (battleState.value.turnCount % 2 === 0) {
                     const dmg = 6;
-                    
                     if(battleState.value.leechSeed.onTarget) {
                         battleState.value.target.hp = Math.max(0, battleState.value.target.hp - dmg);
                         showFloatingDamage('fighter-target', dmg, false);
@@ -388,17 +374,10 @@
                 clearInterval(timerInterval);
                 addLog(`👊 你使用了 [${move.name}]！`);
                 
-                // 1. 計算傷害 (攻擊力 * (1 + buff%))
                 let atkBonus = 1 + (battleState.value.buffs.me * 0.05);
-                // 玩家基礎攻擊力 * 技能加成 (這裡簡化為直接用技能傷害) + 浮動
-                // 嚴謹一點應該是 (UserATK + MoveDMG) * Bonus
                 let finalDmg = Math.floor((user.value.attack + move.dmg) * atkBonus) + Math.floor(Math.random() * 3);
                 
-                // 2. 特效
-                if(move.buff) {
-                    battleState.value.buffs.me++;
-                    showFloatingDamage('fighter-me', "ATK UP", false, true);
-                }
+                if(move.buff) { battleState.value.buffs.me++; showFloatingDamage('fighter-me', "ATK UP", false, true); }
                 if(move.heal) {
                     const healAmt = Math.floor(user.value.max_hp * move.heal);
                     user.value.hp = Math.min(user.value.max_hp, user.value.hp + healAmt);
@@ -409,18 +388,13 @@
                     user.value.hp = Math.max(0, user.value.hp - selfDmg);
                     showFloatingDamage('fighter-me', selfDmg, false);
                 }
-                if(move.seed) {
-                    battleState.value.leechSeed.onTarget = true;
-                    addLog(`🌱 對手被寄生了！`);
-                }
+                if(move.seed) { battleState.value.leechSeed.onTarget = true; addLog(`🌱 對手被寄生了！`); }
 
-                // 3. 執行
                 battleState.value.shakeTarget = true;
                 setTimeout(() => battleState.value.shakeTarget = false, 500);
                 if(move.dmg > 0) showFloatingDamage('fighter-target', finalDmg, false);
                 battleState.value.target.hp = Math.max(0, battleState.value.target.hp - finalDmg);
 
-                // 4. 野怪模式：通知後端結算 (如果死了)
                 if (battleState.value.mode === 'wild' && battleState.value.target.hp <= 0) {
                     await fetch(`${API_URL}/items/wild/attack`, {
                         method: 'POST',
@@ -428,9 +402,11 @@
                         body: JSON.stringify({ monster_name: battleState.value.target.name, is_dead: true })
                     });
                 }
-                // PVP模式：每次攻擊都要同步
                 if (battleState.value.mode === 'pvp') {
-                    // ... (PVP 同步邏輯保持)
+                    // PVP 傷害同步交給後端處理
+                    await fetch(`${API_URL.replace('/items', '')}/shop/pvp/${battleState.value.target.id}`, {
+                        method: 'POST', headers: { 'Authorization': `Bearer ${token}` }
+                    });
                 }
 
                 checkWinCondition();
@@ -461,14 +437,15 @@
                 
                 addLog(`⚠️ 對手 [${enemyName}] 使用了 [${move.name}]！`);
 
-                // 簡單模擬對手數值 (野怪: 依等級; 玩家: 依屬性)
                 let enemyAtk = battleState.value.target.attack || 10;
                 let atkBonus = 1 + (battleState.value.buffs.target * 0.05);
                 let dmg = Math.floor((enemyAtk + move.dmg) * atkBonus);
                 
-                if(move.seed) {
-                    battleState.value.leechSeed.onMe = true;
-                    addLog(`🌱 你被寄生了！`);
+                if(move.seed) { battleState.value.leechSeed.onMe = true; addLog(`🌱 你被寄生了！`); }
+                if(move.heal) {
+                    const healAmt = Math.floor(battleState.value.target.max_hp * move.heal);
+                    battleState.value.target.hp = Math.min(battleState.value.target.max_hp, battleState.value.target.hp + healAmt);
+                    showFloatingDamage('fighter-target', healAmt, false, true);
                 }
 
                 if (battleState.value.isDefending) {
@@ -487,8 +464,8 @@
                 checkWinCondition();
                 if (!battleState.value.winner) {
                     battleState.value.turn = 'player';
-                    battleState.value.turnCount++; // 回合數+1
-                    applyTurnEffects(); // 結算種子
+                    battleState.value.turnCount++; 
+                    applyTurnEffects(); 
                     startTimer();
                 }
             };
@@ -528,7 +505,6 @@
                 updateUserInfo();
             };
 
-            // --- 輔助 ---
             const myMoves = computed(() => {
                 if (!user.value) return [];
                 const name = user.value.pokemon_name || 'default';
@@ -541,12 +517,8 @@
                 return 'move-damage';
             };
 
-            // --- API & WebSocket ---
             const updateUserInfo = async () => { try { const res = await fetch(`${API_URL}/auth/me`, { headers: { 'Authorization': `Bearer ${token}` } }); if (res.ok) user.value = await res.json(); } catch (e) {} };
-            const fetchMonsters = async () => { 
-                const res = await fetch(`${API_URL}/items/wild`, { headers: { 'Authorization': `Bearer ${token}` } }); // 改用新API
-                monsters.value = await res.json(); 
-            };
+            const fetchMonsters = async () => { const res = await fetch(`${API_URL}/items/wild`, { headers: { 'Authorization': `Bearer ${token}` } }); monsters.value = await res.json(); };
             const fetchPlayers = async () => { const res = await fetch(`${API_URL}/auth/all`); const data = await res.json(); players.value = data.filter(u => u.id !== user.value?.id).sort((a, b) => b.is_online - a.is_online); };
             const connectWebSocket = () => {
                 socket = new WebSocket(`${WS_URL}?token=${token}`);
@@ -564,8 +536,11 @@
                         }
                         return;
                     }
-                    if (battleState.value.mode === 'pvp') { // 只有 PVP 顯示廣播
-                        addLog(`<span style="color: #4cc9f0;">📡 ${msg}</span>`);
+                    if (battleState.value.mode === 'pvp') addLog(`<span style="color: #4cc9f0;">📡 ${msg}</span>`);
+                    if (battleState.value.isActive && battleState.value.target && battleState.value.mode === 'pvp') {
+                        // PVP 同步血量
+                        const newTarget = players.value.find(p => p.id === battleState.value.target.id);
+                        if(newTarget) { battleState.value.target.hp = newTarget.hp; checkWinCondition(); }
                     }
                 };
                 socket.onclose = () => setTimeout(connectWebSocket, 3000);
