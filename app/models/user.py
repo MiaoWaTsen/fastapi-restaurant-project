@@ -5,7 +5,7 @@ from pydantic import BaseModel, ConfigDict
 from app.models.base import Base
 
 class User(Base):
-    __tablename__ = "users_v5" # 🔥 改名 v5 強制更新結構
+    __tablename__ = "users_v5" # 確保是 v5
 
     id = Column(Integer, primary_key=True, index=True)
     username = Column(String(50), unique=True, index=True, nullable=False)
@@ -14,7 +14,7 @@ class User(Base):
     pokemon_name = Column(String(50), default="未知圖騰")
     pokemon_image = Column(String(255), default="")
     
-    # 🔥 新增：已解鎖圖鑑 (用逗號分隔字串儲存，例: "皮卡丘,小火龍")
+    # 🔥 關鍵：圖鑑欄位 🔥
     unlocked_monsters = Column(String(1000), default="")
 
     hp = Column(Integer, default=100)
@@ -25,7 +25,6 @@ class User(Base):
     exp = Column(Integer, default=0)
     money = Column(Integer, default=0)
 
-# --- Pydantic ---
 class UserCreate(BaseModel):
     username: str
     password: str
@@ -36,7 +35,7 @@ class UserRead(BaseModel):
     username: str
     pokemon_name: str
     pokemon_image: str
-    unlocked_monsters: str # 新增
+    unlocked_monsters: str # 確保 API 會吐出這個
     hp: int
     max_hp: int
     attack: int

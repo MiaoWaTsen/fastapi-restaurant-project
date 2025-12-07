@@ -13,14 +13,12 @@ from app.common.websocket import manager
 router = APIRouter()
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/api/v1/auth/token")
 
-# 御三家
 STARTERS = {
     1: { "name": "妙蛙種子", "hp": 200, "atk": 20, "img": "https://img.pokemondb.net/artwork/large/bulbasaur.jpg" },
     2: { "name": "小火龍", "hp": 160, "atk": 25, "img": "https://img.pokemondb.net/artwork/large/charmander.jpg" },
     3: { "name": "傑尼龜", "hp": 180, "atk": 22, "img": "https://img.pokemondb.net/artwork/large/squirtle.jpg" }
 }
 
-# 升級表
 LEVEL_XP = { 1: 50, 2: 100, 3: 200, 4: 350, 5: 600, 6: 1000, 7: 1800, 8: 3000 }
 
 class UserReadWithStatus(UserRead):
@@ -34,7 +32,7 @@ def check_levelup(user):
         user.exp -= required_xp
         user.max_hp = int(user.max_hp * 1.4)
         user.hp = user.max_hp
-        # 🔥 修改：攻擊力成長從 1.5 降為 1.2，避免後期太強 🔥
+        # 🔥 修改：攻擊力成長從 1.5 降為 1.2 🔥
         user.attack = int(user.attack * 1.2)
         return True
     return False
@@ -50,7 +48,7 @@ def register(user: UserCreate, db: Session = Depends(get_db)):
     new_user = User(
         username=user.username, hashed_password=hashed_pw,
         pokemon_name=starter["name"], pokemon_image=starter["img"],
-        # 註冊時解鎖第一隻
+        # 🔥 修正：註冊時立刻解鎖圖鑑 🔥
         unlocked_monsters=starter["name"],
         hp=starter["hp"], max_hp=starter["hp"], attack=starter["atk"], money=300
     )
