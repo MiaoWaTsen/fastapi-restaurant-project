@@ -1,10 +1,10 @@
 # app/routers/auth.py
 
 from fastapi import APIRouter, Depends, HTTPException
-# 🔥 補上這一行！修正 NameError 🔥
-from fastapi.security import OAuth2PasswordBearer, OAuth2PasswordRequestForm
 from sqlalchemy.orm import Session
+from fastapi.security import OAuth2PasswordBearer, OAuth2PasswordRequestForm
 from typing import List
+import json
 
 from app.db.session import get_db
 from app.models.user import User, UserCreate, UserRead
@@ -14,31 +14,19 @@ from app.common.websocket import manager
 router = APIRouter()
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/api/v1/auth/token")
 
-# 御三家
 STARTERS = {
-    1: { "name": "妙蛙種子", "hp": 200, "atk": 20, "img": "https://img.pokemondb.net/artwork/large/bulbasaur.jpg" },
-    2: { "name": "小火龍", "hp": 160, "atk": 25, "img": "https://img.pokemondb.net/artwork/large/charmander.jpg" },
-    3: { "name": "傑尼龜", "hp": 180, "atk": 22, "img": "https://img.pokemondb.net/artwork/large/squirtle.jpg" }
+    1: { "name": "妙蛙種子", "hp": 220, "atk": 105, "img": "https://img.pokemondb.net/artwork/large/bulbasaur.jpg" },
+    2: { "name": "小火龍", "hp": 180, "atk": 120, "img": "https://img.pokemondb.net/artwork/large/charmander.jpg" },
+    3: { "name": "傑尼龜", "hp": 200, "atk": 110, "img": "https://img.pokemondb.net/artwork/large/squirtle.jpg" }
 }
 
-# 升級所需 XP 表
-LEVEL_XP = { 1: 50, 2: 100, 3: 200, 4: 350, 5: 600, 6: 1000, 7: 1800, 8: 3000 }
+# 經驗值表 (通用)
+LEVEL_XP = { 1: 50, 2: 100, 3: 200, 4: 350, 5: 600, 6: 1000, 7: 1800, 8: 3000, 9: 5000, 10: 8000 }
 
-# 擴充回傳格式
 class UserReadWithExp(UserRead):
-    next_level_exp: int
+    next_level_exp: int      # 玩家升級所需
+    next_pet_level_exp: int  # 寶可夢升級所需
     is_online: bool = False
-
-def check_levelup(user):
-    required_xp = LEVEL_XP.get(user.level, 999999)
-    if user.exp >= required_xp:
-        user.level += 1
-        user.exp -= required_xp
-        user.max_hp = int(user.max_hp * 1.4)
-        user.hp = user.max_hp
-        user.attack = int(user.attack * 1.2) # 攻擊力成長修正為 1.2
-        return True
-    return False
 
 @router.post("/register", response_model=UserRead)
 def register(user: UserCreate, db: Session = Depends(get_db)):
@@ -48,11 +36,22 @@ def register(user: UserCreate, db: Session = Depends(get_db)):
     starter = STARTERS.get(user.starter_id, STARTERS[1])
     hashed_pw = get_password_hash(user.password)
     
+    # 初始倉庫
+    initial_storage = {
+        starter["name"]: {"lv": 1, "exp": 0}
+    }
+    
     new_user = User(
         username=user.username, hashed_password=hashed_pw,
         pokemon_name=starter["name"], pokemon_image=starter["img"],
-        unlocked_monsters=starter["name"], 
-        hp=starter["hp"], max_hp=starter["hp"], attack=starter["atk"], money=300
+        unlocked_monsters=starter["name"],
+        pokemon_storage=json.dumps(initial_storage), # 存入倉庫
+        
+        hp=starter["hp"], max_hp=starter["hp"], attack=starter["atk"], 
+        
+        pet_level=1, pet_exp=0, # 寶可夢初始
+        level=1, exp=0,         # 玩家初始
+        money=300
     )
     db.add(new_user)
     db.commit()
@@ -78,10 +77,11 @@ def read_users_me(token: str = Depends(oauth2_scheme), db: Session = Depends(get
     user = db.query(User).filter(User.username == username).first()
     if not user: raise HTTPException(status_code=401)
     
-    req_xp = LEVEL_XP.get(user.level, 999999)
-    
     user_dict = UserRead.model_validate(user).model_dump()
-    user_dict['next_level_exp'] = req_xp
+    # 填充兩個經驗條上限
+    user_dict['next_level_exp'] = LEVEL_XP.get(user.level, 999999)
+    user_dict['next_pet_level_exp'] = LEVEL_XP.get(user.pet_level, 999999)
+    
     return user_dict
 
 @router.get("/all", response_model=List[UserReadWithExp])
@@ -93,5 +93,6 @@ def get_all_users(db: Session = Depends(get_db)):
         u_dict = UserRead.model_validate(u).model_dump()
         u_dict['is_online'] = (u.id in online_ids)
         u_dict['next_level_exp'] = LEVEL_XP.get(u.level, 999999)
+        u_dict['next_pet_level_exp'] = LEVEL_XP.get(u.pet_level, 999999)
         results.append(u_dict)
     return results
