@@ -3,128 +3,73 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>寶可夢大亂鬥 - 登入</title>
+    <title>寶可夢大亂鬥-登入</title>
+    <script src="https://unpkg.com/vue@3/dist/vue.global.js"></script>
     <style>
-        body { font-family: 'Segoe UI', sans-serif; background-color: #1a1a2e; color: white; display: flex; justify-content: center; align-items: center; height: 100vh; margin: 0; }
-        .login-box { background: #16213e; padding: 40px; border-radius: 10px; box-shadow: 0 0 20px rgba(0,0,0,0.5); width: 320px; text-align: center; border: 1px solid #0f3460; }
-        h1 { color: #f1c40f; margin-bottom: 20px; }
-        input, select { width: 100%; padding: 12px; margin: 8px 0; border: none; border-radius: 5px; background: #0f3460; color: white; box-sizing: border-box; font-size: 16px; }
-        button { width: 100%; padding: 12px; background: #e94560; color: white; border: none; border-radius: 5px; cursor: pointer; font-weight: bold; margin-top: 15px; transition: 0.3s; font-size: 16px; }
-        button:hover { background: #c0392b; }
-        .switch-btn { background: transparent; color: #4cc9f0; margin-top: 15px; font-size: 0.9em; }
-        .switch-btn:hover { background: transparent; text-decoration: underline; }
-        #msg { color: #e74c3c; font-size: 0.9em; margin-top: 15px; min-height: 20px; }
-        
-        /* 隱藏選單 (登入時不需要) */
-        .hidden { display: none; }
+        body { background: #1a1a2e; color: white; display: flex; justify-content: center; align-items: center; height: 100vh; font-family: sans-serif; margin: 0; }
+        .box { background: #16213e; padding: 40px; border-radius: 15px; border: 2px solid #0f3460; width: 300px; text-align: center; }
+        input, select { width: 100%; padding: 10px; margin: 10px 0; border-radius: 5px; border: none; box-sizing: border-box; }
+        button { width: 100%; padding: 10px; margin-top: 10px; border-radius: 5px; border: none; font-weight: bold; cursor: pointer; transition: 0.3s; }
+        .btn-login { background: #e94560; color: white; } .btn-login:hover { background: #c0392b; }
+        .btn-toggle { background: transparent; color: #4cc9f0; margin-top: 10px; }
     </style>
 </head>
 <body>
-
-<div class="login-box">
-    <h1 id="title">勇者登入</h1>
-    
-    <input type="text" id="username" placeholder="帳號 (Username)">
-    <input type="password" id="password" placeholder="密碼 (Password)">
-    
-    <select id="starter" class="hidden">
-        <option value="1">🍃 妙蛙種子 (HP高)</option>
-        <option value="2">🔥 小火龍 (攻擊高)</option>
-        <option value="3">💧 傑尼龜 (平衡型)</option>
-    </select>
-
-    <div id="msg"></div>
-    <button onclick="handleAuth()" id="action-btn">登入</button>
-    <button class="switch-btn" onclick="toggleMode()">還沒帳號？去註冊</button>
-</div>
-
-<script>
-    // --------------------------------------------------------
-    // ⚠️ 設定區：請改成你的 Zeabur 網址
-    const BASE_URL = 'https://mwtpokemons.zeabur.app'; 
-    // --------------------------------------------------------
-    
-    let isLoginMode = true;
-
-    function toggleMode() {
-        isLoginMode = !isLoginMode;
-        document.getElementById('title').innerText = isLoginMode ? "勇者登入" : "選擇你的夥伴";
-        document.getElementById('action-btn').innerText = isLoginMode ? "登入" : "開始冒險";
-        document.querySelector('.switch-btn').innerText = isLoginMode ? "還沒帳號？去註冊" : "已有帳號？回登入";
-        document.getElementById('msg').innerText = "";
+    <div id="app" class="box">
+        <h2 style="color:#f1c40f">🔥 寶可夢大亂鬥 🔥</h2>
+        <div v-if="isLogin">
+            <input v-model="form.username" placeholder="帳號">
+            <input v-model="form.password" type="password" placeholder="密碼">
+            <button class="btn-login" @click="login">登入</button>
+            <button class="btn-toggle" @click="isLogin=false">沒有帳號？註冊</button>
+        </div>
+        <div v-else>
+            <input v-model="form.username" placeholder="設定帳號">
+            <input v-model="form.password" type="password" placeholder="設定密碼">
+            <select v-model="form.starter_id">
+                <option value="1">妙蛙種子</option>
+                <option value="2">小火龍</option>
+                <option value="3">傑尼龜</option>
+            </select>
+            <button class="btn-login" style="background:#27ae60" @click="register">開始冒險</button>
+            <button class="btn-toggle" @click="isLogin=true">已有帳號？登入</button>
+        </div>
+    </div>
+    <script>
+        const API_URL = 'https://mwtpokemons.zeabur.app/api/v1/auth'; // ⚠️ 請確認這是你的網址
         
-        // 切換模式時，顯示/隱藏御三家選單
-        const starterSelect = document.getElementById('starter');
-        if (isLoginMode) {
-            starterSelect.classList.add('hidden');
-        } else {
-            starterSelect.classList.remove('hidden');
-        }
-    }
+        Vue.createApp({
+            setup() {
+                const isLogin = Vue.ref(true);
+                const form = Vue.ref({ username: '', password: '', starter_id: 1 });
 
-    async function handleAuth() {
-        const username = document.getElementById('username').value;
-        const password = document.getElementById('password').value;
-        const starterId = document.getElementById('starter').value; // 抓取選擇
-        const msg = document.getElementById('msg');
+                const login = async () => {
+                    const formData = new URLSearchParams();
+                    formData.append('username', form.value.username);
+                    formData.append('password', form.value.password);
+                    try {
+                        const res = await fetch(`${API_URL}/token`, { method: 'POST', body: formData });
+                        if(res.ok) {
+                            const data = await res.json();
+                            localStorage.setItem('token', data.access_token);
+                            window.location.href = '/';
+                        } else alert("登入失敗");
+                    } catch(e) { alert("連線錯誤"); }
+                };
 
-        if (!username || !password) {
-            msg.innerText = "請輸入帳號密碼";
-            return;
-        }
-
-        try {
-            msg.innerText = "處理中...";
-            
-            if (isLoginMode) {
-                // --- 登入 ---
-                const formData = new URLSearchParams();
-                formData.append('username', username);
-                formData.append('password', password);
-
-                const res = await fetch(`${BASE_URL}/api/v1/auth/token`, {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-                    body: formData
-                });
-
-                if (!res.ok) throw new Error("帳號或密碼錯誤");
-                
-                const data = await res.json();
-                localStorage.setItem('token', data.access_token);
-                localStorage.setItem('user', username);
-                
-                msg.style.color = '#2ecc71';
-                msg.innerText = "登入成功！";
-                setTimeout(() => window.location.href = 'index.html', 500);
-
-            } else {
-                // --- 註冊 (傳送 starter_id) ---
-                const res = await fetch(`${BASE_URL}/api/v1/auth/register`, {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ 
-                        username, 
-                        password,
-                        starter_id: parseInt(starterId) // 傳送選擇的御三家 ID
-                    })
-                });
-
-                if (!res.ok) {
-                    const errData = await res.json();
-                    throw new Error(errData.detail || "註冊失敗");
-                }
-
-                msg.style.color = '#2ecc71';
-                msg.innerText = "註冊成功！請登入";
-                setTimeout(() => toggleMode(), 1000);
+                const register = async () => {
+                    try {
+                        const res = await fetch(`${API_URL}/register`, {
+                            method: 'POST', headers: {'Content-Type': 'application/json'},
+                            body: JSON.stringify(form.value)
+                        });
+                        if(res.ok) { alert("註冊成功！請登入"); isLogin.value = true; } 
+                        else { const d = await res.json(); alert(d.detail); }
+                    } catch(e) { alert("連線錯誤"); }
+                };
+                return { isLogin, form, login, register };
             }
-        } catch (err) {
-            msg.style.color = '#e74c3c';
-            msg.innerText = err.message;
-        }
-    }
-</script>
-
+        }).mount('#app');
+    </script>
 </body>
 </html>

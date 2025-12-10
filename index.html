@@ -6,11 +6,11 @@
     <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate" />
     <meta http-equiv="Pragma" content="no-cache" />
     <meta http-equiv="Expires" content="0" />
-    <title>⚡️ 寶可夢大亂鬥 (V10 完美修復版) ⚡️</title>
+    <title>⚡️ 寶可夢大亂鬥 (修復版) ⚡️</title>
     <script src="https://unpkg.com/vue@3/dist/vue.global.js"></script>
     
     <style>
-        /* (CSS 保持不變，直接複製即可) */
+        /* (CSS 保持不變，略過以節省空間，請直接使用上一版的 CSS) */
         body { font-family: 'Segoe UI', sans-serif; background-color: #1a1a2e; color: #fff; padding: 20px; user-select: none; }
         .container { max-width: 900px; margin: 0 auto; }
         .navbar { display: flex; justify-content: space-between; align-items: center; background: #16213e; padding: 15px; border-radius: 10px; margin-bottom: 20px; border: 1px solid #0f3460; }
@@ -105,7 +105,7 @@
 
     <div v-if="showLevelUp" class="levelup-overlay"><div style="font-size:5em; font-weight:bold; color:#fff">LEVEL UP!</div><div style="font-size:2em; margin-top:20px; color:#fff">等級提升！</div></div>
     <div v-if="inviteState.show" class="modal-overlay"><div class="modal-box"><h3>💌 決鬥邀請</h3><p>{{ inviteState.senderName }} 向你發起挑戰！</p><div class="modal-btns"><button class="btn-yes" @click="respondInvite(true)">接受</button><button class="btn-no" @click="respondInvite(false)">拒絕</button></div></div></div>
-    <div v-if="gachaResult.show" class="modal-overlay"><div class="modal-box"><h3>🎉 獲得新夥伴！</h3><img :src="gachaResult.prize.img" style="width:100px"><p>獲得 <b>{{ gachaResult.prize.name }}</b>！</p><div class="modal-btns"><button class="btn-yes" @click="confirmSwap(true)">變身</button><button class="btn-no" @click="confirmSwap(false)">收下</button></div></div></div>
+    <div v-if="gachaResult.show" class="modal-overlay"><div class="modal-box"><h3>🎉 獲得新夥伴！</h3><img :src="gachaResult.prize.img" class="modal-img"><p>獲得 <b>{{ gachaResult.prize.name }}</b>！</p><div class="modal-btns"><button class="btn-yes" @click="confirmSwap(true)">變身</button><button class="btn-no" @click="confirmSwap(false)">收下</button></div></div></div>
     <div v-if="isGachaAnimating" class="gacha-anim-overlay"><div class="pokeball-anim"></div><div class="gacha-text">捕捉中...</div></div>
 
     <h1 style="text-align: center; color: #e94560;" v-if="user && !battleState.isActive">⚔️ 妙蛙宸的熱血戰場 ⚔️</h1>
@@ -175,7 +175,6 @@
     const API_URL = `https://mwtpokemons.zeabur.app/api/v1`;
     const WS_URL = `wss://mwtpokemons.zeabur.app/ws`;
 
-    // (MOVES_DB, WILD_MOVES, ALL_POKEMON 保持不變，直接沿用)
     const MOVES_DB = {
         "妙蛙種子": [{name:"藤鞭",dmg:16,chance:0.35,buff:0.25,desc:"16傷,35%攻+25%"}, {name:"種子炸彈",dmg:26,desc:"26傷"}, {name:"污泥炸彈",dmg:18,chance:0.3,buff:0.2,desc:"18傷,30%攻+20%"}],
         "小火龍": [{name:"火花",dmg:16,chance:0.35,buff:0.25,desc:"16傷,35%攻+25%"}, {name:"噴射火焰",dmg:18,chance:0.3,buff:0.2,desc:"18傷,30%攻+20%"}, {name:"火焰輪",dmg:26,desc:"26傷"}],
@@ -249,8 +248,8 @@
             };
 
             const calculateRealDamage = (attackerAtk, moveDmg) => { 
-                const dmg = moveDmg || 0;
-                const base = (attackerAtk / 100) * dmg; 
+                // 🔥 修正：防呆處理，避免 undefined 計算 🔥
+                const base = (attackerAtk / 100) * (moveDmg || 0); 
                 return Math.floor(base * (0.95 + Math.random() * 0.1)); 
             };
             const calculateDisplayDmg = (atk, moveDmg) => Math.floor((atk / 100) * (moveDmg || 0));
@@ -264,14 +263,14 @@
                     addLog(`👊 你使用了 [${move.name}]！`);
                     
                     let atkBonus = 1 + (battleState.value.buffs.me);
-                    let finalDmg = calculateRealDamage(user.value.attack * atkBonus, move.dmg);
+                    // 🔥 修正：確保攻擊力是有效數字 🔥
+                    let finalDmg = calculateRealDamage((user.value.attack || 0) * atkBonus, move.dmg);
                     
                     const roll = Math.random();
                     if(move.chance === undefined || roll < move.chance) {
                         if(move.buff) { battleState.value.buffs.me += move.buff; showFloatingDamage('fighter-me', "ATK UP!", false, true); }
                         if(move.heal) { const h = Math.floor(user.value.max_hp * move.heal); user.value.hp = Math.min(user.value.max_hp, user.value.hp + h); showFloatingDamage('fighter-me', h, false, true); }
-                        if(move.seed) { battleState.value.leechSeed.onTarget = true; addLog(`🌱 寄生成功！`); }
-                    } else if (move.chance < 1.0) addLog(`(特效未觸發)`);
+                    }
     
                     if(move.selfDmg) { const s = Math.floor(user.value.max_hp * move.selfDmg); user.value.hp = Math.max(0, user.value.hp - s); showFloatingDamage('fighter-me', s, false); }
     
@@ -342,14 +341,12 @@
                 if(!checkWinCondition()) { battleState.value.turn = 'player'; startTimer(); }
             };
 
-            // 🔥 關鍵修正：將 endBattle 放入 return 🔥
+            // 🔥 確保函式有正確匯出 🔥
             const endBattle = async () => { clearInterval(timerInterval); if (battleState.value.mode === 'pvp') await fetch(`${API_URL.replace('/items', '')}/shop/duel/end/${battleState.value.target.id}`, { method: 'POST', headers: { 'Authorization': `Bearer ${token}` } }); battleState.value.isActive = false; battleState.value.winner = null; updateUserInfo(); };
 
             const startTimer = () => { clearInterval(timerInterval); battleState.value.timer = 10; timerInterval = setInterval(() => { if (!battleState.value.isActive) { clearInterval(timerInterval); return; } battleState.value.timer--; if (battleState.value.timer <= 0) { clearInterval(timerInterval); if(battleState.value.mode === 'wild') { battleState.value.turn = 'enemy'; setTimeout(executeEnemyTurn, 1000); } else { fetch(`${API_URL.replace('/items', '')}/shop/pvp/${battleState.value.target.id}`, { method: 'POST', headers: { 'Authorization': `Bearer ${token}` } }); battleState.value.turn = 'enemy'; } } }, 1000); };
             const checkWinCondition = () => { if (battleState.value.target.hp <= 0) { battleState.value.winner = 'player'; return true; } if (user.value.hp <= 0) { battleState.value.winner = 'enemy'; return true; } return false; };
-            const connectWebSocket = () => { socket = new WebSocket(`${WS_URL}?token=${token}`); socket.onopen = () => setInterval(() => socket.readyState===1 && socket.send("ping"), 30000); socket.onmessage = (e) => { const msg = e.data; const parts = msg.split("|"); 
-                if (msg.startsWith("📢")) { addLog(msg); return; } // 只記錄不彈窗
-                if (msg.startsWith("EVENT:DUEL_INVITE") && parseInt(parts[3]) === user.value.id) inviteState.value = { show: true, senderId: parts[1], senderName: parts[2] }; if (msg.startsWith("EVENT:DUEL_START")) { const p1=parseInt(parts[1]), p2=parseInt(parts[3]), first=parseInt(parts[5]); if(user.value.id===p1 || user.value.id===p2) { inviteState.value.show = false; const oppId = user.value.id===p1 ? p2 : p1; fetchPlayers().then(() => { const opp = players.value.find(p=>p.id===oppId); if(opp) { initBattle(opp, 'pvp'); battleState.value.turn = user.value.id===first?'player':'enemy'; if(battleState.value.turn==='player') startTimer(); } }); } } if (msg.startsWith("EVENT:PVP_MOVE")) { const targetId = parseInt(parts[2]); if (battleState.value.isActive && user.value.id === targetId) { fetchPlayers().then(() => { const opp = players.value.find(p => p.id === parseInt(parts[1])); if(opp) battleState.value.target.hp = opp.hp; const me = players.value.find(p => p.id === user.value.id); if(me) user.value.hp = me.hp; if(!checkWinCondition()) { battleState.value.turn = 'player'; startTimer(); } }); } } fetchMonsters(); fetchPlayers(); updateUserInfo(); fetchQuests(); }; };
+            const connectWebSocket = () => { socket = new WebSocket(`${WS_URL}?token=${token}`); socket.onopen = () => setInterval(() => socket.readyState===1 && socket.send("ping"), 30000); socket.onmessage = (e) => { const msg = e.data; const parts = msg.split("|"); if (msg.startsWith("📢")) addLog(msg); if (msg.startsWith("EVENT:DUEL_INVITE") && parseInt(parts[3]) === user.value.id) inviteState.value = { show: true, senderId: parts[1], senderName: parts[2] }; if (msg.startsWith("EVENT:DUEL_START")) { const p1=parseInt(parts[1]), p2=parseInt(parts[3]), first=parseInt(parts[5]); if(user.value.id===p1 || user.value.id===p2) { inviteState.value.show = false; const oppId = user.value.id===p1 ? p2 : p1; fetchPlayers().then(() => { const opp = players.value.find(p=>p.id===oppId); if(opp) { initBattle(opp, 'pvp'); battleState.value.turn = user.value.id===first?'player':'enemy'; if(battleState.value.turn==='player') startTimer(); } }); } } if (msg.startsWith("EVENT:PVP_MOVE")) { const targetId = parseInt(parts[2]); if (battleState.value.isActive && user.value.id === targetId) { fetchPlayers().then(() => { const opp = players.value.find(p => p.id === parseInt(parts[1])); if(opp) battleState.value.target.hp = opp.hp; const me = players.value.find(p => p.id === user.value.id); if(me) user.value.hp = me.hp; if(!checkWinCondition()) { battleState.value.turn = 'player'; startTimer(); } }); } } fetchMonsters(); fetchPlayers(); updateUserInfo(); fetchQuests(); }; };
             const playGacha = async (type) => { try { isGachaAnimating.value = true; const res = await fetch(`${API_URL.replace('/items', '')}/shop/gacha/${type}`, { method: 'POST', headers: { 'Authorization': `Bearer ${token}` } }); const data = await res.json(); setTimeout(() => { isGachaAnimating.value = false; if(res.ok) { gachaResult.value = { show: true, prize: data.prize, isNew: data.is_new }; updateUserInfo(); } else alert(data.detail); }, 2500); } catch(e) { isGachaAnimating.value = false; } };
             const confirmSwap = async (s) => { if(s) await fetch(`${API_URL.replace('/items', '')}/shop/swap/${gachaResult.value.prize.name}`, { method: 'POST', headers: { 'Authorization': `Bearer ${token}` } }); gachaResult.value.show = false; updateUserInfo(); };
             const swapFromDex = async (name) => { if (!user.value.unlocked_monsters.includes(name)) return alert("未解鎖"); if(confirm(`變身 ${name}?`)) await fetch(`${API_URL.replace('/items', '')}/shop/swap/${name}`, { method: 'POST', headers: { 'Authorization': `Bearer ${token}` } }); updateUserInfo(); };
@@ -357,13 +354,16 @@
             const logout = () => { localStorage.clear(); window.location.href = 'login.html'; };
             const addLog = (msg) => { logs.value.unshift(msg); if(logs.value.length > 50) logs.value.pop(); };
             const hpPercent = (u) => (u.hp / u.max_hp) * 100;
+            const isUnlocked = (n) => user.value.unlocked_monsters.includes(n);
             const showFloatingDamage = (id, val, crit, heal) => { const el = document.createElement('div'); el.className = 'floating-damage'; el.innerText = heal?`+${val}`:(crit?`💥 ${val}`:`-${val}`); const rect = document.getElementById(id).getBoundingClientRect(); el.style.left = rect.left+50+'px'; el.style.top = rect.top+'px'; if(crit) el.style.color='red'; if(heal) el.style.color='green'; document.body.appendChild(el); setTimeout(()=>el.remove(),2000); };
+            const getMoveClass = (move) => { if (move.type === 'buff') return 'move-buff'; if (move.type === 'heal') return 'move-heal'; return 'move-damage'; };
+            
+            // 🔥 修正：確保 sendInvite 被正確定義並匯出 🔥
+            const sendInvite = async (p) => { await fetch(`${API_URL.replace('/items', '')}/shop/duel/invite/${p.id}`, { method: 'POST', headers: { 'Authorization': `Bearer ${token}` } }); alert("已邀請"); };
+            
             watch(currentTab, (n) => { if(n=='wild') fetchMonsters(); if(n=='arena') fetchPlayers(); if(n=='quest') fetchQuests(); });
 
             return { user, monsters, players, quests, inventory, currentTab, battleState, myMoves, isMyTurn, inviteState, gachaResult, ALL_POKEMON, hpPercent, petXpPercent, logout, initBattle, executePlayerMove, executeDefense, endBattle, playGacha, buyHeal, sendInvite, respondInvite, confirmSwap, swapFromDex, isUnlocked, isGachaAnimating, acceptQuest, claimQuest, selectedWildLevel, fetchMonsters, currentAtkMe, currentAtkTarget, calculateDisplayDmg, showLevelUp };
         }
     }).mount('#app');
 </script>
-
-</body>
-</html>
