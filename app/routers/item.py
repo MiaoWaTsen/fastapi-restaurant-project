@@ -15,7 +15,6 @@ from app.common.websocket import manager
 router = APIRouter()
 
 # --- 🌲 野怪資料 (PDF Source 205-219) ---
-# is_boss: True (固定等級, 一次性)
 WILD_DB = [
     { "min_lv": 1, "name": "小拉達", "base_hp": 90, "base_atk": 80, "img": "https://img.pokemondb.net/artwork/large/rattata.jpg" },
     { "min_lv": 2, "name": "波波", "base_hp": 94, "base_atk": 84, "img": "https://img.pokemondb.net/artwork/large/pidgey.jpg" },
@@ -26,13 +25,11 @@ WILD_DB = [
     { "min_lv": 7, "name": "角金魚", "base_hp": 125, "base_atk": 100, "img": "https://img.pokemondb.net/artwork/large/goldeen.jpg" },
     { "min_lv": 8, "name": "走路草", "base_hp": 120, "base_atk": 110, "img": "https://img.pokemondb.net/artwork/large/oddish.jpg" },
     { "min_lv": 9, "name": "穿山鼠", "base_hp": 120, "base_atk": 110, "img": "https://img.pokemondb.net/artwork/large/sandshrew.jpg" },
-    # 小Boss
     { "min_lv": 10, "name": "蚊香勇士", "base_hp": 150, "base_atk": 140, "img": "https://img.pokemondb.net/artwork/large/poliwrath.jpg", "is_boss": True },
     { "min_lv": 12, "name": "小磁怪", "base_hp": 120, "base_atk": 114, "img": "https://img.pokemondb.net/artwork/large/magnemite.jpg" },
     { "min_lv": 14, "name": "卡拉卡拉", "base_hp": 120, "base_atk": 120, "img": "https://img.pokemondb.net/artwork/large/cubone.jpg" },
     { "min_lv": 16, "name": "喵喵", "base_hp": 124, "base_atk": 124, "img": "https://img.pokemondb.net/artwork/large/meowth.jpg" },
     { "min_lv": 18, "name": "瑪瑙水母", "base_hp": 130, "base_atk": 130, "img": "https://img.pokemondb.net/artwork/large/tentacool.jpg" },
-    # 大Boss
     { "min_lv": 20, "name": "暴鯉龍", "base_hp": 160, "base_atk": 180, "img": "https://img.pokemondb.net/artwork/large/gyarados.jpg", "is_boss": True },
 ]
 
@@ -50,16 +47,18 @@ async def check_levelup_dual(user: User):
         msg_list.append(f"訓練師升級(Lv.{user.level})")
         await manager.broadcast(f"📢 恭喜玩家 [{user.username}] 提升到了 訓練師等級 {user.level}！")
         
-    # 2. 寶可夢升級 (升級攻擊力*1.12、血量*1.06)
+    # 2. 寶可夢升級
     if user.pet_level < user.level or (user.level == 1 and user.pet_level == 1):
         req_xp_pet = get_req_xp(user.pet_level)
         while user.pet_exp >= req_xp_pet:
             if user.pet_level >= user.level and user.level > 1: break 
             user.pet_level += 1
             user.pet_exp -= req_xp_pet
+            
             user.max_hp = int(user.max_hp * 1.06)
             user.hp = user.max_hp
             user.attack = int(user.attack * 1.12)
+            
             msg_list.append(f"{user.pokemon_name}升級(Lv.{user.pet_level})")
             req_xp_pet = get_req_xp(user.pet_level)
             
@@ -73,36 +72,25 @@ def get_wild_monsters(
     monsters = []
     player_lv = current_user.level
     
-    # 讀取已擊敗的 Boss
-    defeated = current_user.defeated_bosses.split(',') if current_user.defeated_bosses else []
-    
-    # 1. 篩選符合條件的怪
-    # 條件：(min_lv <= player_lv) 且 (如果是 Boss 則不能在 defeated 列表中)
     target_lv = level if level else player_lv
     if target_lv > player_lv: target_lv = player_lv
 
+    defeated = current_user.defeated_bosses.split(',') if current_user.defeated_bosses else []
+    
     available = []
     for m in WILD_DB:
         if m["min_lv"] <= target_lv:
-            if m.get("is_boss") and m["name"] in defeated:
-                continue # 已打過的 Boss 不再出現
+            if m.get("is_boss") and m["name"] in defeated: continue
             available.append(m)
 
-    # 如果有指定等級，優先選最接近該等級的普通怪
     if level:
-        # 過濾掉 Boss，避免刷 Boss
         normal_monsters = [m for m in available if not m.get("is_boss")]
         if normal_monsters:
-             # 找最接近該等級的
              specific = next((m for m in reversed(normal_monsters) if m["min_lv"] <= level), normal_monsters[0])
              available = [specific]
 
     monster_id_counter = 1
     for m_data in available:
-        # 計算數值
-        # Boss: 等級固定 (base_hp/atk)
-        # 普通怪: 隨等級成長 (1.06 / 1.12)
-        
         is_boss = m_data.get("is_boss", False)
         
         if is_boss:
@@ -114,13 +102,12 @@ def get_wild_monsters(
             hp_scale = 1.06 ** (final_lv - 1)
             atk_scale = 1.12 ** (final_lv - 1)
             hp = int(m_data["base_hp"] * hp_scale)
-            attack = int(m_data["base_atk"] * atk_scale)
+            # 🔥 修正：野怪攻擊力提升 1.2 倍 (讓戰鬥更有感) 🔥
+            attack = int(m_data["base_atk"] * atk_scale * 1.2)
         
-        # 獎勵
         xp_reward = int(20 + final_lv * 5)
         gold_reward = int(45 + final_lv * 5)
         
-        # Boss 獎勵加成
         if is_boss:
             xp_reward *= 3
             gold_reward *= 3
@@ -155,7 +142,6 @@ async def attack_wild(
         base_name = data.monster_name.split('(')[0].strip().replace(" 👑", "")
         monster_lv = data.level
         
-        # 尋找野怪資料以確認是否為 Boss
         m_data = next((m for m in WILD_DB if m["name"] == base_name), None)
         is_boss = m_data.get("is_boss", False) if m_data else False
         
@@ -165,7 +151,6 @@ async def attack_wild(
         if is_boss:
             xp_gain *= 3
             gold_gain *= 3
-            # 記錄擊殺
             defeated = current_user.defeated_bosses.split(',') if current_user.defeated_bosses else []
             if base_name not in defeated:
                 defeated.append(base_name)
@@ -178,7 +163,6 @@ async def attack_wild(
         
         msg = f"擊敗 {base_name}！獲得 {xp_gain} XP, {gold_gain} Gold" + msg
         
-        # 掉落糖果 (10%)
         if random.random() < 0.1:
             inventory = json.loads(current_user.inventory) if current_user.inventory else {}
             inventory["candy"] = inventory.get("candy", 0) + 1
@@ -188,12 +172,10 @@ async def attack_wild(
         lvl_msg = await check_levelup_dual(current_user)
         if lvl_msg: msg += f" 🎉 {lvl_msg}！"
             
-        # 任務進度
         try:
             quests = json.loads(current_user.quests) if current_user.quests else []
             quest_updated = False
             for q in quests:
-                # 任務條件：目標名字對 + 目標等級一致 (或更高)
                 if q["status"] == "ACTIVE" and q["target"] == base_name and monster_lv >= q["target_lv"]:
                     if q["now"] < q["req"]:
                         q["now"] += 1
