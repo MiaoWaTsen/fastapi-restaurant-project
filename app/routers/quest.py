@@ -4,14 +4,13 @@ from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 import random
 import json
-
 from app.db.session import get_db
 from app.models.user import User
 from app.common.deps import get_current_user
 
 router = APIRouter()
 
-# 引用 Wild DB 來確保任務合理性
+# 引用 Wild DB (需與 item.py 一致)
 WILD_DB_REF = [
     { "min_lv": 1, "name": "小拉達" }, { "min_lv": 2, "name": "波波" },
     { "min_lv": 3, "name": "烈雀" }, { "min_lv": 4, "name": "阿柏蛇" },
@@ -29,10 +28,9 @@ def get_quests(db: Session = Depends(get_db), current_user: User = Depends(get_c
     except: quest_list = []
 
     changed = False
-    # 保持 3 個任務供選擇
     while len(quest_list) < 3:
-        # 篩選玩家能遇到的怪 (不含已打過的 Boss)
         defeated = current_user.defeated_bosses.split(',') if current_user.defeated_bosses else []
+        # 篩選玩家等級能接的任務
         valid_targets = [
             m for m in WILD_DB_REF 
             if m["min_lv"] <= current_user.level and (not m.get("is_boss") or m["name"] not in defeated)
@@ -41,7 +39,7 @@ def get_quests(db: Session = Depends(get_db), current_user: User = Depends(get_c
         if not valid_targets: break 
         
         target = random.choice(valid_targets)
-        target_lv = target["min_lv"] # 任務要求該怪物出場的等級
+        target_lv = target["min_lv"]
         
         count = 1 if target.get("is_boss") else random.randint(1, 3)
         reward_base = 100 if target.get("is_boss") else 50
@@ -67,8 +65,7 @@ def get_quests(db: Session = Depends(get_db), current_user: User = Depends(get_c
 @router.post("/accept/{quest_id}")
 def accept_quest(quest_id: int, db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
     quest_list = json.loads(current_user.quests)
-    
-    # 🔥 限制：一次只能接一個 ACTIVE 任務 🔥
+    # [cite: 1] 一次只能接一個任務
     active_quests = [q for q in quest_list if q["status"] == "ACTIVE"]
     if len(active_quests) >= 1:
         raise HTTPException(status_code=400, detail="一次只能進行一個任務！")
@@ -96,7 +93,7 @@ def claim_quest(quest_id: int, db: Session = Depends(get_db), current_user: User
             current_user.pet_exp += q["xp"]
             msg = f"領取成功！獲得 {q['gold']} G, {q['xp']} XP"
             claimed = True
-            continue # 移除
+            continue 
         new_list.append(q)
         
     if not claimed: raise HTTPException(status_code=400, detail="無法領取")
