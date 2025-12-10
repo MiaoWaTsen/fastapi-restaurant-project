@@ -14,8 +14,8 @@ from app.common.websocket import manager
 
 router = APIRouter()
 
-# --- 🌲 野怪資料 (PDF Source 125-139) ---
-# 依照出場等級排序
+# --- 🌲 野怪資料 (PDF Source 205-219) ---
+# is_boss: True (固定等級, 一次性)
 WILD_DB = [
     { "min_lv": 1, "name": "小拉達", "base_hp": 90, "base_atk": 80, "img": "https://img.pokemondb.net/artwork/large/rattata.jpg" },
     { "min_lv": 2, "name": "波波", "base_hp": 94, "base_atk": 84, "img": "https://img.pokemondb.net/artwork/large/pidgey.jpg" },
@@ -26,11 +26,13 @@ WILD_DB = [
     { "min_lv": 7, "name": "角金魚", "base_hp": 125, "base_atk": 100, "img": "https://img.pokemondb.net/artwork/large/goldeen.jpg" },
     { "min_lv": 8, "name": "走路草", "base_hp": 120, "base_atk": 110, "img": "https://img.pokemondb.net/artwork/large/oddish.jpg" },
     { "min_lv": 9, "name": "穿山鼠", "base_hp": 120, "base_atk": 110, "img": "https://img.pokemondb.net/artwork/large/sandshrew.jpg" },
+    # 小Boss
     { "min_lv": 10, "name": "蚊香勇士", "base_hp": 150, "base_atk": 140, "img": "https://img.pokemondb.net/artwork/large/poliwrath.jpg", "is_boss": True },
     { "min_lv": 12, "name": "小磁怪", "base_hp": 120, "base_atk": 114, "img": "https://img.pokemondb.net/artwork/large/magnemite.jpg" },
     { "min_lv": 14, "name": "卡拉卡拉", "base_hp": 120, "base_atk": 120, "img": "https://img.pokemondb.net/artwork/large/cubone.jpg" },
     { "min_lv": 16, "name": "喵喵", "base_hp": 124, "base_atk": 124, "img": "https://img.pokemondb.net/artwork/large/meowth.jpg" },
     { "min_lv": 18, "name": "瑪瑙水母", "base_hp": 130, "base_atk": 130, "img": "https://img.pokemondb.net/artwork/large/tentacool.jpg" },
+    # 大Boss
     { "min_lv": 20, "name": "暴鯉龍", "base_hp": 160, "base_atk": 180, "img": "https://img.pokemondb.net/artwork/large/gyarados.jpg", "is_boss": True },
 ]
 
@@ -38,10 +40,7 @@ LEVEL_XP = { 1: 50, 2: 120, 3: 240, 4: 400, 5: 600, 6: 900, 7: 1350, 8: 2000, 9:
 
 async def check_levelup_dual(user: User):
     msg_list = []
-    
-    def get_req_xp(lv):
-        if lv < 10: return LEVEL_XP.get(lv, 3000)
-        return 3000 + (lv - 10) * 1000
+    def get_req_xp(lv): return LEVEL_XP.get(lv, 3000) if lv < 10 else 3000 + (lv - 10) * 1000
 
     # 1. 訓練師升級
     req_xp_player = get_req_xp(user.level)
@@ -49,79 +48,92 @@ async def check_levelup_dual(user: User):
         user.level += 1
         user.exp -= req_xp_player
         msg_list.append(f"訓練師升級(Lv.{user.level})")
-        # 🔥 全頻廣播 🔥
         await manager.broadcast(f"📢 恭喜玩家 [{user.username}] 提升到了 訓練師等級 {user.level}！")
         
-    # 2. 寶可夢升級
+    # 2. 寶可夢升級 (升級攻擊力*1.12、血量*1.06)
     if user.pet_level < user.level or (user.level == 1 and user.pet_level == 1):
         req_xp_pet = get_req_xp(user.pet_level)
         while user.pet_exp >= req_xp_pet:
-            if user.pet_level >= user.level and user.level > 1: break # 受限於訓練師等級
+            if user.pet_level >= user.level and user.level > 1: break 
             user.pet_level += 1
             user.pet_exp -= req_xp_pet
-            
-            # 升級數值成長 -> Atk*1.12, HP*1.06
             user.max_hp = int(user.max_hp * 1.06)
             user.hp = user.max_hp
             user.attack = int(user.attack * 1.12)
-            
             msg_list.append(f"{user.pokemon_name}升級(Lv.{user.pet_level})")
             req_xp_pet = get_req_xp(user.pet_level)
             
     return " & ".join(msg_list) if msg_list else None
 
-# 1. 取得野怪 (根據等級過濾)
 @router.get("/wild")
 def get_wild_monsters(
     level: int = Query(None), 
     current_user: User = Depends(get_current_user)
 ):
     monsters = []
-    # 預設顯示玩家當前等級能遇到的所有怪
     player_lv = current_user.level
     
-    # 找出所有符合條件的怪 (min_lv <= player_lv)
-    # 如果指定了 level，則只回傳該等級的怪 (用於任務或刷特定怪)
+    # 讀取已擊敗的 Boss
+    defeated = current_user.defeated_bosses.split(',') if current_user.defeated_bosses else []
+    
+    # 1. 篩選符合條件的怪
+    # 條件：(min_lv <= player_lv) 且 (如果是 Boss 則不能在 defeated 列表中)
     target_lv = level if level else player_lv
-    if target_lv > player_lv: target_lv = player_lv # 防呆
-    
-    available_monsters = [m for m in WILD_DB if m["min_lv"] <= target_lv]
-    
-    # 如果指定了特定等級，只顯示那一隻 (例如指定 Lv2 就只出波波)
+    if target_lv > player_lv: target_lv = player_lv
+
+    available = []
+    for m in WILD_DB:
+        if m["min_lv"] <= target_lv:
+            if m.get("is_boss") and m["name"] in defeated:
+                continue # 已打過的 Boss 不再出現
+            available.append(m)
+
+    # 如果有指定等級，優先選最接近該等級的普通怪
     if level:
-        # 找最接近該等級的怪
-        specific_monster = next((m for m in reversed(WILD_DB) if m["min_lv"] <= level), WILD_DB[0])
-        available_monsters = [specific_monster]
+        # 過濾掉 Boss，避免刷 Boss
+        normal_monsters = [m for m in available if not m.get("is_boss")]
+        if normal_monsters:
+             # 找最接近該等級的
+             specific = next((m for m in reversed(normal_monsters) if m["min_lv"] <= level), normal_monsters[0])
+             available = [specific]
 
     monster_id_counter = 1
-    for m_data in available_monsters:
-        # 計算野怪等級：它出場的等級
-        m_lv = m_data["min_lv"]
-        # 如果玩家選了比較高的等級來打這隻怪，怪也要升級
-        # 但為了符合 PDF 描述「升上Lv2時新增Lv2喵喵，卡拉卡拉升上2級」
-        # 所以怪物的等級 = 玩家選擇的等級 (target_lv)
+    for m_data in available:
+        # 計算數值
+        # Boss: 等級固定 (base_hp/atk)
+        # 普通怪: 隨等級成長 (1.06 / 1.12)
         
-        # 成長公式: 1.12^(lv-1) for atk, 1.06^(lv-1) for hp
-        # 基準是以怪物的 base_lv 為 1 還是以 target_lv 為 1? 
-        # PDF 說「每死亡一次lv+1...效果不改變」，暗示野怪是動態成長的
+        is_boss = m_data.get("is_boss", False)
         
-        hp_scale = 1.06 ** (target_lv - 1)
-        atk_scale = 1.12 ** (target_lv - 1)
+        if is_boss:
+            final_lv = m_data["min_lv"]
+            hp = m_data["base_hp"]
+            attack = m_data["base_atk"]
+        else:
+            final_lv = target_lv
+            hp_scale = 1.06 ** (final_lv - 1)
+            atk_scale = 1.12 ** (final_lv - 1)
+            hp = int(m_data["base_hp"] * hp_scale)
+            attack = int(m_data["base_atk"] * atk_scale)
         
-        hp = int(m_data["base_hp"] * hp_scale)
-        attack = int(m_data["base_atk"] * atk_scale)
+        # 獎勵
+        xp_reward = int(20 + final_lv * 5)
+        gold_reward = int(45 + final_lv * 5)
         
-        # 獎勵公式 (假設)
-        xp_reward = int(20 + target_lv * 5)
-        gold_reward = int(45 + target_lv * 5)
+        # Boss 獎勵加成
+        if is_boss:
+            xp_reward *= 3
+            gold_reward *= 3
 
         monsters.append({
             "id": monster_id_counter,
-            "name": f"{m_data['name']} (Lv.{target_lv})",
+            "name": f"{m_data['name']} (Lv.{final_lv})" + (" 👑" if is_boss else ""),
             "hp": hp, "max_hp": hp, "attack": attack,
             "image_url": m_data["img"],
             "xp": xp_reward, "gold": gold_reward,
-            "real_name": m_data["name"] # 用於任務比對
+            "real_name": m_data["name"],
+            "is_boss": is_boss,
+            "level": final_lv
         })
         monster_id_counter += 1
             
@@ -140,36 +152,49 @@ async def attack_wild(
 ):
     msg = ""
     if data.is_dead:
-        base_name = data.monster_name.split('(')[0].strip()
+        base_name = data.monster_name.split('(')[0].strip().replace(" 👑", "")
         monster_lv = data.level
+        
+        # 尋找野怪資料以確認是否為 Boss
+        m_data = next((m for m in WILD_DB if m["name"] == base_name), None)
+        is_boss = m_data.get("is_boss", False) if m_data else False
         
         xp_gain = int(20 + monster_lv * 5)
         gold_gain = int(45 + monster_lv * 5)
         
+        if is_boss:
+            xp_gain *= 3
+            gold_gain *= 3
+            # 記錄擊殺
+            defeated = current_user.defeated_bosses.split(',') if current_user.defeated_bosses else []
+            if base_name not in defeated:
+                defeated.append(base_name)
+                current_user.defeated_bosses = ",".join(defeated)
+                msg += f" 🏆 擊敗了首領 {base_name}！"
+
         current_user.exp += xp_gain
         current_user.pet_exp += xp_gain
         current_user.money += gold_gain
         
-        msg = f"擊敗 {data.monster_name}！獲得 {xp_gain} XP, {gold_gain} Gold"
+        msg = f"擊敗 {base_name}！獲得 {xp_gain} XP, {gold_gain} Gold" + msg
         
-        # 🔥 掉落系統：10% 機率掉糖果 🔥
+        # 掉落糖果 (10%)
         if random.random() < 0.1:
             inventory = json.loads(current_user.inventory) if current_user.inventory else {}
             inventory["candy"] = inventory.get("candy", 0) + 1
             current_user.inventory = json.dumps(inventory)
-            msg += " 🍬 獲得了神奇糖果！"
+            msg += " 🍬 獲得糖果！"
 
-        # 升級檢查
         lvl_msg = await check_levelup_dual(current_user)
         if lvl_msg: msg += f" 🎉 {lvl_msg}！"
             
-        # 任務進度更新 (需比對名字和等級)
+        # 任務進度
         try:
             quests = json.loads(current_user.quests) if current_user.quests else []
             quest_updated = False
             for q in quests:
-                # 判斷名字符合 且 等級符合 (target_lv)
-                if q["status"] == "ACTIVE" and q["target"] == base_name and q["target_lv"] == monster_lv:
+                # 任務條件：目標名字對 + 目標等級一致 (或更高)
+                if q["status"] == "ACTIVE" and q["target"] == base_name and monster_lv >= q["target_lv"]:
                     if q["now"] < q["req"]:
                         q["now"] += 1
                         quest_updated = True

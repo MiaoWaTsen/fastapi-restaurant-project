@@ -5,7 +5,7 @@ from pydantic import BaseModel, ConfigDict
 from app.models.base import Base
 
 class User(Base):
-    __tablename__ = "users_v8" # 🔥 改名 v8 強制更新結構
+    __tablename__ = "users_v9" # 🔥 改名 v9 強制更新結構
 
     id = Column(Integer, primary_key=True, index=True)
     username = Column(String(50), unique=True, index=True, nullable=False)
@@ -15,9 +15,10 @@ class User(Base):
     pokemon_image = Column(String(255), default="")
     pokemon_storage = Column(String(4000), default="{}") 
     unlocked_monsters = Column(String(1000), default="")
-
-    # 🔥 新增：背包 (JSON 儲存道具，例如 {"candy": 5})
     inventory = Column(String(4000), default="{}")
+    
+    # 🔥 新增：已擊敗的 Boss (逗號分隔，例如 "蚊香勇士,暴鯉龍")
+    defeated_bosses = Column(String(1000), default="")
 
     hp = Column(Integer, default=100)
     max_hp = Column(Integer, default=100)
@@ -43,8 +44,9 @@ class UserRead(BaseModel):
     pokemon_name: str
     pokemon_image: str
     unlocked_monsters: str
+    defeated_bosses: str # 新增
     quests: str
-    inventory: str # 新增
+    inventory: str
     hp: int
     max_hp: int
     attack: int
