@@ -72,25 +72,33 @@ def get_wild_monsters(
     monsters = []
     player_lv = current_user.level
     
+    # 決定野怪等級 (數值強度)
     target_lv = level if level else player_lv
     if target_lv > player_lv: target_lv = player_lv
 
     defeated = current_user.defeated_bosses.split(',') if current_user.defeated_bosses else []
     
+    # 🔥 修正野怪池邏輯 🔥
+    # 只要是 min_lv <= target_lv 的怪 "全部" 都有機會出現 (不只是最高等的)
+    # 例如 target_lv=3，則小拉達(1)、波波(2)、烈雀(3) 都在池子裡
     available = []
     for m in WILD_DB:
         if m["min_lv"] <= target_lv:
             if m.get("is_boss") and m["name"] in defeated: continue
             available.append(m)
 
-    if level:
-        normal_monsters = [m for m in available if not m.get("is_boss")]
-        if normal_monsters:
-             specific = next((m for m in reversed(normal_monsters) if m["min_lv"] <= level), normal_monsters[0])
-             available = [specific]
-
     monster_id_counter = 1
-    for m_data in available:
+    # 為了不讓畫面太擠，我們隨機選取最多 6 隻顯示 (如果池子很大)
+    # 但要確保包含當前等級的新怪
+    if len(available) > 6:
+        # 保留最後 2 個 (最新解鎖)，其他隨機
+        recent = available[-2:]
+        others = random.sample(available[:-2], 4)
+        display_list = sorted(others + recent, key=lambda x: x["min_lv"])
+    else:
+        display_list = available
+
+    for m_data in display_list:
         is_boss = m_data.get("is_boss", False)
         
         if is_boss:
@@ -101,8 +109,9 @@ def get_wild_monsters(
             final_lv = target_lv
             hp_scale = 1.06 ** (final_lv - 1)
             atk_scale = 1.12 ** (final_lv - 1)
-            hp = int(m_data["base_hp"] * hp_scale)
-            # 🔥 修正：野怪攻擊力提升 1.2 倍 (讓戰鬥更有感) 🔥
+            
+            # 🔥 血量提升 1.3 倍 🔥
+            hp = int(m_data["base_hp"] * hp_scale * 1.3)
             attack = int(m_data["base_atk"] * atk_scale * 1.2)
         
         xp_reward = int(20 + final_lv * 5)
