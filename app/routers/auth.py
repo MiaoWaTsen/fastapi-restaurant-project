@@ -1,5 +1,3 @@
-# app/routers/auth.py
-
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 from fastapi.security import OAuth2PasswordBearer, OAuth2PasswordRequestForm
@@ -14,18 +12,13 @@ from app.common.websocket import manager
 router = APIRouter()
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/api/v1/auth/token")
 
-# 御三家數據
 STARTERS = {
     1: { "name": "妙蛙種子", "hp": 130, "atk": 112, "img": "https://img.pokemondb.net/artwork/large/bulbasaur.jpg" },
     2: { "name": "小火龍", "hp": 112, "atk": 130, "img": "https://img.pokemondb.net/artwork/large/charmander.jpg" },
     3: { "name": "傑尼龜", "hp": 121, "atk": 121, "img": "https://img.pokemondb.net/artwork/large/squirtle.jpg" }
 }
 
-# 升級所需 XP 表
-LEVEL_XP = { 
-    1: 50, 2: 120, 3: 240, 4: 400, 5: 600, 
-    6: 900, 7: 1350, 8: 2000, 9: 3000 
-}
+LEVEL_XP = { 1: 50, 2: 120, 3: 240, 4: 400, 5: 600, 6: 900, 7: 1350, 8: 2000, 9: 3000 }
 
 class UserReadWithExp(UserRead):
     next_level_exp: int
@@ -46,7 +39,9 @@ def register(user: UserCreate, db: Session = Depends(get_db)):
         pokemon_name=starter["name"], pokemon_image=starter["img"],
         unlocked_monsters=starter["name"],
         pokemon_storage=json.dumps(initial_storage),
-        inventory="{}", # 初始空背包
+        inventory="{}",
+        defeated_bosses="", # 初始化
+        quests="[]",
         hp=starter["hp"], max_hp=starter["hp"], attack=starter["atk"], 
         pet_level=1, pet_exp=0, level=1, exp=0, money=300
     )
@@ -74,10 +69,7 @@ def read_users_me(token: str = Depends(oauth2_scheme), db: Session = Depends(get
     user = db.query(User).filter(User.username == username).first()
     if not user: raise HTTPException(status_code=401)
     
-    # 25級後每級多1000
-    def get_req_xp(lv):
-        if lv < 10: return LEVEL_XP.get(lv, 3000)
-        return 3000 + (lv - 10) * 1000
+    def get_req_xp(lv): return LEVEL_XP.get(lv, 3000) if lv < 10 else 3000 + (lv - 10) * 1000
 
     user_dict = UserRead.model_validate(user).model_dump()
     user_dict['next_level_exp'] = get_req_xp(user.level)
@@ -90,9 +82,7 @@ def get_all_users(db: Session = Depends(get_db)):
     online_ids = manager.get_online_ids()
     results = []
     
-    def get_req_xp(lv):
-        if lv < 10: return LEVEL_XP.get(lv, 3000)
-        return 3000 + (lv - 10) * 1000
+    def get_req_xp(lv): return LEVEL_XP.get(lv, 3000) if lv < 10 else 3000 + (lv - 10) * 1000
 
     for u in users:
         u_dict = UserRead.model_validate(u).model_dump()
