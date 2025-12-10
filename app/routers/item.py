@@ -45,6 +45,7 @@ async def check_levelup_dual(user: User):
         user.level += 1
         user.exp -= req_xp_player
         msg_list.append(f"訓練師升級(Lv.{user.level})")
+        # 全頻廣播
         await manager.broadcast(f"📢 恭喜玩家 [{user.username}] 提升到了 訓練師等級 {user.level}！")
         
     # 2. 寶可夢升級
@@ -72,29 +73,37 @@ def get_wild_monsters(
     monsters = []
     player_lv = current_user.level
     
-    # 決定野怪等級 (數值強度)
+    # 決定野怪等級上限
     target_lv = level if level else player_lv
     if target_lv > player_lv: target_lv = player_lv
 
     defeated = current_user.defeated_bosses.split(',') if current_user.defeated_bosses else []
     
-    # 🔥 修正野怪池邏輯 🔥
-    # 只要是 min_lv <= target_lv 的怪 "全部" 都有機會出現 (不只是最高等的)
-    # 例如 target_lv=3，則小拉達(1)、波波(2)、烈雀(3) 都在池子裡
+    # 1. 建立生成池：所有 min_lv <= target_lv 的怪
     available = []
     for m in WILD_DB:
         if m["min_lv"] <= target_lv:
             if m.get("is_boss") and m["name"] in defeated: continue
             available.append(m)
 
+    # 如果有指定等級 (例如任務需求)，優先篩選
+    if level:
+        # 這裡不強制只回傳該等級，而是確保該等級的怪一定在列表裡
+        # 但為了符合 "選擇Lv.2則所有野怪變Lv.2" 的需求，我們這裡把 target_lv 鎖定為 level
+        pass # 邏輯已在上方 target_lv 處理
+
     monster_id_counter = 1
-    # 為了不讓畫面太擠，我們隨機選取最多 6 隻顯示 (如果池子很大)
-    # 但要確保包含當前等級的新怪
+    
+    # 隨機挑選 6 隻顯示，但要確保多樣性
+    # 策略：如果池子很大，隨機抽，但權重偏向高等級一點點
+    display_list = []
     if len(available) > 6:
-        # 保留最後 2 個 (最新解鎖)，其他隨機
-        recent = available[-2:]
-        others = random.sample(available[:-2], 4)
-        display_list = sorted(others + recent, key=lambda x: x["min_lv"])
+        # 必出一隻最高等的 (當前等級新怪)
+        highest = available[-1]
+        # 剩下的隨機
+        others = random.sample(available[:-1], 5)
+        display_list = others + [highest]
+        display_list.sort(key=lambda x: x["min_lv"])
     else:
         display_list = available
 
@@ -106,13 +115,14 @@ def get_wild_monsters(
             hp = m_data["base_hp"]
             attack = m_data["base_atk"]
         else:
+            # 普通怪等級 = 玩家選擇的等級 (target_lv)
             final_lv = target_lv
             hp_scale = 1.06 ** (final_lv - 1)
             atk_scale = 1.12 ** (final_lv - 1)
             
             # 🔥 血量提升 1.3 倍 🔥
             hp = int(m_data["base_hp"] * hp_scale * 1.3)
-            attack = int(m_data["base_atk"] * atk_scale * 1.2)
+            attack = int(m_data["base_atk"] * atk_scale)
         
         xp_reward = int(20 + final_lv * 5)
         gold_reward = int(45 + final_lv * 5)
