@@ -3,10 +3,14 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>⚡️ 寶可夢大亂鬥 (除錯版) ⚡️</title>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/vue/3.3.4/vue.global.prod.min.js"></script>
+    <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate" />
+    <meta http-equiv="Pragma" content="no-cache" />
+    <meta http-equiv="Expires" content="0" />
+    <title>⚡️ 寶可夢大亂鬥 (V11) ⚡️</title>
+    <script src="https://unpkg.com/vue@3/dist/vue.global.js"></script>
     
     <style>
+        /* (CSS 樣式區 - 保持不變) */
         body { font-family: 'Segoe UI', sans-serif; background-color: #1a1a2e; color: #fff; padding: 20px; user-select: none; }
         .container { max-width: 900px; margin: 0 auto; }
         .navbar { display: flex; justify-content: space-between; align-items: center; background: #16213e; padding: 15px; border-radius: 10px; margin-bottom: 20px; border: 1px solid #0f3460; }
@@ -30,7 +34,6 @@
         .card:hover { border-color: #f1c40f; transform: translateY(-5px); }
         .card-img { width: 100%; height: 150px; object-fit: contain; background: #222; border-radius: 5px; }
         .btn-action { width: 100%; padding: 8px; margin-top: 5px; border: none; border-radius: 5px; cursor: pointer; font-weight: bold; background: #c0392b; color: white; }
-        
         .battle-overlay { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(15, 15, 30, 0.98); z-index: 2000; padding: 20px; display: flex; flex-direction: column; align-items: center; }
         .battle-header { width: 100%; max-width: 800px; display: flex; justify-content: space-between; margin-bottom: 20px; font-size: 1.5em; font-weight: bold; color: #f1c40f; }
         .battle-timer { font-family: monospace; font-size: 1.5em; color: #e74c3c; border: 2px solid #e74c3c; padding: 5px 15px; border-radius: 10px; background: rgba(0,0,0,0.5); }
@@ -44,37 +47,29 @@
         .move-btn:hover { background: #3d566e; }
         .move-btn:disabled { opacity: 0.6; cursor: not-allowed; filter: grayscale(1); }
         .move-info { font-size: 0.8em; color: #aaa; margin-top: 4px; }
-        
         .victory-modal, .modal-overlay { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.9); z-index: 3000; display: flex; flex-direction: column; justify-content: center; align-items: center; animation: fadeIn 0.5s; }
         .modal-box { background: #16213e; border: 3px solid #f1c40f; padding: 30px; border-radius: 20px; text-align: center; width: 320px; animation: popIn 0.3s; }
         .btn-yes { background: #27ae60; padding: 10px 20px; border:none; color:white; border-radius:5px; cursor:pointer; margin:5px; }
         .btn-no { background: #7f8c8d; padding: 10px 20px; border:none; color:white; border-radius:5px; cursor:pointer; margin:5px; }
-        
         .floating-damage { position: absolute; color: #ffeb3b; font-weight: bold; font-size: 32px; animation: floatUp 2.0s forwards; z-index: 3000; text-shadow: 2px 2px 0 #000; }
         .levelup-overlay { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(241, 196, 15, 0.9); z-index: 6000; display: flex; justify-content: center; align-items: center; flex-direction: column; animation: popIn 0.5s; }
         .gacha-box { text-align: center; padding: 40px; background: #16213e; border-radius: 15px; }
         .gacha-btn { width: 80%; margin: 10px auto; padding: 15px; border-radius: 50px; border: none; cursor: pointer; font-size: 1.2em; background: linear-gradient(45deg, #f1c40f, #d35400); color: white; }
-        
         .level-selector { margin-bottom: 15px; text-align: center; background: #2c3e50; padding: 10px; border-radius: 8px; border: 1px solid #444; }
         .level-selector select { padding: 5px 10px; border-radius: 5px; border: none; background: #16213e; color: white; font-weight: bold; cursor: pointer; font-size: 1em; }
-        
         .quest-card { border-left: 5px solid #aaa; background: #2c3e50; padding: 15px; margin-bottom: 10px; text-align: left; }
         .quest-active { border-left-color: #f1c40f; } .quest-completed { border-left-color: #2ecc71; }
-        
         @keyframes floatUp { 0% { transform: translateY(0); opacity: 1; } 100% { transform: translateY(-80px); opacity: 0; } }
         @keyframes shake { 0% { transform: translateX(0); } 25% { transform: translateX(-10px); } 75% { transform: translateX(10px); } 100% { transform: translateX(0); } }
         @keyframes popIn { 0% { transform: scale(0); } 100% { transform: scale(1); } }
         .shake-hit { animation: shake 0.4s; }
-        
         .battle-log-panel { flex: 1; background: #16213e; border: 2px solid #0f3460; border-radius: 10px; height: 500px; padding: 10px; overflow-y: auto; position: sticky; top: 20px; }
         .log-entry { font-size: 0.9em; border-bottom: 1px solid #333; padding: 4px 0; }
-        
         .dex-card { text-align: center; cursor: pointer; border: 2px solid transparent; } .dex-card:hover { border: 2px solid #f1c40f; }
         .dex-img { width: 100%; height: 120px; object-fit: contain; background: #222; border-radius: 5px; transition: 0.3s; }
         .dex-locked { filter: brightness(0); opacity: 0.3; }
         .dex-name { margin-top: 5px; font-weight: bold; color: #666; }
         .dex-unlocked-name { color: #f1c40f; }
-        
         .gacha-anim-overlay { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.95); z-index: 5000; display: flex; flex-direction: column; justify-content: center; align-items: center; }
         .pokeball-anim { width: 150px; height: 150px; background: white; border: 8px solid #333; border-radius: 50%; position: relative; overflow: hidden; animation: shakeBall 1s infinite; }
         .pokeball-anim::before { content: ''; position: absolute; top: 0; width: 100%; height: 50%; background: #e74c3c; border-bottom: 8px solid #333; }
@@ -105,7 +100,7 @@
 
     <div v-if="!user" style="text-align:center; padding:100px;">
         <h2 style="color:#f1c40f;">正在連線到伺服器...</h2>
-        <button class="btn-logout" @click="logout" style="margin-top:20px;">回登入頁</button>
+        <button class="btn-logout" @click="logout" style="margin-top:20px;">回登入頁重試</button>
     </div>
 
     <div v-if="showLevelUp" class="levelup-overlay"><div style="font-size:5em; font-weight:bold; color:#fff">LEVEL UP!</div><div style="font-size:2em; margin-top:20px; color:#fff">等級提升！</div></div>
@@ -177,10 +172,10 @@
 
 <script>
     const { createApp, ref, onMounted, computed, watch } = Vue;
+    // 🔥 請確認這個網址是你的後端網址 🔥
     const API_URL = `https://mwtpokemons.zeabur.app/api/v1`;
     const WS_URL = `wss://mwtpokemons.zeabur.app/ws`;
 
-    // 🔥 招式資料庫 (PDF Complete) 🔥
     const MOVES_DB = {
         "妙蛙種子": [{name:"藤鞭",dmg:16,chance:0.35,buff:0.25,desc:"16傷,35%攻+25%"}, {name:"種子炸彈",dmg:26,desc:"26傷"}, {name:"污泥炸彈",dmg:18,chance:0.3,buff:0.2,desc:"18傷,30%攻+20%"}],
         "小火龍": [{name:"火花",dmg:16,chance:0.35,buff:0.25,desc:"16傷,35%攻+25%"}, {name:"噴射火焰",dmg:18,chance:0.3,buff:0.2,desc:"18傷,30%攻+20%"}, {name:"火焰輪",dmg:26,desc:"26傷"}],
@@ -197,7 +192,6 @@
         "default": [{name:"撞擊",dmg:24,desc:"24傷"}]
     };
     
-    // 野怪招式
     const WILD_MOVES = {
         "小拉達": [{name:"抓",dmg:26},{name:"出奇一擊",dmg:26},{name:"撞擊",dmg:24}],
         "波波": [{name:"抓",dmg:26},{name:"啄",dmg:24},{name:"燕返",dmg:26}],
@@ -232,15 +226,19 @@
             let socket = null; let timerInterval = null;
 
             // Computed
+            // 🔥 1. 這裡把 isUnlocked 定義在最前面 🔥
+            const isUnlocked = (name) => user.value && user.value.unlocked_monsters && user.value.unlocked_monsters.includes(name);
+
             const myMoves = computed(() => user.value ? (MOVES_DB[user.value.pokemon_name] || MOVES_DB['default']) : []);
             const isMyTurn = computed(() => battleState.value.turn === 'player' && !battleState.value.winner);
             const petXpPercent = (u) => Math.min(100, (u.pet_exp / (u.next_pet_level_exp || 9999)) * 100);
-            // 防呆攻擊力計算
             const currentAtkMe = computed(() => user.value ? Math.floor(user.value.attack * (1 + battleState.value.buffs.me)) : 0);
             const currentAtkTarget = computed(() => battleState.value.target ? Math.floor(battleState.value.target.attack * (1 + battleState.value.buffs.target)) : 0);
+            const hpPercent = (u) => (u.hp / u.max_hp) * 100;
+            const getMoveClass = (move) => { if (move.type === 'buff') return 'move-buff'; if (move.type === 'heal') return 'move-heal'; return 'move-damage'; };
 
             // 錯誤捕捉 (全域)
-            window.onerror = function(msg) { alert("發生錯誤: " + msg + "\n請重新整理頁面"); };
+            window.onerror = function(msg) { console.error("Global Error: " + msg); };
 
             if (!token) window.location.href = 'login.html';
             
@@ -256,7 +254,6 @@
             const acceptQuest = async (qid) => { const res = await fetch(`${API_URL}/quests/accept/${qid}`, { method: 'POST', headers: { 'Authorization': `Bearer ${token}` } }); if(res.ok) { alert("任務已接受"); fetchQuests(); } else { const d = await res.json(); alert(d.detail); } };
             const claimQuest = async (qid) => { const res = await fetch(`${API_URL}/quests/claim/${qid}`, { method: 'POST', headers: { 'Authorization': `Bearer ${token}` } }); const d = await res.json(); if(res.ok) { alert(d.message); updateUserInfo(); fetchQuests(); } else alert(d.detail); };
 
-            // 戰鬥邏輯
             const initBattle = (target, mode) => {
                 clearInterval(timerInterval);
                 if (!target || target.hp <= 0) return alert("目標無效");
@@ -265,73 +262,126 @@
                 if (mode === 'wild') startTimer();
             };
 
-            const calculateRealDamage = (attackerAtk, moveDmg) => { const dmg = moveDmg || 0; const base = (attackerAtk / 100) * dmg; return Math.floor(base * (0.95 + Math.random() * 0.1)); };
+            const calculateRealDamage = (attackerAtk, moveDmg) => { 
+                const dmg = moveDmg || 0;
+                const base = (attackerAtk / 100) * dmg; 
+                return Math.floor(base * (0.95 + Math.random() * 0.1)); 
+            };
             const calculateDisplayDmg = (atk, moveDmg) => Math.floor((atk / 100) * (moveDmg || 0));
 
             const executePlayerMove = async (move) => {
                 if (!isMyTurn.value || battleState.value.isActionProcessing) return;
+                
                 try {
-                    battleState.value.isActionProcessing = true; clearInterval(timerInterval);
-                    addLog(`👊 使用 ${move.name}！`);
+                    battleState.value.isActionProcessing = true;
+                    clearInterval(timerInterval);
+                    addLog(`👊 你使用了 [${move.name}]！`);
+                    
                     let atkBonus = 1 + (battleState.value.buffs.me);
                     let finalDmg = calculateRealDamage((user.value.attack || 0) * atkBonus, move.dmg);
                     
-                    if(move.chance === undefined || Math.random() < move.chance) {
+                    const roll = Math.random();
+                    if(move.chance === undefined || roll < move.chance) {
                         if(move.buff) { battleState.value.buffs.me += move.buff; showFloatingDamage('fighter-me', "ATK UP!", false, true); }
                         if(move.heal) { const h = Math.floor(user.value.max_hp * move.heal); user.value.hp = Math.min(user.value.max_hp, user.value.hp + h); showFloatingDamage('fighter-me', h, false, true); }
                     }
+    
                     if(move.selfDmg) { const s = Math.floor(user.value.max_hp * move.selfDmg); user.value.hp = Math.max(0, user.value.hp - s); showFloatingDamage('fighter-me', s, false); }
-                    if(move.dmg > 0) { battleState.value.shakeTarget = true; setTimeout(() => battleState.value.shakeTarget = false, 500); showFloatingDamage('fighter-target', finalDmg, false); battleState.value.target.hp = Math.max(0, battleState.value.target.hp - finalDmg); }
-                    
+    
+                    if(move.dmg > 0) {
+                        battleState.value.shakeTarget = true; setTimeout(() => battleState.value.shakeTarget = false, 500);
+                        showFloatingDamage('fighter-target', finalDmg, false);
+                        battleState.value.target.hp = Math.max(0, battleState.value.target.hp - finalDmg);
+                    }
+    
                     if (battleState.value.mode === 'wild') {
                         if (battleState.value.target.hp <= 0) {
-                            let targetLv = 1; const match = battleState.value.target.name.match(/Lv\.(\d+)/); if(match) targetLv = parseInt(match[1]);
+                            let targetLv = 1; 
+                            const match = battleState.value.target.name.match(/Lv\.(\d+)/); 
+                            if(match) targetLv = parseInt(match[1]);
                             await fetch(`${API_URL}/items/wild/attack`, { method: 'POST', headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' }, body: JSON.stringify({ monster_name: battleState.value.target.name, is_dead: true, level: targetLv }) });
                         }
-                        if(!checkWinCondition()) { battleState.value.turn = 'enemy'; setTimeout(executeEnemyTurn, 1000); }
-                    } else { await fetch(`${API_URL.replace('/items', '')}/shop/pvp/${battleState.value.target.id}`, { method: 'POST', headers: { 'Authorization': `Bearer ${token}` } }); battleState.value.turn = 'enemy'; }
-                } catch(e) { console.error(e); } finally { battleState.value.isActionProcessing = false; }
+                        if(!checkWinCondition()) { 
+                            battleState.value.turn = 'enemy'; 
+                            setTimeout(executeEnemyTurn, 1000); 
+                        }
+                    } else {
+                        await fetch(`${API_URL.replace('/items', '')}/shop/pvp/${battleState.value.target.id}`, { method: 'POST', headers: { 'Authorization': `Bearer ${token}` } });
+                        battleState.value.turn = 'enemy';
+                    }
+                } catch(e) { console.error(e); } 
+                finally { battleState.value.isActionProcessing = false; }
             };
 
-            const executeDefense = () => { if (battleState.value.defenseCount <= 0 || battleState.value.isActionProcessing) return; clearInterval(timerInterval); battleState.value.defenseCount--; battleState.value.isDefending = true; addLog(`🛡️ 防禦！`); battleState.value.turn = 'enemy'; if(battleState.value.mode === 'wild') setTimeout(executeEnemyTurn, 1500); else fetch(`${API_URL.replace('/items', '')}/shop/pvp/${battleState.value.target.id}`, { method: 'POST', headers: { 'Authorization': `Bearer ${token}` } }); };
-            
+            const executeDefense = () => { 
+                if (battleState.value.defenseCount <= 0 || battleState.value.isActionProcessing) return; 
+                clearInterval(timerInterval); 
+                battleState.value.defenseCount--; 
+                battleState.value.isDefending = true; 
+                addLog(`🛡️ 你採取了防禦架勢！`); 
+                battleState.value.turn = 'enemy'; 
+                if(battleState.value.mode === 'wild') setTimeout(executeEnemyTurn, 1500); 
+                else fetch(`${API_URL.replace('/items', '')}/shop/pvp/${battleState.value.target.id}`, { method: 'POST', headers: { 'Authorization': `Bearer ${token}` } }); 
+            };
+
             const executeEnemyTurn = () => {
-                if (battleState.value.winner || !battleState.value.isActive) return;
+                if (battleState.value.winner) return;
                 let enemyName = battleState.value.target.name.split('(')[0].trim().replace('👑','').trim();
                 const moves = WILD_MOVES[enemyName] || MOVES_DB['default'];
                 const move = moves[Math.floor(Math.random() * moves.length)];
-                addLog(`⚠️ 對手使用 ${move.name}！`);
-                let enemyAtk = battleState.value.target.attack || 50; 
-                let dmg = calculateRealDamage(enemyAtk * (1 + battleState.value.buffs.target), move.dmg);
-                if (battleState.value.isDefending) { const reflect = Math.floor(dmg * 0.3); dmg = 0; battleState.value.target.hp = Math.max(0, battleState.value.target.hp - reflect); showFloatingDamage('fighter-target', reflect, false); addLog(`🛡️ 反彈 ${reflect} 傷害！`); battleState.value.isDefending = false; }
-                if(dmg > 0) { battleState.value.shakeMe = true; setTimeout(() => battleState.value.shakeMe = false, 500); showFloatingDamage('fighter-me', dmg, true); user.value.hp = Math.max(0, user.value.hp - dmg); }
-                if (battleState.value.mode === 'wild' && battleState.value.target.hp <= 0) { let targetLv = 1; const match = battleState.value.target.name.match(/Lv\.(\d+)/); if(match) targetLv = parseInt(match[1]); fetch(`${API_URL}/items/wild/attack`, { method: 'POST', headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' }, body: JSON.stringify({ monster_name: battleState.value.target.name, is_dead: true, level: targetLv }) }); }
+                addLog(`⚠️ 對手 [${enemyName}] 使用了 [${move.name}]！`);
+                
+                let enemyBaseAtk = battleState.value.target.attack || 50; 
+                let dmg = calculateRealDamage(enemyBaseAtk * (1 + battleState.value.buffs.target), move.dmg);
+
+                if (battleState.value.isDefending) { 
+                    const reflect = Math.floor(dmg * 0.3); dmg = 0; 
+                    battleState.value.target.hp = Math.max(0, battleState.value.target.hp - reflect); 
+                    showFloatingDamage('fighter-target', reflect, false); 
+                    addLog(`🛡️ 防禦成功！反彈了 ${reflect} 傷害！`); 
+                    battleState.value.isDefending = false; 
+                }
+                
+                if(dmg > 0) {
+                    battleState.value.shakeMe = true; setTimeout(() => battleState.value.shakeMe = false, 500);
+                    showFloatingDamage('fighter-me', dmg, true);
+                    user.value.hp = Math.max(0, user.value.hp - dmg);
+                }
+                
+                if (battleState.value.mode === 'wild' && battleState.value.target.hp <= 0) {
+                     let targetLv = 1; const match = battleState.value.target.name.match(/Lv\.(\d+)/); if(match) targetLv = parseInt(match[1]);
+                     fetch(`${API_URL}/items/wild/attack`, { method: 'POST', headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' }, body: JSON.stringify({ monster_name: battleState.value.target.name, is_dead: true, level: targetLv }) });
+                }
                 if(!checkWinCondition()) { battleState.value.turn = 'player'; startTimer(); }
             };
 
             const endBattle = async () => { clearInterval(timerInterval); if (battleState.value.mode === 'pvp') await fetch(`${API_URL.replace('/items', '')}/shop/duel/end/${battleState.value.target.id}`, { method: 'POST', headers: { 'Authorization': `Bearer ${token}` } }); battleState.value.isActive = false; battleState.value.winner = null; updateUserInfo(); fetchQuests(); };
+
             const startTimer = () => { clearInterval(timerInterval); battleState.value.timer = 10; timerInterval = setInterval(() => { if (!battleState.value.isActive) { clearInterval(timerInterval); return; } battleState.value.timer--; if (battleState.value.timer <= 0) { clearInterval(timerInterval); if(battleState.value.mode === 'wild') { battleState.value.turn = 'enemy'; setTimeout(executeEnemyTurn, 1000); } else { fetch(`${API_URL.replace('/items', '')}/shop/pvp/${battleState.value.target.id}`, { method: 'POST', headers: { 'Authorization': `Bearer ${token}` } }); battleState.value.turn = 'enemy'; } } }, 1000); };
             const checkWinCondition = () => { if (battleState.value.target.hp <= 0) { battleState.value.winner = 'player'; return true; } if (user.value.hp <= 0) { battleState.value.winner = 'enemy'; return true; } return false; };
-            
-            const connectWebSocket = () => { socket = new WebSocket(`${WS_URL}?token=${token}`); socket.onopen = () => setInterval(() => socket.readyState===1 && socket.send("ping"), 30000); socket.onmessage = (e) => { const msg = e.data; const parts = msg.split("|"); if (msg.startsWith("📢")) addLog(msg); if (msg.startsWith("EVENT:DUEL_INVITE") && parseInt(parts[3]) === user.value.id) inviteState.value = { show: true, senderId: parts[1], senderName: parts[2] }; if (msg.startsWith("EVENT:DUEL_START")) { const p1=parseInt(parts[1]), p2=parseInt(parts[3]), first=parseInt(parts[5]); if(user.value.id===p1 || user.value.id===p2) { inviteState.value.show = false; const oppId = user.value.id===p1 ? p2 : p1; fetchPlayers().then(() => { const opp = players.value.find(p=>p.id===oppId); if(opp) { initBattle(opp, 'pvp'); battleState.value.turn = user.value.id===first?'player':'enemy'; if(battleState.value.turn==='player') startTimer(); } }); } } if (msg.startsWith("EVENT:PVP_MOVE")) { const targetId = parseInt(parts[2]); if (battleState.value.isActive && user.value.id === targetId) { fetchPlayers().then(() => { const opp = players.value.find(p => p.id === parseInt(parts[1])); if(opp) battleState.value.target.hp = opp.hp; const me = players.value.find(p => p.id === user.value.id); if(me) user.value.hp = me.hp; if(!checkWinCondition()) { battleState.value.turn = 'player'; startTimer(); } }); } } fetchMonsters(); fetchPlayers(); updateUserInfo(); fetchQuests(); }; };
+            const connectWebSocket = () => { socket = new WebSocket(`${WS_URL}?token=${token}`); socket.onopen = () => setInterval(() => socket.readyState===1 && socket.send("ping"), 30000); socket.onmessage = (e) => { const msg = e.data; const parts = msg.split("|"); 
+                if (msg.startsWith("📢")) addLog(msg); 
+                if (msg.startsWith("EVENT:DUEL_INVITE") && parseInt(parts[3]) === user.value.id) inviteState.value = { show: true, senderId: parts[1], senderName: parts[2] }; if (msg.startsWith("EVENT:DUEL_START")) { const p1=parseInt(parts[1]), p2=parseInt(parts[3]), first=parseInt(parts[5]); if(user.value.id===p1 || user.value.id===p2) { inviteState.value.show = false; const oppId = user.value.id===p1 ? p2 : p1; fetchPlayers().then(() => { const opp = players.value.find(p=>p.id===oppId); if(opp) { initBattle(opp, 'pvp'); battleState.value.turn = user.value.id===first?'player':'enemy'; if(battleState.value.turn==='player') startTimer(); } }); } } if (msg.startsWith("EVENT:PVP_MOVE")) { const targetId = parseInt(parts[2]); if (battleState.value.isActive && user.value.id === targetId) { fetchPlayers().then(() => { const opp = players.value.find(p => p.id === parseInt(parts[1])); if(opp) battleState.value.target.hp = opp.hp; const me = players.value.find(p => p.id === user.value.id); if(me) user.value.hp = me.hp; if(!checkWinCondition()) { battleState.value.turn = 'player'; startTimer(); } }); } } fetchMonsters(); fetchPlayers(); updateUserInfo(); fetchQuests(); }; };
             
             const playGacha = async (type) => { try { isGachaAnimating.value = true; const res = await fetch(`${API_URL.replace('/items', '')}/shop/gacha/${type}`, { method: 'POST', headers: { 'Authorization': `Bearer ${token}` } }); const data = await res.json(); setTimeout(() => { isGachaAnimating.value = false; if(res.ok) { gachaResult.value = { show: true, prize: data.prize, isNew: data.is_new }; updateUserInfo(); } else alert(data.detail); }, 2500); } catch(e) { isGachaAnimating.value = false; } };
             const confirmSwap = async (s) => { if(s) await fetch(`${API_URL.replace('/items', '')}/shop/swap/${gachaResult.value.prize.name}`, { method: 'POST', headers: { 'Authorization': `Bearer ${token}` } }); gachaResult.value.show = false; updateUserInfo(); };
-            const swapFromDex = async (name) => { if (!user.value.unlocked_monsters.includes(name)) return alert("未解鎖"); if(confirm(`變身 ${name}?`)) await fetch(`${API_URL.replace('/items', '')}/shop/swap/${name}`, { method: 'POST', headers: { 'Authorization': `Bearer ${token}` } }); updateUserInfo(); };
+            
+            // 🔥 2. isUnlocked 已經定義在最上方，這裡可以直接呼叫 🔥
+            const swapFromDex = async (name) => { if (!isUnlocked(name)) return alert("未解鎖"); if(confirm(`變身 ${name}?`)) await fetch(`${API_URL.replace('/items', '')}/shop/swap/${name}`, { method: 'POST', headers: { 'Authorization': `Bearer ${token}` } }); updateUserInfo(); };
+            
             const buyHeal = async () => { const res = await fetch(`${API_URL.replace('/items', '')}/shop/heal`, { method: 'POST', headers: { 'Authorization': `Bearer ${token}` } }); if(res.ok) { alert("補血成功"); updateUserInfo(); } else alert("金幣不足"); };
-            const sendInvite = async (p) => { await fetch(`${API_URL.replace('/items', '')}/shop/duel/invite/${p.id}`, { method: 'POST', headers: { 'Authorization': `Bearer ${token}` } }); alert("已邀請"); };
-            const respondInvite = async (acc) => { inviteState.value.show = false; await fetch(`${API_URL.replace('/items', '')}/shop/duel/${acc?'accept':'reject'}/${inviteState.value.senderId}`, { method: 'POST', headers: { 'Authorization': `Bearer ${token}` } }); };
             const logout = () => { localStorage.clear(); window.location.href = 'login.html'; };
             const addLog = (msg) => { logs.value.unshift(msg); if(logs.value.length > 50) logs.value.pop(); };
-            const hpPercent = (u) => (u.hp / u.max_hp) * 100;
             const showFloatingDamage = (id, val, crit, heal) => { const el = document.createElement('div'); el.className = 'floating-damage'; el.innerText = heal?`+${val}`:(crit?`💥 ${val}`:`-${val}`); const rect = document.getElementById(id).getBoundingClientRect(); el.style.left = rect.left+50+'px'; el.style.top = rect.top+'px'; if(crit) el.style.color='red'; if(heal) el.style.color='green'; document.body.appendChild(el); setTimeout(()=>el.remove(),2000); };
+            
+            // 🔥 3. respondInvite 和 sendInvite 也確保在 return 列表中 🔥
+            const sendInvite = async (p) => { await fetch(`${API_URL.replace('/items', '')}/shop/duel/invite/${p.id}`, { method: 'POST', headers: { 'Authorization': `Bearer ${token}` } }); alert("已邀請"); };
+            const respondInvite = async (acc) => { inviteState.value.show = false; await fetch(`${API_URL.replace('/items', '')}/shop/duel/${acc?'accept':'reject'}/${inviteState.value.senderId}`, { method: 'POST', headers: { 'Authorization': `Bearer ${token}` } }); };
+            
             watch(currentTab, (n) => { if(n=='wild') fetchMonsters(); if(n=='arena') fetchPlayers(); if(n=='quest') fetchQuests(); });
 
-            // 🔥 務必確保所有函式都 return 🔥
-            return { user, monsters, players, quests, inventory, currentTab, battleState, myMoves, isMyTurn, inviteState, gachaResult, ALL_POKEMON, hpPercent, petXpPercent, logout, initBattle, executePlayerMove, executeDefense, endBattle, playGacha, buyHeal, sendInvite, respondInvite, confirmSwap, swapFromDex, isUnlocked, isGachaAnimating, acceptQuest, claimQuest, selectedWildLevel, fetchMonsters, currentAtkMe, currentAtkTarget, calculateDisplayDmg, showLevelUp };
+            // 🔥 4. 確保所有變數都 return 出去 🔥
+            return { user, monsters, players, quests, inventory, currentTab, battleState, myMoves, isMyTurn, inviteState, gachaResult, ALL_POKEMON, hpPercent, petXpPercent, logout, initBattle, executePlayerMove, executeDefense, endBattle, playGacha, buyHeal, sendInvite, respondInvite, confirmSwap, swapFromDex, isUnlocked, isGachaAnimating, acceptQuest, claimQuest, selectedWildLevel, fetchMonsters, currentAtkMe, currentAtkTarget, calculateDisplayDmg, showLevelUp, getMoveClass };
         }
     }).mount('#app');
 </script>
-
-</body>
-</html>
