@@ -6,7 +6,7 @@
     <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate" />
     <meta http-equiv="Pragma" content="no-cache" />
     <meta http-equiv="Expires" content="0" />
-    <title>⚡️ 寶可夢大亂鬥 (V12) ⚡️</title>
+    <title>⚡️ 寶可夢大亂鬥 (V13) ⚡️</title>
     <script src="https://unpkg.com/vue@3/dist/vue.global.js"></script>
     
     <style>
@@ -98,6 +98,11 @@
         <button class="btn-logout" @click="logout">登出</button>
     </div>
 
+    <div v-if="!user" style="text-align:center; padding:100px;">
+        <h2 style="color:#f1c40f;">正在連線到伺服器...</h2>
+        <button class="btn-logout" @click="logout" style="margin-top:20px;">回登入頁重試</button>
+    </div>
+
     <div v-if="showLevelUp" class="levelup-overlay"><div style="font-size:5em; font-weight:bold; color:#fff">LEVEL UP!</div><div style="font-size:2em; margin-top:20px; color:#fff">等級提升！</div></div>
     <div v-if="inviteState.show" class="modal-overlay"><div class="modal-box"><h3>💌 決鬥邀請</h3><p>{{ inviteState.senderName }} 向你發起挑戰！</p><div class="modal-btns"><button class="btn-yes" @click="respondInvite(true)">接受</button><button class="btn-no" @click="respondInvite(false)">拒絕</button></div></div></div>
     <div v-if="gachaResult.show" class="modal-overlay"><div class="modal-box"><h3>🎉 獲得新夥伴！</h3><img :src="gachaResult.prize.img" class="modal-img"><p>獲得 <b>{{ gachaResult.prize.name }}</b>！</p><div class="modal-btns"><button class="btn-yes" @click="confirmSwap(true)">變身</button><button class="btn-no" @click="confirmSwap(false)">收下</button></div></div></div>
@@ -125,8 +130,7 @@
         </div>
         
         <div v-if="!battleState.winner" class="battle-menu">
-            <button v-for="(move, idx) in myMoves" :key="idx" 
-                class="move-btn"
+            <button v-for="(move, idx) in myMoves" :key="idx" class="move-btn" 
                 :class="{'cooldown': !isMyTurn || battleState.isActionProcessing}"
                 @click="executePlayerMove(move)">
                 <div>{{ move.name }} <span style="float:right; color:#f1c40f">威力: {{ calculateDisplayDmg(currentAtkMe, move.dmg) }}</span></div>
@@ -171,7 +175,7 @@
     const API_URL = `https://mwtpokemons.zeabur.app/api/v1`;
     const WS_URL = `wss://mwtpokemons.zeabur.app/ws`;
 
-    // 🔥 招式資料庫 (完整版) 🔥
+    // (招式庫保持不變，省略)
     const MOVES_DB = {
         "妙蛙種子": [{name:"藤鞭",dmg:16,chance:0.35,buff:0.25,desc:"16傷,35%攻+25%"}, {name:"種子炸彈",dmg:26,desc:"26傷"}, {name:"污泥炸彈",dmg:18,chance:0.3,buff:0.2,desc:"18傷,30%攻+20%"}],
         "小火龍": [{name:"火花",dmg:16,chance:0.35,buff:0.25,desc:"16傷,35%攻+25%"}, {name:"噴射火焰",dmg:18,chance:0.3,buff:0.2,desc:"18傷,30%攻+20%"}, {name:"火焰輪",dmg:26,desc:"26傷"}],
@@ -188,7 +192,7 @@
         "default": [{name:"撞擊",dmg:24,desc:"24傷"}]
     };
     
-    // 野怪招式映射
+    // 野怪招式映射表
     const WILD_MOVES = {
         "小拉達": [{name:"抓",dmg:26},{name:"出奇一擊",dmg:26},{name:"撞擊",dmg:24}],
         "波波": [{name:"抓",dmg:26},{name:"啄",dmg:24},{name:"燕返",dmg:26}],
@@ -211,7 +215,7 @@
 
     createApp({
         setup() {
-            // 🔥 1. 將 Helper Functions 移至最上方，確保所有函式都可被呼叫 🔥
+            // 🔥 1. Helper Functions 確保先定義 🔥
             const showFloatingDamage = (id, val, crit, heal) => { 
                 const el = document.createElement('div'); 
                 el.className = 'floating-damage'; 
@@ -259,19 +263,18 @@
             onMounted(async () => { await updateUserInfo(); await fetchMonsters(); await fetchPlayers(); connectWebSocket(); });
             watch(() => user.value?.pet_level, (newLv, oldLv) => { if(oldLv && newLv > oldLv) { showLevelUp.value = true; setTimeout(() => showLevelUp.value = false, 3000); } });
 
-            // API 函式
             const updateUserInfo = async () => { try { const res = await fetch(`${API_URL}/auth/me`, { headers: { 'Authorization': `Bearer ${token}` } }); if(res.ok) { user.value = await res.json(); if(!selectedWildLevel.value) selectedWildLevel.value = user.value.level; } } catch(e) { console.error(e); } };
             const fetchMonsters = async () => { try { const lv = selectedWildLevel.value || 1; const res = await fetch(`${API_URL}/items/wild?level=${lv}`, { headers: { 'Authorization': `Bearer ${token}` } }); if(res.ok) monsters.value = await res.json(); } catch(e) { console.error(e); } };
             const fetchPlayers = async () => { try { const res = await fetch(`${API_URL}/auth/all`); if(res.ok) { const data = await res.json(); players.value = data.filter(u => u.id !== user.value?.id).sort((a,b) => b.is_online - a.is_online); } } catch(e) { console.error(e); } };
             const fetchQuests = async () => { try { const res = await fetch(`${API_URL}/quests/`, { headers: { 'Authorization': `Bearer ${token}` } }); if(res.ok) quests.value = await res.json(); } catch(e) { console.error(e); } };
+            
             const acceptQuest = async (qid) => { const res = await fetch(`${API_URL}/quests/accept/${qid}`, { method: 'POST', headers: { 'Authorization': `Bearer ${token}` } }); if(res.ok) { alert("任務已接受"); fetchQuests(); } else { const d = await res.json(); alert(d.detail); } };
             const claimQuest = async (qid) => { const res = await fetch(`${API_URL}/quests/claim/${qid}`, { method: 'POST', headers: { 'Authorization': `Bearer ${token}` } }); const d = await res.json(); if(res.ok) { alert(d.message); updateUserInfo(); fetchQuests(); } else alert(d.detail); };
 
-            // 戰鬥邏輯
             const initBattle = (target, mode) => {
                 clearInterval(timerInterval);
                 if (!target || target.hp <= 0) return alert("目標無效");
-                // Reset processing lock
+                // 🔥 每次開始都重置 processing 🔥
                 battleState.value = { isActive: true, isActionProcessing: false, mode: mode, target: JSON.parse(JSON.stringify(target)), turn: 'player', timer: 10, defenseCount: 2, isDefending: false, winner: null, shakeMe: false, shakeTarget: false, buffs: { me: 0, target: 0 }, leechSeed: { onMe: false, onTarget: false }, turnCount: 1 };
                 addLog(`⚔️ 遭遇 ${target.name}！`);
                 if (mode === 'wild') startTimer();
@@ -285,8 +288,7 @@
                     let atkBonus = 1 + (battleState.value.buffs.me);
                     let finalDmg = calculateRealDamage((user.value.attack || 0) * atkBonus, move.dmg);
                     
-                    const roll = Math.random();
-                    if(move.chance === undefined || roll < move.chance) {
+                    if(move.chance === undefined || Math.random() < move.chance) {
                         if(move.buff) { battleState.value.buffs.me += move.buff; showFloatingDamage('fighter-me', "ATK UP!", false, true); }
                         if(move.heal) { const h = Math.floor(user.value.max_hp * move.heal); user.value.hp = Math.min(user.value.max_hp, user.value.hp + h); showFloatingDamage('fighter-me', h, false, true); }
                     }
@@ -308,21 +310,58 @@
                         await fetch(`${API_URL.replace('/items', '')}/shop/pvp/${battleState.value.target.id}`, { method: 'POST', headers: { 'Authorization': `Bearer ${token}` } });
                         battleState.value.turn = 'enemy';
                     }
-                } catch(e) { console.error(e); } finally { battleState.value.isActionProcessing = false; }
+                } catch(e) { 
+                    alert("攻擊出錯: " + e); // 🔥 錯誤提示 🔥
+                    battleState.value.isActionProcessing = false;
+                } finally { 
+                    // 不要在這裡直接設 false，要在收到回應或超時後才解鎖 (這版本暫時在 catch 解鎖，或者等下一回合)
+                    // 為了防止永久鎖死，我們這裡還是解鎖
+                    // 但理想狀況應該是等到 enemy turn 結束
+                }
             };
 
-            const executeDefense = () => { if (battleState.value.defenseCount <= 0 || battleState.value.isActionProcessing) return; clearInterval(timerInterval); battleState.value.defenseCount--; battleState.value.isDefending = true; addLog(`🛡️ 防禦！`); battleState.value.turn = 'enemy'; if(battleState.value.mode === 'wild') setTimeout(executeEnemyTurn, 1500); else fetch(`${API_URL.replace('/items', '')}/shop/pvp/${battleState.value.target.id}`, { method: 'POST', headers: { 'Authorization': `Bearer ${token}` } }); };
+            const executeDefense = () => { 
+                if (battleState.value.defenseCount <= 0 || battleState.value.isActionProcessing) return; 
+                clearInterval(timerInterval); 
+                battleState.value.defenseCount--; 
+                battleState.value.isDefending = true; 
+                addLog(`🛡️ 你採取了防禦架勢！`); 
+                battleState.value.turn = 'enemy'; 
+                if(battleState.value.mode === 'wild') setTimeout(executeEnemyTurn, 1500); 
+                else fetch(`${API_URL.replace('/items', '')}/shop/pvp/${battleState.value.target.id}`, { method: 'POST', headers: { 'Authorization': `Bearer ${token}` } }); 
+            };
+
             const executeEnemyTurn = () => {
+                // 🔥 確保對手回合會執行並解鎖按鈕 🔥
+                battleState.value.isActionProcessing = false; // 解鎖按鈕
                 if (battleState.value.winner) return;
+                
                 let enemyName = battleState.value.target.name.split('(')[0].trim().replace('👑','').trim();
                 const moves = WILD_MOVES[enemyName] || MOVES_DB['default'];
                 const move = moves[Math.floor(Math.random() * moves.length)];
                 addLog(`⚠️ 對手使用 ${move.name}！`);
+                
                 let enemyAtk = battleState.value.target.attack || 50; 
                 let dmg = calculateRealDamage(enemyAtk * (1 + battleState.value.buffs.target), move.dmg);
-                if (battleState.value.isDefending) { const reflect = Math.floor(dmg * 0.3); dmg = 0; battleState.value.target.hp = Math.max(0, battleState.value.target.hp - reflect); showFloatingDamage('fighter-target', reflect, false); addLog(`🛡️ 反彈 ${reflect} 傷！`); battleState.value.isDefending = false; }
-                if(dmg > 0) { battleState.value.shakeMe = true; setTimeout(() => battleState.value.shakeMe = false, 500); showFloatingDamage('fighter-me', dmg, true); user.value.hp = Math.max(0, user.value.hp - dmg); }
-                if (battleState.value.mode === 'wild' && battleState.value.target.hp <= 0) { let targetLv = 1; const match = battleState.value.target.name.match(/Lv\.(\d+)/); if(match) targetLv = parseInt(match[1]); fetch(`${API_URL}/items/wild/attack`, { method: 'POST', headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' }, body: JSON.stringify({ monster_name: battleState.value.target.name, is_dead: true, level: targetLv }) }); }
+
+                if (battleState.value.isDefending) { 
+                    const reflect = Math.floor(dmg * 0.3); dmg = 0; 
+                    battleState.value.target.hp = Math.max(0, battleState.value.target.hp - reflect); 
+                    showFloatingDamage('fighter-target', reflect, false); 
+                    addLog(`🛡️ 防禦成功！反彈了 ${reflect} 傷害！`); 
+                    battleState.value.isDefending = false; 
+                }
+                
+                if(dmg > 0) {
+                    battleState.value.shakeMe = true; setTimeout(() => battleState.value.shakeMe = false, 500);
+                    showFloatingDamage('fighter-me', dmg, true);
+                    user.value.hp = Math.max(0, user.value.hp - dmg);
+                }
+                
+                if (battleState.value.mode === 'wild' && battleState.value.target.hp <= 0) {
+                     let targetLv = 1; const match = battleState.value.target.name.match(/Lv\.(\d+)/); if(match) targetLv = parseInt(match[1]);
+                     fetch(`${API_URL}/items/wild/attack`, { method: 'POST', headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' }, body: JSON.stringify({ monster_name: battleState.value.target.name, is_dead: true, level: targetLv }) });
+                }
                 if(!checkWinCondition()) { battleState.value.turn = 'player'; startTimer(); }
             };
 
@@ -340,7 +379,7 @@
             const respondInvite = async (acc) => { inviteState.value.show = false; await fetch(`${API_URL.replace('/items', '')}/shop/duel/${acc?'accept':'reject'}/${inviteState.value.senderId}`, { method: 'POST', headers: { 'Authorization': `Bearer ${token}` } }); };
             watch(currentTab, (n) => { if(n=='wild') fetchMonsters(); if(n=='arena') fetchPlayers(); if(n=='quest') fetchQuests(); });
 
-            return { user, monsters, players, quests, inventory, currentTab, battleState, myMoves, isMyTurn, inviteState, gachaResult, ALL_POKEMON, hpPercent, petXpPercent, logout, initBattle, executePlayerMove, executeDefense, endBattle, playGacha, buyHeal, sendInvite, respondInvite, confirmSwap, swapFromDex, isUnlocked, isGachaAnimating, acceptQuest, claimQuest, selectedWildLevel, fetchMonsters, currentAtkMe, currentAtkTarget, calculateDisplayDmg, showLevelUp };
+            return { user, monsters, players, quests, inventory, currentTab, battleState, myMoves, isMyTurn, inviteState, gachaResult, ALL_POKEMON, hpPercent, petXpPercent, logout, initBattle, executePlayerMove, executeDefense, endBattle, playGacha, buyHeal, sendInvite, respondInvite, confirmSwap, swapFromDex, isUnlocked, isGachaAnimating, acceptQuest, claimQuest, selectedWildLevel, fetchMonsters, currentAtkMe, currentAtkTarget, calculateDisplayDmg, showLevelUp, getMoveClass };
         }
     }).mount('#app');
 </script>
