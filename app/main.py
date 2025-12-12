@@ -20,14 +20,14 @@ Base.metadata.create_all(bind=engine)
 
 app = FastAPI(title="寶可夢大亂鬥 API")
 
-# 🔥 修正 CORS 設定，明確允許你的前端網址 🔥
+# 🔥 CORS 強制全開設定 🔥
 app.add_middleware(
     CORSMiddleware,
     allow_origins=[
+        "https://fastapi-game-project.vercel.app", # 你的 Vercel 前端
         "http://127.0.0.1:5500",
         "http://localhost:5500",
-        "https://fastapi-game-project.vercel.app", # 你的 Vercel 網址
-        "*" # 允許所有 (開發用)
+        "*" # 允許所有來源 (開發測試用)
     ],
     allow_credentials=True,
     allow_methods=["*"],
@@ -73,11 +73,11 @@ def read_root():
     if os.path.exists("index.html"):
         with open("index.html", "r", encoding="utf-8") as f:
             return f.read()
-    return "<h1>錯誤：找不到 index.html</h1>"
+    return "<h1>Server is running</h1>"
 
 @app.get("/login.html", response_class=HTMLResponse)
 def read_login():
     if os.path.exists("login.html"):
         with open("login.html", "r", encoding="utf-8") as f:
             return f.read()
-    return "<h1>錯誤：找不到 login.html</h1>"
+    return "<h1>Login page not found</h1>"
