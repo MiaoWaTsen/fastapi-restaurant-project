@@ -10,7 +10,6 @@ from app.common.deps import get_current_user
 
 router = APIRouter()
 
-# 引用 Wild DB (需與 item.py 一致)
 WILD_DB_REF = [
     { "min_lv": 1, "name": "小拉達" }, { "min_lv": 2, "name": "波波" },
     { "min_lv": 3, "name": "烈雀" }, { "min_lv": 4, "name": "阿柏蛇" },
@@ -30,7 +29,6 @@ def get_quests(db: Session = Depends(get_db), current_user: User = Depends(get_c
     changed = False
     while len(quest_list) < 3:
         defeated = current_user.defeated_bosses.split(',') if current_user.defeated_bosses else []
-        # 篩選玩家等級能接的任務
         valid_targets = [
             m for m in WILD_DB_REF 
             if m["min_lv"] <= current_user.level and (not m.get("is_boss") or m["name"] not in defeated)
@@ -39,13 +37,18 @@ def get_quests(db: Session = Depends(get_db), current_user: User = Depends(get_c
         if not valid_targets: break 
         
         target = random.choice(valid_targets)
-        target_lv = target["min_lv"]
+        # 🔥 任務目標等級 = 玩家當前等級 (確保有挑戰性) 🔥
+        target_lv = current_user.level 
         
         count = 1 if target.get("is_boss") else random.randint(1, 3)
         reward_base = 100 if target.get("is_boss") else 50
         
-        reward_gold = int(reward_base * count * (target_lv/2 + 1))
-        reward_xp = int(reward_base * count * (target_lv/2 + 1))
+        # 🔥 獎勵加成：數量越多，單隻價值越高 🔥
+        # count=1: 1.0x, count=2: 1.1x, count=3: 1.2x
+        count_bonus = 1 + (count - 1) * 0.1
+        
+        reward_gold = int(reward_base * count * count_bonus * (target_lv/2 + 1))
+        reward_xp = int(reward_base * count * count_bonus * (target_lv/2 + 1))
         
         new_quest = {
             "id": random.randint(10000, 99999),
@@ -65,7 +68,6 @@ def get_quests(db: Session = Depends(get_db), current_user: User = Depends(get_c
 @router.post("/accept/{quest_id}")
 def accept_quest(quest_id: int, db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
     quest_list = json.loads(current_user.quests)
-    # [cite: 1] 一次只能接一個任務
     active_quests = [q for q in quest_list if q["status"] == "ACTIVE"]
     if len(active_quests) >= 1:
         raise HTTPException(status_code=400, detail="一次只能進行一個任務！")
