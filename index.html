@@ -6,11 +6,11 @@
     <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate" />
     <meta http-equiv="Pragma" content="no-cache" />
     <meta http-equiv="Expires" content="0" />
-    <title>⚡️ 寶可夢大亂鬥 V19 ⚡️</title>
+    <title>⚡️ 寶可夢大亂鬥 V20) ⚡️</title>
     <script src="https://unpkg.com/vue@3/dist/vue.global.js"></script>
     
     <style>
-        /* (CSS 保持 V18 版本) */
+        /* (CSS 保持 V19 版本，直接沿用) */
         body { font-family: 'Segoe UI', sans-serif; background-color: #1a1a2e; color: #fff; padding: 20px; user-select: none; }
         .container { max-width: 900px; margin: 0 auto; }
         .navbar { display: flex; justify-content: space-between; align-items: center; background: #16213e; padding: 15px; border-radius: 10px; margin-bottom: 20px; border: 1px solid #0f3460; }
@@ -80,7 +80,6 @@
         .dex-locked { filter: brightness(0); opacity: 0.3; }
         .dex-name { margin-top: 5px; font-weight: bold; color: #666; }
         .dex-unlocked-name { color: #f1c40f; }
-        /* Rate Table */
         .rate-table { width: 100%; border-collapse: collapse; margin-top: 10px; }
         .rate-table th, .rate-table td { border: 1px solid #444; padding: 8px; text-align: left; }
         .rate-table th { background: #34495e; }
@@ -117,7 +116,6 @@
         <div class="levelup-text">LEVEL UP!</div>
         <div class="levelup-sub">恭喜 {{ user.username }}<br>升到了 Lv.{{ user.pet_level }}！</div>
     </div>
-    
     <div v-if="rateState.show" class="modal-overlay" @click.self="rateState.show = false">
         <div class="modal-box" style="width: 400px; max-height: 80vh; overflow-y: auto;">
             <div class="modal-title">📊 扭蛋機率表</div>
@@ -133,7 +131,6 @@
             <button class="btn-yes" style="width: 100%; margin-top: 10px;" @click="rateState.show = false">關閉</button>
         </div>
     </div>
-
     <div v-if="inviteState.show" class="modal-overlay"><div class="modal-box"><h3>💌 決鬥邀請</h3><p>{{ inviteState.senderName }} 向你發起挑戰！</p><div class="modal-btns"><button class="btn-yes" @click="respondInvite(true)">接受</button><button class="btn-no" @click="respondInvite(false)">拒絕</button></div></div></div>
     <div v-if="gachaResult.show" class="modal-overlay"><div class="modal-box"><div class="modal-title">🎉 獲得新夥伴！</div><img :src="gachaResult.prize.img" class="modal-img"><p>獲得 <b>{{ gachaResult.prize.name }}</b>！</p><div class="modal-btns"><button class="btn-yes" @click="confirmSwap(true)">變身</button><button class="btn-no" @click="confirmSwap(false)">收下</button></div></div></div>
     <div v-if="isGachaAnimating" class="gacha-anim-overlay"><div class="pokeball-anim"></div><div class="gacha-text">捕捉中...</div></div>
@@ -199,11 +196,17 @@
             </div>
             <div v-for="q in quests" :key="q.id" class="card quest-card" 
                  :class="{'quest-active': q.status=='ACTIVE', 'quest-completed': q.status=='COMPLETED', 'quest-golden': q.type=='GOLDEN'}">
-                <h4><span v-if="q.type=='GOLDEN'">✨ 黃金任務: </span>擊敗 {{ q.req }} 隻 Lv.{{ q.target_lv }} {{ q.target }}</h4>
+                <h4>
+                    <span v-if="q.type=='GOLDEN'">✨ 黃金任務: </span>
+                    擊敗 {{ q.req }} 隻 Lv.{{ q.target_lv }} {{ q.target }}
+                </h4>
                 <p v-if="q.type=='GOLDEN'">獎勵: 🍬 黃金糖果</p>
                 <p v-else>獎勵: {{ q.gold }}G, {{ q.xp }}XP</p>
                 <button v-if="q.status=='WAITING'" class="btn-action" style="background:#3498db" @click="acceptQuest(q.id)">接受任務</button>
-                <button v-if="q.status=='ACTIVE'" class="btn-action" disabled style="background:#555">進行中 ({{ q.now }}/{{ q.req }})</button>
+                <div v-if="q.status=='ACTIVE'">
+                    <button class="btn-action" disabled style="background:#555; margin-bottom:5px;">進行中 ({{ q.now }}/{{ q.req }})</button>
+                    <button class="btn-action" style="background:#e74c3c" @click="abandonQuest(q.id)">放棄</button>
+                </div>
                 <button v-if="q.status=='COMPLETED'" class="btn-action" style="background:#2ecc71" @click="claimQuest(q.id)">領取獎勵</button>
             </div>
         </div>
@@ -232,6 +235,7 @@
     const API_URL = `https://mwtpokemons.zeabur.app/api/v1`;
     const WS_URL = `wss://mwtpokemons.zeabur.app/ws`;
 
+    // (省略 MOVES_DB, WILD_MOVES, ALL_POKEMON)
     const MOVES_DB = { "妙蛙種子": [{name:"藤鞭",dmg:16,chance:0.35,buff:0.25,desc:"16傷,35%攻+25%"}, {name:"種子炸彈",dmg:26,desc:"26傷"}, {name:"污泥炸彈",dmg:18,chance:0.3,buff:0.2,desc:"18傷,30%攻+20%"}], "小火龍": [{name:"火花",dmg:16,chance:0.35,buff:0.25,desc:"16傷,35%攻+25%"}, {name:"噴射火焰",dmg:18,chance:0.3,buff:0.2,desc:"18傷,30%攻+20%"}, {name:"火焰輪",dmg:26,desc:"26傷"}], "傑尼龜": [{name:"水槍",dmg:14,chance:0.5,heal:0.2,desc:"14傷,50%回20%血"}, {name:"水流噴射",dmg:18,chance:0.3,buff:0.2,desc:"18傷,30%攻+20%"}, {name:"水流尾",dmg:26,desc:"26傷"}], "皮卡丘": [{name:"電光",dmg:16,chance:0.35,buff:0.25,desc:"16傷,35%攻+25%"}, {name:"放電",dmg:26,desc:"26傷"}, {name:"電擊",dmg:18,chance:0.3,buff:0.2,desc:"18傷,30%攻+20%"}], "伊布": [{name:"撞擊",dmg:24,desc:"24傷"}, {name:"挖洞",dmg:16,chance:0.35,buff:0.25,desc:"16傷,35%攻+25%"}, {name:"高速星星",dmg:26,desc:"26傷"}], "大蔥鴨": [{name:"啄",dmg:24,desc:"24傷"}, {name:"葉刃",dmg:24,desc:"24傷"}, {name:"勇鳥猛攻",dmg:36,selfDmg:0.15,desc:"36傷,自損15%"}], "呆呆獸": [{name:"水槍",dmg:14,chance:0.5,heal:0.2,desc:"14傷,50%回20%血"}, {name:"幻象光線",dmg:26,desc:"26傷"}, {name:"水流噴射",dmg:18,chance:0.3,buff:0.2,desc:"18傷,30%攻+20%"}], "可達鴨": [{name:"水槍",dmg:14,chance:0.5,heal:0.2,desc:"14傷,50%回20%血"}, {name:"幻象光線",dmg:26,desc:"26傷"}, {name:"水流噴射",dmg:18,chance:0.3,buff:0.2,desc:"18傷,30%攻+20%"}], "卡比獸": [{name:"泰山壓頂",dmg:26,desc:"26傷"}, {name:"地震",dmg:16,chance:0.35,heal:0.25,desc:"16傷,35%回25%血"}, {name:"撞擊",dmg:24,desc:"24傷"}], "吉利蛋": [{name:"抓",dmg:26,desc:"26傷"}, {name:"精神強念",dmg:18,chance:0.3,buff:0.2,desc:"18傷,30%攻+20%"}, {name:"撞擊",dmg:24,desc:"24傷"}], "幸福蛋": [{name:"抓",dmg:26,desc:"26傷"}, {name:"精神強念",dmg:18,chance:0.3,buff:0.2,desc:"18傷,30%攻+20%"}, {name:"撞擊",dmg:24,desc:"24傷"}], "快龍": [{name:"抓",dmg:26,desc:"26傷"}, {name:"逆鱗",dmg:28,desc:"28傷"}, {name:"勇鳥猛攻",dmg:36,selfDmg:0.15,desc:"36傷,自損15%"}], "超夢": [{name:"念力",dmg:14,chance:0.5,heal:0.15,desc:"14傷,50%回15%血"}, {name:"精神強念",dmg:18,chance:0.3,buff:0.2,desc:"18傷,30%攻+20%"}, {name:"精神擊破",dmg:28,desc:"28傷"}], "default": [{name:"撞擊",dmg:24,desc:"24傷"}] };
     const WILD_MOVES = { "小拉達": [{name:"抓",dmg:26},{name:"出奇一擊",dmg:26},{name:"撞擊",dmg:24}], "波波": [{name:"抓",dmg:26},{name:"啄",dmg:24},{name:"燕返",dmg:26}], "烈雀": [{name:"抓",dmg:26},{name:"啄",dmg:24},{name:"燕返",dmg:26}], "阿柏蛇": [{name:"毒針",dmg:14,chance:0.5,buff:0.25},{name:"毒擊",dmg:26},{name:"緊束",dmg:24}], "瓦斯彈": [{name:"毒針",dmg:14,chance:0.5,buff:0.25},{name:"撞擊",dmg:24}], "海星星": [{name:"水槍",dmg:14,chance:0.5,heal:0.2},{name:"幻象光線",dmg:26},{name:"撞擊",dmg:24}], "角金魚": [{name:"水槍",dmg:14,chance:0.5,heal:0.2},{name:"幻象光線",dmg:26},{name:"泥巴射擊",dmg:18,chance:0.3,buff:0.2}], "走路草": [{name:"種子炸彈",dmg:26},{name:"撞擊",dmg:24},{name:"毒擊",dmg:26}], "穿山鼠": [{name:"抓",dmg:26},{name:"泥巴射擊",dmg:18,chance:0.3,buff:0.2},{name:"泥巴炸彈",dmg:26}], "蚊香勇士": [{name:"雙倍奉還",dmg:28},{name:"冰凍光束",dmg:26},{name:"水槍",dmg:14}], "小磁怪": [{name:"電擊",dmg:18},{name:"放電",dmg:26},{name:"撞擊",dmg:24}], "卡拉卡拉": [{name:"泥巴射擊",dmg:18},{name:"泥巴炸彈",dmg:26},{name:"挖洞",dmg:16}], "喵喵": [{name:"抓",dmg:26},{name:"出奇一擊",dmg:26},{name:"撞擊",dmg:24}], "瑪瑙水母": [{name:"水槍",dmg:14},{name:"水流尾",dmg:26},{name:"緊束",dmg:24}], "暴鯉龍": [{name:"水槍",dmg:14},{name:"水流尾",dmg:26},{name:"逆鱗",dmg:28}] };
     const ALL_POKEMON = { "妙蛙種子":{img:"https://img.pokemondb.net/artwork/large/bulbasaur.jpg"}, "小火龍":{img:"https://img.pokemondb.net/artwork/large/charmander.jpg"}, "傑尼龜":{img:"https://img.pokemondb.net/artwork/large/squirtle.jpg"}, "皮卡丘":{img:"https://img.pokemondb.net/artwork/large/pikachu.jpg"}, "卡拉卡拉":{img:"https://img.pokemondb.net/artwork/large/cubone.jpg"}, "喵喵":{img:"https://img.pokemondb.net/artwork/large/meowth.jpg"}, "波波":{img:"https://img.pokemondb.net/artwork/large/pidgey.jpg"}, "海星星":{img:"https://img.pokemondb.net/artwork/large/staryu.jpg"}, "伊布":{img:"https://img.pokemondb.net/artwork/large/eevee.jpg"}, "大蔥鴨":{img:"https://img.pokemondb.net/artwork/large/farfetchd.jpg"}, "呆呆獸":{img:"https://img.pokemondb.net/artwork/large/slowpoke.jpg"}, "可達鴨":{img:"https://img.pokemondb.net/artwork/large/psyduck.jpg"}, "卡比獸":{img:"https://img.pokemondb.net/artwork/large/snorlax.jpg"}, "吉利蛋":{img:"https://img.pokemondb.net/artwork/large/chansey.jpg"}, "幸福蛋":{img:"https://img.pokemondb.net/artwork/large/blissey.jpg"}, "快龍":{img:"https://img.pokemondb.net/artwork/large/dragonite.jpg"}, "超夢":{img:"https://img.pokemondb.net/artwork/large/mewtwo.jpg"} };
@@ -250,14 +254,13 @@
             const battleState = ref({ isActive: false, isActionProcessing: false, mode: 'wild', target: null, turn: 'player', timer: 10, defenseCount: 2, isDefending: false, winner: null, shakeMe: false, shakeTarget: false, buffs: { me: 0, target: 0 }, leechSeed: { onMe: false, onTarget: false }, turnCount: 0 });
             const inviteState = ref({ show: false, senderId: null, senderName: '' });
             const gachaResult = ref({ show: false, prize: null, isNew: false });
-            const rateState = ref({ show: false }); // 🔥 機率表狀態
+            const rateState = ref({ show: false });
             const isGachaAnimating = ref(false); const selectedWildLevel = ref(1); const showLevelUp = ref(false);
             const isQuestLoading = ref(false);
             const inventory = computed(() => user.value && user.value.inventory ? JSON.parse(user.value.inventory) : {});
             const logs = ref([]);
             let socket = null; let timerInterval = null;
 
-            // 🔥 機率表資料 (PDF Source) 🔥
             const gachaRates = {
                 "🔮 初級扭蛋 (2000G)": [
                     {name: "伊布", rate: 10}, {name: "皮卡丘", rate: 10}, {name: "大蔥鴨", rate: 20},
@@ -296,7 +299,7 @@
                 if(n=='quest') await fetchQuests(); 
             });
 
-            // API Functions (Same as V18)
+            // API Functions
             const updateUserInfo = async () => { try { const res = await fetch(`${API_URL}/auth/me`, { headers: { 'Authorization': `Bearer ${token}` } }); if(res.ok) { user.value = await res.json(); if(!selectedWildLevel.value) selectedWildLevel.value = user.value.level; } } catch(e) { console.error(e); } };
             const fetchMonsters = async () => { try { const lv = selectedWildLevel.value || 1; const res = await fetch(`${API_URL}/items/wild?level=${lv}`, { headers: { 'Authorization': `Bearer ${token}` } }); if(res.ok) monsters.value = await res.json(); } catch(e) { console.error(e); } };
             const fetchPlayers = async () => { try { const res = await fetch(`${API_URL}/auth/all`); if(res.ok) { const data = await res.json(); players.value = data.filter(u => u.id !== user.value?.id).sort((a,b) => b.is_online - a.is_online); } } catch(e) { console.error(e); } };
@@ -309,6 +312,7 @@
             };
 
             const acceptQuest = async (qid) => { const res = await fetch(`${API_URL}/quests/accept/${qid}`, { method: 'POST', headers: { 'Authorization': `Bearer ${token}` } }); if(res.ok) { alert("任務已接受"); fetchQuests(); } else { const d = await res.json(); alert(d.detail); } };
+            const abandonQuest = async (qid) => { if(confirm("確定放棄此任務？進度將會重置。")) { const res = await fetch(`${API_URL}/quests/abandon/${qid}`, { method: 'POST', headers: { 'Authorization': `Bearer ${token}` } }); if(res.ok) { alert("任務已放棄"); fetchQuests(); } } };
             const claimQuest = async (qid) => { const res = await fetch(`${API_URL}/quests/claim/${qid}`, { method: 'POST', headers: { 'Authorization': `Bearer ${token}` } }); const d = await res.json(); if(res.ok) { alert(d.message); updateUserInfo(); fetchQuests(); } else alert(d.detail); };
             const confirmSwap = async (s) => { if(s) await fetch(`${API_URL.replace('/items', '')}/shop/swap/${gachaResult.value.prize.name}`, { method: 'POST', headers: { 'Authorization': `Bearer ${token}` } }); gachaResult.value.show = false; updateUserInfo(); };
             const swapFromDex = async (name) => { if (!isUnlocked(name)) return alert("未解鎖"); if(confirm(`變身 ${name}?`)) await fetch(`${API_URL.replace('/items', '')}/shop/swap/${name}`, { method: 'POST', headers: { 'Authorization': `Bearer ${token}` } }); updateUserInfo(); };
@@ -333,13 +337,19 @@
                     addLog(`👊 使用 ${move.name}！`);
                     let atkBonus = 1 + (battleState.value.buffs.me);
                     let finalDmg = calculateRealDamage((user.value.attack || 0) * atkBonus, move.dmg);
+                    
                     const roll = Math.random();
                     if(move.chance === undefined || roll < move.chance) {
                         if(move.buff) { battleState.value.buffs.me += move.buff; showFloatingDamage('fighter-me', "ATK UP!", false, true); }
                         if(move.heal) { const h = Math.floor(user.value.max_hp * move.heal); user.value.hp = Math.min(user.value.max_hp, user.value.hp + h); showFloatingDamage('fighter-me', h, false, true); }
                     }
                     if(move.selfDmg) { const s = Math.floor(user.value.max_hp * move.selfDmg); user.value.hp = Math.max(0, user.value.hp - s); showFloatingDamage('fighter-me', s, false); }
-                    if(move.dmg > 0) { battleState.value.shakeTarget = true; setTimeout(() => battleState.value.shakeTarget = false, 500); showFloatingDamage('fighter-target', finalDmg, false); battleState.value.target.hp = Math.max(0, battleState.value.target.hp - finalDmg); }
+    
+                    if(move.dmg > 0) {
+                        battleState.value.shakeTarget = true; setTimeout(() => battleState.value.shakeTarget = false, 500);
+                        showFloatingDamage('fighter-target', finalDmg, false);
+                        battleState.value.target.hp = Math.max(0, battleState.value.target.hp - finalDmg);
+                    }
     
                     if (battleState.value.mode === 'wild') {
                         if (battleState.value.target.hp <= 0) {
@@ -364,7 +374,11 @@
                 let dmg = calculateRealDamage(enemyAtk * (1 + battleState.value.buffs.target), move.dmg);
                 if (battleState.value.isDefending) { const reflect = Math.floor(dmg * 0.3); dmg = 0; battleState.value.target.hp = Math.max(0, battleState.value.target.hp - reflect); showFloatingDamage('fighter-target', reflect, false); addLog(`🛡️ 反彈 ${reflect} 傷！`); battleState.value.isDefending = false; }
                 if(dmg > 0) { battleState.value.shakeMe = true; setTimeout(() => battleState.value.shakeMe = false, 500); showFloatingDamage('fighter-me', dmg, true); user.value.hp = Math.max(0, user.value.hp - dmg); }
-                if (battleState.value.mode === 'wild' && battleState.value.target.hp <= 0) { let targetLv = 1; const match = battleState.value.target.name.match(/Lv\.(\d+)/); if(match) targetLv = parseInt(match[1]); fetch(`${API_URL}/items/wild/attack`, { method: 'POST', headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' }, body: JSON.stringify({ monster_name: battleState.value.target.name, is_dead: true, level: targetLv }) }).then(()=>{fetchQuests();updateUserInfo();}); }
+                
+                if (battleState.value.mode === 'wild' && battleState.value.target.hp <= 0) {
+                     let targetLv = 1; const match = battleState.value.target.name.match(/Lv\.(\d+)/); if(match) targetLv = parseInt(match[1]);
+                     fetch(`${API_URL}/items/wild/attack`, { method: 'POST', headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' }, body: JSON.stringify({ monster_name: battleState.value.target.name, is_dead: true, level: targetLv }) }).then(()=>{fetchQuests();updateUserInfo();});
+                }
                 if(!checkWinCondition()) { battleState.value.turn = 'player'; startTimer(); }
             };
 
@@ -374,7 +388,7 @@
             const connectWebSocket = () => { socket = new WebSocket(`${WS_URL}?token=${token}`); socket.onopen = () => setInterval(() => socket.readyState===1 && socket.send("ping"), 30000); socket.onmessage = (e) => { const msg = e.data; const parts = msg.split("|"); if (msg.startsWith("📢")) addLog(msg); if (msg.startsWith("EVENT:DUEL_INVITE") && parseInt(parts[3]) === user.value.id) inviteState.value = { show: true, senderId: parts[1], senderName: parts[2] }; if (msg.startsWith("EVENT:DUEL_START")) { const p1=parseInt(parts[1]), p2=parseInt(parts[3]), first=parseInt(parts[5]); if(user.value.id===p1 || user.value.id===p2) { inviteState.value.show = false; const oppId = user.value.id===p1 ? p2 : p1; fetchPlayers().then(() => { const opp = players.value.find(p=>p.id===oppId); if(opp) { initBattle(opp, 'pvp'); battleState.value.turn = user.value.id===first?'player':'enemy'; if(battleState.value.turn==='player') startTimer(); } }); } } if (msg.startsWith("EVENT:PVP_MOVE")) { const targetId = parseInt(parts[2]); if (battleState.value.isActive && user.value.id === targetId) { fetchPlayers().then(() => { const opp = players.value.find(p => p.id === parseInt(parts[1])); if(opp) battleState.value.target.hp = opp.hp; const me = players.value.find(p => p.id === user.value.id); if(me) user.value.hp = me.hp; if(!checkWinCondition()) { battleState.value.turn = 'player'; startTimer(); } }); } } fetchMonsters(); fetchPlayers(); updateUserInfo(); fetchQuests(); }; };
             watch(currentTab, async (n) => { if(n=='wild') await fetchMonsters(); if(n=='arena') await fetchPlayers(); if(n=='quest') await fetchQuests(); });
 
-            return { user, monsters, players, quests, inventory, currentTab, battleState, myMoves, isMyTurn, inviteState, gachaResult, ALL_POKEMON, hpPercent, petXpPercent, logout, initBattle, executePlayerMove, executeDefense, endBattle, playGacha, buyHeal, sendInvite, respondInvite, confirmSwap, swapFromDex, isUnlocked, isGachaAnimating, acceptQuest, claimQuest, selectedWildLevel, fetchMonsters, currentAtkMe, currentAtkTarget, calculateDisplayDmg, showLevelUp, getMoveClass, logs, isQuestLoading, rateState, gachaRates };
+            return { user, monsters, players, quests, inventory, currentTab, battleState, myMoves, isMyTurn, inviteState, gachaResult, ALL_POKEMON, hpPercent, petXpPercent, logout, initBattle, executePlayerMove, executeDefense, endBattle, playGacha, buyHeal, sendInvite, respondInvite, confirmSwap, swapFromDex, isUnlocked, isGachaAnimating, acceptQuest, claimQuest, abandonQuest, selectedWildLevel, fetchMonsters, currentAtkMe, currentAtkTarget, calculateDisplayDmg, showLevelUp, getMoveClass, logs, isQuestLoading, rateState, gachaRates };
         }
     }).mount('#app');
 </script>

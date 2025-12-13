@@ -7,7 +7,7 @@ import json
 from app.db.session import get_db
 from app.models.user import User
 from app.common.deps import get_current_user
-from app.common.websocket import manager # 🔥 新增 manager 引用
+from app.common.websocket import manager
 
 router = APIRouter()
 
@@ -22,7 +22,6 @@ WILD_DB_REF = [
     { "min_lv": 20, "name": "暴鯉龍", "is_boss": True }
 ]
 
-# 🔥 複製升級邏輯，確保任務獲得經驗也能觸發升級 🔥
 LEVEL_XP = { 
     1: 50, 2: 150, 3: 300, 4: 500, 5: 800, 
     6: 1300, 7: 2000, 8: 3000, 9: 5000 
@@ -36,7 +35,6 @@ def get_req_xp(lv):
 async def check_levelup_dual(user: User):
     msg_list = []
     
-    # 1. 訓練師升級
     req_xp_player = get_req_xp(user.level)
     if user.exp >= req_xp_player and user.level < 25:
         user.level += 1
@@ -44,7 +42,6 @@ async def check_levelup_dual(user: User):
         msg_list.append(f"訓練師升級(Lv.{user.level})")
         await manager.broadcast(f"📢 恭喜玩家 [{user.username}] 提升到了 訓練師等級 {user.level}！")
         
-    # 2. 寶可夢升級
     if (user.pet_level < user.level or (user.level == 1 and user.pet_level == 1)) and user.pet_level < 25:
         req_xp_pet = get_req_xp(user.pet_level)
         while user.pet_exp >= req_xp_pet:
@@ -54,7 +51,6 @@ async def check_levelup_dual(user: User):
             user.pet_level += 1
             user.pet_exp -= req_xp_pet
             
-            # 數值成長 (與 item.py 保持一致: 攻*1.06, 血*1.08)
             user.max_hp = int(user.max_hp * 1.08)
             user.hp = user.max_hp
             user.attack = int(user.attack * 1.06)
@@ -124,7 +120,26 @@ def accept_quest(quest_id: int, db: Session = Depends(get_db), current_user: Use
             
     raise HTTPException(status_code=400, detail="任務不存在")
 
-# 🔥 改為 async 以便執行 await check_levelup_dual 🔥
+# 🔥 新增放棄任務 API 🔥
+@router.post("/abandon/{quest_id}")
+def abandon_quest(quest_id: int, db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
+    quest_list = json.loads(current_user.quests)
+    found = False
+    
+    for q in quest_list:
+        if q["id"] == quest_id and q["status"] == "ACTIVE":
+            q["status"] = "WAITING" # 重置回等待狀態
+            q["now"] = 0 # 清空進度
+            found = True
+            break
+            
+    if not found:
+        raise HTTPException(status_code=400, detail="無法放棄該任務")
+        
+    current_user.quests = json.dumps(quest_list)
+    db.commit()
+    return {"message": "已放棄任務"}
+
 @router.post("/claim/{quest_id}")
 async def claim_quest(quest_id: int, db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
     quest_list = json.loads(current_user.quests)
@@ -151,7 +166,6 @@ async def claim_quest(quest_id: int, db: Session = Depends(get_db), current_user
         
     if not claimed: raise HTTPException(status_code=400, detail="無法領取")
     
-    # 🔥 立即檢查升級 🔥
     lvl_msg = await check_levelup_dual(current_user)
     if lvl_msg: msg += f" 🎉 {lvl_msg}！"
 

@@ -14,7 +14,7 @@ from app.common.websocket import manager
 
 router = APIRouter()
 
-# [cite: 6-20]
+[cite_start]# [cite: 6-20]
 WILD_DB = [
     { "min_lv": 1, "name": "小拉達", "base_hp": 90, "base_atk": 80, "img": "https://img.pokemondb.net/artwork/large/rattata.jpg" },
     { "min_lv": 2, "name": "波波", "base_hp": 94, "base_atk": 84, "img": "https://img.pokemondb.net/artwork/large/pidgey.jpg" },
@@ -33,16 +33,15 @@ WILD_DB = [
     { "min_lv": 20, "name": "暴鯉龍", "base_hp": 160, "base_atk": 180, "img": "https://img.pokemondb.net/artwork/large/gyarados.jpg", "is_boss": True },
 ]
 
-# 🔥 [cite: 70-78] XP 表 🔥
+[cite_start]# [cite: 70-78] XP 表
 LEVEL_XP = { 
     1: 50, 2: 150, 3: 300, 4: 500, 5: 800, 
     6: 1300, 7: 2000, 8: 3000, 9: 5000 
 }
 
 def get_req_xp(lv):
-    if lv >= 25: return 999999999 # [cite: 79] Max 25
+    if lv >= 25: return 999999999
     if lv < 10: return LEVEL_XP.get(lv, 5000)
-    # [cite: 79] Lv10以後每級多2000 (Lv9->10 是 5000, 所以 Lv10->11 是 7000)
     return 5000 + (lv - 9) * 2000
 
 async def check_levelup_dual(user: User):
@@ -64,7 +63,6 @@ async def check_levelup_dual(user: User):
             user.pet_level += 1
             user.pet_exp -= req_xp_pet
             
-            # 🔥 [cite: 1] 玩家成長: 攻*1.06, 血*1.08 🔥
             user.max_hp = int(user.max_hp * 1.08)
             user.hp = user.max_hp
             user.attack = int(user.attack * 1.06)
@@ -109,11 +107,9 @@ def get_wild_monsters(
             attack = m_data["base_atk"]
         else:
             final_lv = target_lv
-            # 🔥 [cite: 2] 野怪成長: 攻*1.08, 血*1.1 🔥
             hp_scale = 1.1 ** (final_lv - 1)
             atk_scale = 1.08 ** (final_lv - 1)
-            # 🔥 [cite: 3] 基礎野怪: 攻*1.2, 血*1.3 (修正為1.3) 🔥
-            hp = int(m_data["base_hp"] * hp_scale * 1.3)
+            hp = int(m_data["base_hp"] * hp_scale * 1.4)
             attack = int(m_data["base_atk"] * atk_scale * 1.2)
         
         base_bonus = m_data["min_lv"] * 3
@@ -173,7 +169,8 @@ async def attack_wild(
         current_user.money += gold_gain
         msg = f"擊敗 {base_name}！獲得 {xp_gain} XP, {gold_gain} Gold" + msg
         
-        if random.random() < 0.1:
+        # 🔥 修改：掉落機率從 0.1 提升至 0.25 🔥
+        if random.random() < 0.25:
             inventory = json.loads(current_user.inventory) if current_user.inventory else {}
             inventory["candy"] = inventory.get("candy", 0) + 1
             current_user.inventory = json.dumps(inventory)
