@@ -36,26 +36,35 @@ def get_quests(db: Session = Depends(get_db), current_user: User = Depends(get_c
         
         if not valid_targets: break 
         
+        # 🔥 新增：3% 機率觸發黃金任務 🔥
+        is_golden = random.random() < 0.03
         target = random.choice(valid_targets)
-        # 🔥 任務目標等級 = 玩家當前等級 (確保有挑戰性) 🔥
-        target_lv = current_user.level 
         
-        count = 1 if target.get("is_boss") else random.randint(1, 3)
-        reward_base = 100 if target.get("is_boss") else 50
+        # 目標等級 = 玩家當前等級
+        target_lv = current_user.level
         
-        # 🔥 獎勵加成：數量越多，單隻價值越高 🔥
-        # count=1: 1.0x, count=2: 1.1x, count=3: 1.2x
-        count_bonus = 1 + (count - 1) * 0.1
-        
-        reward_gold = int(reward_base * count * count_bonus * (target_lv/2 + 1))
-        reward_xp = int(reward_base * count * count_bonus * (target_lv/2 + 1))
+        if is_golden:
+            count = 5
+            reward_gold = 0
+            reward_xp = 0
+            q_type = "GOLDEN"
+        else:
+            count = 1 if target.get("is_boss") else random.randint(1, 3)
+            reward_base = 100 if target.get("is_boss") else 50
+            # 獎勵加成
+            count_bonus = 1 + (count - 1) * 0.1
+            reward_gold = int(reward_base * count * count_bonus * (target_lv/2 + 1))
+            reward_xp = int(reward_base * count * count_bonus * (target_lv/2 + 1))
+            q_type = "NORMAL"
         
         new_quest = {
             "id": random.randint(10000, 99999),
             "target": target["name"],
             "target_lv": target_lv,
-            "req": count, "now": 0, "gold": reward_gold, "xp": reward_xp,
-            "status": "WAITING"
+            "req": count, "now": 0, 
+            "gold": reward_gold, "xp": reward_xp,
+            "status": "WAITING",
+            "type": q_type
         }
         quest_list.append(new_quest)
         changed = True
@@ -90,10 +99,18 @@ def claim_quest(quest_id: int, db: Session = Depends(get_db), current_user: User
     
     for q in quest_list:
         if q["id"] == quest_id and q["status"] == "COMPLETED":
-            current_user.money += q["gold"]
-            current_user.exp += q["xp"]
-            current_user.pet_exp += q["xp"]
-            msg = f"領取成功！獲得 {q['gold']} G, {q['xp']} XP"
+            # 🔥 判斷是否為黃金任務 🔥
+            if q.get("type") == "GOLDEN":
+                inventory = json.loads(current_user.inventory) if current_user.inventory else {}
+                inventory["golden_candy"] = inventory.get("golden_candy", 0) + 1
+                current_user.inventory = json.dumps(inventory)
+                msg = "領取成功！獲得 🍬 黃金糖果！"
+            else:
+                current_user.money += q["gold"]
+                current_user.exp += q["xp"]
+                current_user.pet_exp += q["xp"]
+                msg = f"領取成功！獲得 {q['gold']} G, {q['xp']} XP"
+            
             claimed = True
             continue 
         new_list.append(q)

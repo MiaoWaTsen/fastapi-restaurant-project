@@ -1,33 +1,40 @@
 # app/common/websocket.py
 
+from typing import List, Dict
 from fastapi import WebSocket
-from typing import Dict, List
 
 class ConnectionManager:
     def __init__(self):
-        # 改用 Dictionary: Key是玩家ID, Value是連線物件
+        # 存放活躍的連線: key=user_id, value=WebSocket
         self.active_connections: Dict[int, WebSocket] = {}
 
     async def connect(self, user_id: int, websocket: WebSocket):
-        await websocket.accept()
-        # 登記名字：這位 user_id 上線了
+        # 接受連線
+        # 注意：accept() 通常在 endpoint 裡面做，這裡主要是記錄
         self.active_connections[user_id] = websocket
 
     def disconnect(self, user_id: int):
-        # 劃掉名字
         if user_id in self.active_connections:
             del self.active_connections[user_id]
 
-    async def broadcast(self, message: str):
-        # 對名冊裡的所有人發送
-        for connection in self.active_connections.values():
-            try:
-                await connection.send_text(message)
-            except:
-                pass
-    
-    # 🔥 新增功能：查名冊，回傳現在誰在線上的 ID 列表
     def get_online_ids(self) -> List[int]:
         return list(self.active_connections.keys())
+
+    async def send_personal_message(self, message: str, user_id: int):
+        if user_id in self.active_connections:
+            try:
+                await self.active_connections[user_id].send_text(message)
+            except:
+                self.disconnect(user_id)
+
+    async def broadcast(self, message: str):
+        # 對所有連線廣播
+        # 為了避免迭代時字典大小改變報錯，先複製一份 keys
+        for user_id in list(self.active_connections.keys()):
+            try:
+                ws = self.active_connections[user_id]
+                await ws.send_text(message)
+            except:
+                self.disconnect(user_id)
 
 manager = ConnectionManager()
