@@ -22,6 +22,7 @@ WILD_DB_REF = [
     { "min_lv": 20, "name": "暴鯉龍", "is_boss": True }
 ]
 
+# 經驗值表
 LEVEL_XP = { 
     1: 50, 2: 150, 3: 300, 4: 500, 5: 800, 
     6: 1300, 7: 2000, 8: 3000, 9: 5000 
@@ -120,7 +121,7 @@ def accept_quest(quest_id: int, db: Session = Depends(get_db), current_user: Use
             
     raise HTTPException(status_code=400, detail="任務不存在")
 
-# 🔥 新增：放棄任務功能 🔥
+# 放棄任務 API
 @router.post("/abandon/{quest_id}")
 def abandon_quest(quest_id: int, db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
     quest_list = json.loads(current_user.quests)
@@ -128,8 +129,8 @@ def abandon_quest(quest_id: int, db: Session = Depends(get_db), current_user: Us
     
     for q in quest_list:
         if q["id"] == quest_id and q["status"] == "ACTIVE":
-            q["status"] = "WAITING" # 重置回等待狀態
-            q["now"] = 0 # 進度歸零
+            q["status"] = "WAITING"
+            q["now"] = 0
             found = True
             break
             
