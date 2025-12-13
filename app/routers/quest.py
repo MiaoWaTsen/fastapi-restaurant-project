@@ -120,7 +120,7 @@ def accept_quest(quest_id: int, db: Session = Depends(get_db), current_user: Use
             
     raise HTTPException(status_code=400, detail="任務不存在")
 
-# 🔥 新增放棄任務 API 🔥
+# 🔥 新增：放棄任務功能 🔥
 @router.post("/abandon/{quest_id}")
 def abandon_quest(quest_id: int, db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
     quest_list = json.loads(current_user.quests)
@@ -129,7 +129,7 @@ def abandon_quest(quest_id: int, db: Session = Depends(get_db), current_user: Us
     for q in quest_list:
         if q["id"] == quest_id and q["status"] == "ACTIVE":
             q["status"] = "WAITING" # 重置回等待狀態
-            q["now"] = 0 # 清空進度
+            q["now"] = 0 # 進度歸零
             found = True
             break
             

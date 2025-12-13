@@ -14,7 +14,7 @@ from app.common.websocket import manager
 
 router = APIRouter()
 
-[cite_start]# [cite: 6-20]
+# 野怪資料
 WILD_DB = [
     { "min_lv": 1, "name": "小拉達", "base_hp": 90, "base_atk": 80, "img": "https://img.pokemondb.net/artwork/large/rattata.jpg" },
     { "min_lv": 2, "name": "波波", "base_hp": 94, "base_atk": 84, "img": "https://img.pokemondb.net/artwork/large/pidgey.jpg" },
@@ -33,7 +33,7 @@ WILD_DB = [
     { "min_lv": 20, "name": "暴鯉龍", "base_hp": 160, "base_atk": 180, "img": "https://img.pokemondb.net/artwork/large/gyarados.jpg", "is_boss": True },
 ]
 
-[cite_start]# [cite: 70-78] XP 表
+# 經驗值表
 LEVEL_XP = { 
     1: 50, 2: 150, 3: 300, 4: 500, 5: 800, 
     6: 1300, 7: 2000, 8: 3000, 9: 5000 
@@ -47,6 +47,7 @@ def get_req_xp(lv):
 async def check_levelup_dual(user: User):
     msg_list = []
     
+    # 1. 訓練師升級
     req_xp_player = get_req_xp(user.level)
     if user.exp >= req_xp_player and user.level < 25:
         user.level += 1
@@ -54,6 +55,7 @@ async def check_levelup_dual(user: User):
         msg_list.append(f"訓練師升級(Lv.{user.level})")
         await manager.broadcast(f"📢 恭喜玩家 [{user.username}] 提升到了 訓練師等級 {user.level}！")
         
+    # 2. 寶可夢升級
     if (user.pet_level < user.level or (user.level == 1 and user.pet_level == 1)) and user.pet_level < 25:
         req_xp_pet = get_req_xp(user.pet_level)
         while user.pet_exp >= req_xp_pet:
@@ -63,6 +65,7 @@ async def check_levelup_dual(user: User):
             user.pet_level += 1
             user.pet_exp -= req_xp_pet
             
+            # 數值成長
             user.max_hp = int(user.max_hp * 1.08)
             user.hp = user.max_hp
             user.attack = int(user.attack * 1.06)
@@ -169,7 +172,7 @@ async def attack_wild(
         current_user.money += gold_gain
         msg = f"擊敗 {base_name}！獲得 {xp_gain} XP, {gold_gain} Gold" + msg
         
-        # 🔥 修改：掉落機率從 0.1 提升至 0.25 🔥
+        # 🔥 修改：掉落機率 25% 🔥
         if random.random() < 0.25:
             inventory = json.loads(current_user.inventory) if current_user.inventory else {}
             inventory["candy"] = inventory.get("candy", 0) + 1
