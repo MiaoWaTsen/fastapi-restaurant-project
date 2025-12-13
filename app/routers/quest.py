@@ -22,7 +22,6 @@ WILD_DB_REF = [
     { "min_lv": 20, "name": "暴鯉龍", "is_boss": True }
 ]
 
-# 經驗值表
 LEVEL_XP = { 
     1: 50, 2: 150, 3: 300, 4: 500, 5: 800, 
     6: 1300, 7: 2000, 8: 3000, 9: 5000 
@@ -32,6 +31,43 @@ def get_req_xp(lv):
     if lv >= 25: return 999999999
     if lv < 10: return LEVEL_XP.get(lv, 5000)
     return 5000 + (lv - 9) * 2000
+
+# 獨立出任務生成函式，供 get_quests 和 abandon_quest 共用
+def generate_single_quest(user: User):
+    defeated = user.defeated_bosses.split(',') if user.defeated_bosses else []
+    # 根據「寶可夢等級」篩選可出現的怪，避免 1 級寵物接到 20 級任務
+    valid_targets = [
+        m for m in WILD_DB_REF 
+        if m["min_lv"] <= user.pet_level and (not m.get("is_boss") or m["name"] not in defeated)
+    ]
+    
+    # 如果寵物等級太低沒怪打，就給小拉達
+    if not valid_targets:
+        target = WILD_DB_REF[0]
+    else:
+        target = random.choice(valid_targets)
+    
+    is_golden = random.random() < 0.03
+    # 🔥 修改：任務等級依照「當前寶可夢等級」 🔥
+    target_lv = user.pet_level
+    
+    if is_golden:
+        count = 5; reward_gold = 0; reward_xp = 0; q_type = "GOLDEN"
+    else:
+        count = 1 if target.get("is_boss") else random.randint(1, 3)
+        reward_base = 100 if target.get("is_boss") else 50
+        count_bonus = 1 + (count - 1) * 0.1
+        reward_gold = int(reward_base * count * count_bonus * (target_lv/2 + 1))
+        reward_xp = int(reward_base * count * count_bonus * (target_lv/2 + 1))
+        q_type = "NORMAL"
+    
+    return {
+        "id": random.randint(10000, 99999),
+        "target": target["name"],
+        "target_lv": target_lv,
+        "req": count, "now": 0, "gold": reward_gold, "xp": reward_xp,
+        "status": "WAITING", "type": q_type
+    }
 
 async def check_levelup_dual(user: User):
     msg_list = []
@@ -67,36 +103,9 @@ def get_quests(db: Session = Depends(get_db), current_user: User = Depends(get_c
     except: quest_list = []
 
     changed = False
+    # 補滿 3 個任務
     while len(quest_list) < 3:
-        defeated = current_user.defeated_bosses.split(',') if current_user.defeated_bosses else []
-        valid_targets = [
-            m for m in WILD_DB_REF 
-            if m["min_lv"] <= current_user.level and (not m.get("is_boss") or m["name"] not in defeated)
-        ]
-        
-        if not valid_targets: break 
-        
-        is_golden = random.random() < 0.03
-        target = random.choice(valid_targets)
-        target_lv = current_user.level 
-        
-        if is_golden:
-            count = 5; reward_gold = 0; reward_xp = 0; q_type = "GOLDEN"
-        else:
-            count = 1 if target.get("is_boss") else random.randint(1, 3)
-            reward_base = 100 if target.get("is_boss") else 50
-            count_bonus = 1 + (count - 1) * 0.1
-            reward_gold = int(reward_base * count * count_bonus * (target_lv/2 + 1))
-            reward_xp = int(reward_base * count * count_bonus * (target_lv/2 + 1))
-            q_type = "NORMAL"
-        
-        new_quest = {
-            "id": random.randint(10000, 99999),
-            "target": target["name"],
-            "target_lv": target_lv,
-            "req": count, "now": 0, "gold": reward_gold, "xp": reward_xp,
-            "status": "WAITING", "type": q_type
-        }
+        new_quest = generate_single_quest(current_user)
         quest_list.append(new_quest)
         changed = True
     
@@ -121,25 +130,29 @@ def accept_quest(quest_id: int, db: Session = Depends(get_db), current_user: Use
             
     raise HTTPException(status_code=400, detail="任務不存在")
 
-# 放棄任務 API
+# 🔥 修改：放棄後直接換新任務 🔥
 @router.post("/abandon/{quest_id}")
 def abandon_quest(quest_id: int, db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
     quest_list = json.loads(current_user.quests)
+    new_list = []
     found = False
     
     for q in quest_list:
         if q["id"] == quest_id and q["status"] == "ACTIVE":
-            q["status"] = "WAITING"
-            q["now"] = 0
             found = True
-            break
+            continue # 跳過舊任務 (等於刪除)
+        new_list.append(q)
             
     if not found:
         raise HTTPException(status_code=400, detail="無法放棄該任務")
+    
+    # 立即生成一個新任務補上
+    replacement_quest = generate_single_quest(current_user)
+    new_list.append(replacement_quest)
         
-    current_user.quests = json.dumps(quest_list)
+    current_user.quests = json.dumps(new_list)
     db.commit()
-    return {"message": "已放棄任務"}
+    return {"message": "已放棄並更換新任務"}
 
 @router.post("/claim/{quest_id}")
 async def claim_quest(quest_id: int, db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
