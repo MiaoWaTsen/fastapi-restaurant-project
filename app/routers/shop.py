@@ -1,3 +1,5 @@
+# app/routers/shop.py
+
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 from typing import Dict, Tuple
@@ -11,6 +13,7 @@ from app.common.websocket import manager
 
 router = APIRouter()
 
+# 🔥 資料庫更新 (PDF Source 45) 🔥
 POKEDEX_DATA = {
     "妙蛙種子": {"hp": 130, "atk": 112, "img": "https://img.pokemondb.net/artwork/large/bulbasaur.jpg"},
     "小火龍": {"hp": 112, "atk": 130, "img": "https://img.pokemondb.net/artwork/large/charmander.jpg"},
@@ -24,8 +27,11 @@ POKEDEX_DATA = {
     "吉利蛋": {"hp": 180, "atk": 80, "img": "https://img.pokemondb.net/artwork/large/chansey.jpg"},
     "幸福蛋": {"hp": 185, "atk": 85, "img": "https://img.pokemondb.net/artwork/large/blissey.jpg"},
     "快龍":   {"hp": 150, "atk": 148, "img": "https://img.pokemondb.net/artwork/large/dragonite.jpg"},
+    #  新增超夢
+    "超夢":   {"hp": 150, "atk": 155, "img": "https://img.pokemondb.net/artwork/large/mewtwo.jpg"},
 }
 
+# [cite: 46-55]
 GACHA_NORMAL = [
     {"name": "伊布", "rate": 10}, {"name": "皮卡丘", "rate": 10},
     {"name": "大蔥鴨", "rate": 20}, {"name": "呆呆獸", "rate": 20}, {"name": "可達鴨", "rate": 20},
@@ -33,31 +39,51 @@ GACHA_NORMAL = [
     {"name": "快龍", "rate": 2}
 ]
 
+# [cite: 56-62]
 GACHA_CANDY = [
     {"name": "伊布", "rate": 35}, {"name": "皮卡丘", "rate": 35},
     {"name": "卡比獸", "rate": 10}, {"name": "吉利蛋", "rate": 10},
     {"name": "幸福蛋", "rate": 7}, {"name": "快龍", "rate": 3}
 ]
 
+# 🔥  新增黃金扭蛋池 🔥
+GACHA_GOLDEN = [
+    {"name": "卡比獸", "rate": 30}, 
+    {"name": "吉利蛋", "rate": 40},
+    {"name": "幸福蛋", "rate": 15}, 
+    {"name": "快龍", "rate": 10},
+    {"name": "超夢", "rate": 5}
+]
+
 ACTIVE_BATTLES = {}
 
 @router.post("/gacha/{gacha_type}")
 async def play_gacha(gacha_type: str, db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
-    if gacha_type == 'normal':
-        pool = GACHA_NORMAL; cost = 2000; currency = "money"
-    elif gacha_type == 'candy':
-        pool = GACHA_CANDY; cost = 10; currency = "candy"
-    else:
-        raise HTTPException(status_code=400, detail="未知扭蛋類型")
-    
     inventory = json.loads(current_user.inventory) if current_user.inventory else {}
-    if currency == "money":
+    
+    if gacha_type == 'normal':
+        pool = GACHA_NORMAL; cost = 2000
         if current_user.money < cost: raise HTTPException(status_code=400, detail="金幣不足")
         current_user.money -= cost
-    else:
+        msg_type = "初級"
+        
+    elif gacha_type == 'candy':
+        pool = GACHA_CANDY; cost = 10
         if inventory.get("candy", 0) < cost: raise HTTPException(status_code=400, detail="糖果不足")
         inventory["candy"] -= cost
-        current_user.inventory = json.dumps(inventory)
+        msg_type = "糖果"
+        
+    elif gacha_type == 'golden':
+        # [cite: 63] 黃金扭蛋消耗 3 golden candy
+        pool = GACHA_GOLDEN; cost = 3
+        if inventory.get("golden_candy", 0) < cost: raise HTTPException(status_code=400, detail="黃金糖果不足")
+        inventory["golden_candy"] -= cost
+        msg_type = "✨黃金"
+        
+    else:
+        raise HTTPException(status_code=400, detail="未知類型")
+    
+    current_user.inventory = json.dumps(inventory)
 
     r = random.randint(1, 100)
     acc = 0
@@ -81,8 +107,11 @@ async def play_gacha(gacha_type: str, db: Session = Depends(get_db), current_use
     
     db.commit()
     prize_data = POKEDEX_DATA.get(prize_name, {"img": ""})
-    msg_type = "糖果" if gacha_type == 'candy' else "初級"
-    await manager.broadcast(f"🎰 [{current_user.username}] 透過{msg_type}扭蛋獲得了 [{prize_name}]！")
+    
+    # 廣播稀有獲得
+    if gacha_type == 'golden' or prize_name in ['快龍', '超夢']:
+        await manager.broadcast(f"🎰 恭喜 [{current_user.username}] 在{msg_type}扭蛋中獲得了傳說的 [{prize_name}]！")
+        
     return {"message": f"獲得 {prize_name}!", "prize": {"name": prize_name, "img": prize_data["img"]}, "is_new": is_new, "user": current_user}
 
 @router.post("/swap/{target_name}")
@@ -106,10 +135,11 @@ async def swap_pokemon(target_name: str, db: Session = Depends(get_db), current_
     current_user.pokemon_image = base_data["img"]
     current_user.pokemon_storage = json.dumps(storage)
 
+    # [cite: 1] 玩家升級數值重算：HP*1.08, ATK*1.06
     lv = current_user.pet_level
-    current_user.max_hp = int(base_data["hp"] * (1.06 ** (lv - 1)))
+    current_user.max_hp = int(base_data["hp"] * (1.08 ** (lv - 1)))
     current_user.hp = current_user.max_hp
-    current_user.attack = int(base_data["atk"] * (1.12 ** (lv - 1)))
+    current_user.attack = int(base_data["atk"] * (1.06 ** (lv - 1)))
     
     db.commit()
     return {"message": f"變身為 {target_name}!", "user": current_user}
@@ -122,6 +152,7 @@ async def buy_heal(db: Session = Depends(get_db), current_user: User = Depends(g
     db.commit()
     return {"message": "體力已補滿"}
 
+# (PVP 相關路由保持不變，省略以節省空間)
 @router.post("/duel/invite/{target_id}")
 async def invite_duel(target_id: int, db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
     target = db.query(User).filter(User.id == target_id).first()

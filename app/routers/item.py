@@ -14,7 +14,7 @@ from app.common.websocket import manager
 
 router = APIRouter()
 
-# --- 🌲 野怪資料 (PDF Source) ---
+# [cite: 6-20]
 WILD_DB = [
     { "min_lv": 1, "name": "小拉達", "base_hp": 90, "base_atk": 80, "img": "https://img.pokemondb.net/artwork/large/rattata.jpg" },
     { "min_lv": 2, "name": "波波", "base_hp": 94, "base_atk": 84, "img": "https://img.pokemondb.net/artwork/large/pidgey.jpg" },
@@ -33,29 +33,38 @@ WILD_DB = [
     { "min_lv": 20, "name": "暴鯉龍", "base_hp": 160, "base_atk": 180, "img": "https://img.pokemondb.net/artwork/large/gyarados.jpg", "is_boss": True },
 ]
 
-LEVEL_XP = { 1: 50, 2: 120, 3: 240, 4: 400, 5: 600, 6: 900, 7: 1350, 8: 2000, 9: 3000 }
+# 🔥 [cite: 70-78] XP 表 🔥
+LEVEL_XP = { 
+    1: 50, 2: 150, 3: 300, 4: 500, 5: 800, 
+    6: 1300, 7: 2000, 8: 3000, 9: 5000 
+}
+
+def get_req_xp(lv):
+    if lv >= 25: return 999999999 # [cite: 79] Max 25
+    if lv < 10: return LEVEL_XP.get(lv, 5000)
+    # [cite: 79] Lv10以後每級多2000 (Lv9->10 是 5000, 所以 Lv10->11 是 7000)
+    return 5000 + (lv - 9) * 2000
 
 async def check_levelup_dual(user: User):
     msg_list = []
-    def get_req_xp(lv): return LEVEL_XP.get(lv, 3000) if lv < 10 else 3000 + (lv - 10) * 1000
-
-    # 1. 訓練師升級
+    
     req_xp_player = get_req_xp(user.level)
-    if user.exp >= req_xp_player:
+    if user.exp >= req_xp_player and user.level < 25:
         user.level += 1
         user.exp -= req_xp_player
         msg_list.append(f"訓練師升級(Lv.{user.level})")
         await manager.broadcast(f"📢 恭喜玩家 [{user.username}] 提升到了 訓練師等級 {user.level}！")
         
-    # 2. 寶可夢升級
-    if user.pet_level < user.level or (user.level == 1 and user.pet_level == 1):
+    if (user.pet_level < user.level or (user.level == 1 and user.pet_level == 1)) and user.pet_level < 25:
         req_xp_pet = get_req_xp(user.pet_level)
         while user.pet_exp >= req_xp_pet:
-            if user.pet_level >= user.level and user.level > 1: break 
+            if user.pet_level >= user.level and user.level > 1: break
+            if user.pet_level >= 25: break 
+            
             user.pet_level += 1
             user.pet_exp -= req_xp_pet
             
-            # 🔥 [修正] 玩家寵物升級數值調整：血量*1.08, 攻擊*1.06 🔥
+            # 🔥 [cite: 1] 玩家成長: 攻*1.06, 血*1.08 🔥
             user.max_hp = int(user.max_hp * 1.08)
             user.hp = user.max_hp
             user.attack = int(user.attack * 1.06)
@@ -72,7 +81,6 @@ def get_wild_monsters(
 ):
     monsters = []
     player_lv = current_user.level
-    
     target_lv = level if level else player_lv
     if target_lv > player_lv: target_lv = player_lv
 
@@ -101,23 +109,18 @@ def get_wild_monsters(
             attack = m_data["base_atk"]
         else:
             final_lv = target_lv
-            
-            # 🔥 [修正] 野怪成長數值調整：血量*1.08^(lv-1), 攻擊*1.06^(lv-1) 🔥
-            hp_scale = 1.08 ** (final_lv - 1)
-            atk_scale = 1.06 ** (final_lv - 1)
-            
-            # 初始加成
-            hp = int(m_data["base_hp"] * hp_scale * 1.0)
-            attack = int(m_data["base_atk"] * atk_scale * 1.0)
+            # 🔥 [cite: 2] 野怪成長: 攻*1.08, 血*1.1 🔥
+            hp_scale = 1.1 ** (final_lv - 1)
+            atk_scale = 1.08 ** (final_lv - 1)
+            # 🔥 [cite: 3] 基礎野怪: 攻*1.2, 血*1.3 (修正為1.3) 🔥
+            hp = int(m_data["base_hp"] * hp_scale * 1.3)
+            attack = int(m_data["base_atk"] * atk_scale * 1.2)
         
-        # 賞金機制 (後期怪獎勵高)
         base_bonus = m_data["min_lv"] * 3
         xp_reward = int(20 + base_bonus + final_lv * 5)
         gold_reward = int(45 + base_bonus + final_lv * 5)
         
-        if is_boss:
-            xp_reward *= 3
-            gold_reward *= 3
+        if is_boss: xp_reward *= 3; gold_reward *= 3
 
         monsters.append({
             "id": monster_id_counter,
@@ -148,9 +151,7 @@ async def attack_wild(
     if data.is_dead:
         base_name = data.monster_name.split('(')[0].strip().replace(" 👑", "")
         monster_lv = data.level
-        
         m_data = next((m for m in WILD_DB if m["name"] == base_name), None)
-        
         base_min_lv = m_data["min_lv"] if m_data else 1
         is_boss = m_data.get("is_boss", False) if m_data else False
         
@@ -170,7 +171,6 @@ async def attack_wild(
         current_user.exp += xp_gain
         current_user.pet_exp += xp_gain
         current_user.money += gold_gain
-        
         msg = f"擊敗 {base_name}！獲得 {xp_gain} XP, {gold_gain} Gold" + msg
         
         if random.random() < 0.1:
@@ -186,10 +186,8 @@ async def attack_wild(
             quests = json.loads(current_user.quests) if current_user.quests else []
             quest_updated = False
             for q in quests:
-                # 任務目標: 名字對 + 等級夠 (黃金任務要求嚴格，普通任務寬鬆)
                 is_target_match = (q["target"] == base_name)
                 is_level_match = (monster_lv >= q["target_lv"])
-                
                 if q["status"] == "ACTIVE" and is_target_match and is_level_match:
                     if q["now"] < q["req"]:
                         q["now"] += 1
