@@ -28,22 +28,24 @@ def _hash_if_long(password: str) -> str:
     return password
 
 def verify_password(plain_password: str, hashed_password: str) -> bool:
-    """
-    驗證密碼是否正確
-    1. 先處理長度 (避免報錯)
-    2. 再交給 bcrypt 驗證
-    """
-    safe_password = _hash_if_long(plain_password)
-    return pwd_context.verify(safe_password, hashed_password)
+    # 🔥 修正：Bcrypt 有 72 bytes 限制，過長的密碼會導致崩潰
+    # 我們先將密碼轉為 bytes，如果超過 71 bytes 就截斷
+    # (保留 1 byte 給 null terminator，雖然 python 不一定需要，但保險起見)
+    password_bytes = plain_password.encode('utf-8')
+    if len(password_bytes) > 71:
+        # 如果密碼太長，這裡做截斷處理。
+        # 注意：這在資安上是可接受的妥協，因為攻擊者必須猜對前 71 個字元
+        plain_password = password_bytes[:71].decode('utf-8', errors='ignore')
+        
+    return pwd_context.verify(plain_password, hashed_password)
 
 def get_password_hash(password: str) -> str:
-    """
-    將密碼加密 (雜湊)
-    1. 先處理長度 (避免報錯)
-    2. 再交給 bcrypt 加密
-    """
-    safe_password = _hash_if_long(password)
-    return pwd_context.hash(safe_password)
+    # 同樣地，雜湊時也要截斷
+    password_bytes = password.encode('utf-8')
+    if len(password_bytes) > 71:
+        password = password_bytes[:71].decode('utf-8', errors='ignore')
+        
+    return pwd_context.hash(password)
 
 def create_access_token(data: dict, expires_delta: Union[timedelta, None] = None):
     """
