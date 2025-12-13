@@ -14,7 +14,7 @@ from app.common.websocket import manager
 
 router = APIRouter()
 
-# 野怪資料
+[cite_start]# [cite: 6-20]
 WILD_DB = [
     { "min_lv": 1, "name": "小拉達", "base_hp": 90, "base_atk": 80, "img": "https://img.pokemondb.net/artwork/large/rattata.jpg" },
     { "min_lv": 2, "name": "波波", "base_hp": 94, "base_atk": 84, "img": "https://img.pokemondb.net/artwork/large/pidgey.jpg" },
@@ -33,7 +33,7 @@ WILD_DB = [
     { "min_lv": 20, "name": "暴鯉龍", "base_hp": 160, "base_atk": 180, "img": "https://img.pokemondb.net/artwork/large/gyarados.jpg", "is_boss": True },
 ]
 
-# 經驗值表
+[cite_start]# [cite: 70-78] XP 表
 LEVEL_XP = { 
     1: 50, 2: 150, 3: 300, 4: 500, 5: 800, 
     6: 1300, 7: 2000, 8: 3000, 9: 5000 
@@ -47,7 +47,6 @@ def get_req_xp(lv):
 async def check_levelup_dual(user: User):
     msg_list = []
     
-    # 1. 訓練師升級
     req_xp_player = get_req_xp(user.level)
     if user.exp >= req_xp_player and user.level < 25:
         user.level += 1
@@ -55,7 +54,6 @@ async def check_levelup_dual(user: User):
         msg_list.append(f"訓練師升級(Lv.{user.level})")
         await manager.broadcast(f"📢 恭喜玩家 [{user.username}] 提升到了 訓練師等級 {user.level}！")
         
-    # 2. 寶可夢升級
     if (user.pet_level < user.level or (user.level == 1 and user.pet_level == 1)) and user.pet_level < 25:
         req_xp_pet = get_req_xp(user.pet_level)
         while user.pet_exp >= req_xp_pet:
@@ -65,7 +63,6 @@ async def check_levelup_dual(user: User):
             user.pet_level += 1
             user.pet_exp -= req_xp_pet
             
-            # 數值成長
             user.max_hp = int(user.max_hp * 1.08)
             user.hp = user.max_hp
             user.attack = int(user.attack * 1.06)
@@ -94,12 +91,10 @@ def get_wild_monsters(
             available.append(m)
 
     monster_id_counter = 1
-    display_list = []
-    if len(available) > 6:
-        display_list = random.sample(available, 6)
-        display_list.sort(key=lambda x: x["min_lv"])
-    else:
-        display_list = available
+    
+    # 🔥 修改：移除隨機抽樣限制，顯示全部 🔥
+    display_list = available
+    display_list.sort(key=lambda x: x["min_lv"])
 
     for m_data in display_list:
         is_boss = m_data.get("is_boss", False)
@@ -172,7 +167,7 @@ async def attack_wild(
         current_user.money += gold_gain
         msg = f"擊敗 {base_name}！獲得 {xp_gain} XP, {gold_gain} Gold" + msg
         
-        # 🔥 修改：掉落機率 25% 🔥
+        # 掉落機率 25% (保留之前的修改)
         if random.random() < 0.25:
             inventory = json.loads(current_user.inventory) if current_user.inventory else {}
             inventory["candy"] = inventory.get("candy", 0) + 1
