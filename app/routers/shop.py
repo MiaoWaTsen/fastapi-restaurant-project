@@ -13,46 +13,61 @@ from app.common.websocket import manager
 
 router = APIRouter()
 
-# 🔥 資料庫更新 (PDF Source 45) 🔥
+# 🔥 資料庫更新：新增大量寶可夢與數據 🔥
 POKEDEX_DATA = {
     "妙蛙種子": {"hp": 130, "atk": 112, "img": "https://img.pokemondb.net/artwork/large/bulbasaur.jpg"},
     "小火龍": {"hp": 112, "atk": 130, "img": "https://img.pokemondb.net/artwork/large/charmander.jpg"},
     "傑尼龜": {"hp": 121, "atk": 121, "img": "https://img.pokemondb.net/artwork/large/squirtle.jpg"},
+    "妙蛙花": {"hp": 152, "atk": 130, "img": "https://img.pokemondb.net/artwork/large/venusaur.jpg"},
+    "噴火龍": {"hp": 130, "atk": 152, "img": "https://img.pokemondb.net/artwork/large/charizard.jpg"},
+    "水箭龜": {"hp": 141, "atk": 141, "img": "https://img.pokemondb.net/artwork/large/blastoise.jpg"},
+    "毛辮羊": {"hp": 120, "atk": 120, "img": "https://img.pokemondb.net/artwork/large/wooloo.jpg"},
     "皮卡丘": {"hp": 125, "atk": 125, "img": "https://img.pokemondb.net/artwork/large/pikachu.jpg"},
     "伊布": {"hp": 125, "atk": 125, "img": "https://img.pokemondb.net/artwork/large/eevee.jpg"},
+    "胖丁": {"hp": 125, "atk": 125, "img": "https://img.pokemondb.net/artwork/large/jigglypuff.jpg"},
+    "皮皮": {"hp": 125, "atk": 125, "img": "https://img.pokemondb.net/artwork/large/clefairy.jpg"},
     "大蔥鴨": {"hp": 120, "atk": 130, "img": "https://img.pokemondb.net/artwork/large/farfetchd.jpg"},
     "呆呆獸": {"hp": 122, "atk": 122, "img": "https://img.pokemondb.net/artwork/large/slowpoke.jpg"},
     "可達鴨": {"hp": 122, "atk": 122, "img": "https://img.pokemondb.net/artwork/large/psyduck.jpg"},
-    "卡比獸": {"hp": 165, "atk": 100, "img": "https://img.pokemondb.net/artwork/large/snorlax.jpg"},
-    "吉利蛋": {"hp": 180, "atk": 80, "img": "https://img.pokemondb.net/artwork/large/chansey.jpg"},
-    "幸福蛋": {"hp": 185, "atk": 85, "img": "https://img.pokemondb.net/artwork/large/blissey.jpg"},
+    "卡比獸": {"hp": 175, "atk": 112, "img": "https://img.pokemondb.net/artwork/large/snorlax.jpg"},
+    "吉利蛋": {"hp": 220, "atk": 90, "img": "https://img.pokemondb.net/artwork/large/chansey.jpg"},
+    "幸福蛋": {"hp": 230, "atk": 90, "img": "https://img.pokemondb.net/artwork/large/blissey.jpg"},
+    "拉普拉斯": {"hp": 165, "atk": 140, "img": "https://img.pokemondb.net/artwork/large/lapras.jpg"},
     "快龍":   {"hp": 150, "atk": 148, "img": "https://img.pokemondb.net/artwork/large/dragonite.jpg"},
-    #  新增超夢
     "超夢":   {"hp": 150, "atk": 155, "img": "https://img.pokemondb.net/artwork/large/mewtwo.jpg"},
 }
 
-# [cite: 46-55]
+# 🔥 初級扭蛋 (1500G) 🔥
 GACHA_NORMAL = [
-    {"name": "伊布", "rate": 10}, {"name": "皮卡丘", "rate": 10},
-    {"name": "大蔥鴨", "rate": 20}, {"name": "呆呆獸", "rate": 20}, {"name": "可達鴨", "rate": 20},
-    {"name": "卡比獸", "rate": 8}, {"name": "吉利蛋", "rate": 6}, {"name": "幸福蛋", "rate": 4},
-    {"name": "快龍", "rate": 2}
+    {"name": "妙蛙種子", "rate": 5}, {"name": "小火龍", "rate": 5}, {"name": "傑尼龜", "rate": 5},
+    {"name": "伊布", "rate": 8}, {"name": "皮卡丘", "rate": 8}, {"name": "皮皮", "rate": 10},
+    {"name": "胖丁", "rate": 10}, {"name": "毛辮羊", "rate": 8}, {"name": "大蔥鴨", "rate": 12},
+    {"name": "呆呆獸", "rate": 12}, {"name": "可達鴨", "rate": 12}, {"name": "卡比獸", "rate": 2},
+    {"name": "吉利蛋", "rate": 2}
 ]
 
-# [cite: 56-62]
+# 🔥 中級扭蛋 (3000G) 🔥
+GACHA_MEDIUM = [
+    {"name": "妙蛙種子", "rate": 10}, {"name": "小火龍", "rate": 10}, {"name": "傑尼龜", "rate": 10},
+    {"name": "伊布", "rate": 10}, {"name": "皮卡丘", "rate": 10}, {"name": "呆呆獸", "rate": 10},
+    {"name": "可達鴨", "rate": 10}, {"name": "毛辮羊", "rate": 10}, {"name": "卡比獸", "rate": 5},
+    {"name": "吉利蛋", "rate": 3}, {"name": "拉普拉斯", "rate": 3}, {"name": "妙蛙花", "rate": 3},
+    {"name": "噴火龍", "rate": 3}, {"name": "水箭龜", "rate": 3}
+]
+
+# 🔥 糖果扭蛋 (12 Candy) 🔥
 GACHA_CANDY = [
-    {"name": "伊布", "rate": 35}, {"name": "皮卡丘", "rate": 35},
+    {"name": "伊布", "rate": 20}, {"name": "皮卡丘", "rate": 20},
+    {"name": "妙蛙花", "rate": 10}, {"name": "噴火龍", "rate": 10}, {"name": "水箭龜", "rate": 10},
     {"name": "卡比獸", "rate": 10}, {"name": "吉利蛋", "rate": 10},
-    {"name": "幸福蛋", "rate": 7}, {"name": "快龍", "rate": 3}
+    {"name": "幸福蛋", "rate": 4}, {"name": "拉普拉斯", "rate": 3}, {"name": "快龍", "rate": 3}
 ]
 
-# 🔥  新增黃金扭蛋池 🔥
+# 🔥 黃金扭蛋 (3 Golden) 🔥
 GACHA_GOLDEN = [
-    {"name": "卡比獸", "rate": 30}, 
-    {"name": "吉利蛋", "rate": 40},
-    {"name": "幸福蛋", "rate": 15}, 
-    {"name": "快龍", "rate": 10},
-    {"name": "超夢", "rate": 5}
+    {"name": "卡比獸", "rate": 30}, {"name": "吉利蛋", "rate": 40},
+    {"name": "幸福蛋", "rate": 15}, {"name": "拉普拉斯", "rate": 7},
+    {"name": "快龍", "rate": 5}, {"name": "超夢", "rate": 3}
 ]
 
 ACTIVE_BATTLES = {}
@@ -62,19 +77,24 @@ async def play_gacha(gacha_type: str, db: Session = Depends(get_db), current_use
     inventory = json.loads(current_user.inventory) if current_user.inventory else {}
     
     if gacha_type == 'normal':
-        pool = GACHA_NORMAL; cost = 2000
+        pool = GACHA_NORMAL; cost = 1500
         if current_user.money < cost: raise HTTPException(status_code=400, detail="金幣不足")
         current_user.money -= cost
         msg_type = "初級"
         
+    elif gacha_type == 'medium':
+        pool = GACHA_MEDIUM; cost = 3000
+        if current_user.money < cost: raise HTTPException(status_code=400, detail="金幣不足")
+        current_user.money -= cost
+        msg_type = "中級"
+        
     elif gacha_type == 'candy':
-        pool = GACHA_CANDY; cost = 10
+        pool = GACHA_CANDY; cost = 12
         if inventory.get("candy", 0) < cost: raise HTTPException(status_code=400, detail="糖果不足")
         inventory["candy"] -= cost
         msg_type = "糖果"
         
     elif gacha_type == 'golden':
-        # [cite: 63] 黃金扭蛋消耗 3 golden candy
         pool = GACHA_GOLDEN; cost = 3
         if inventory.get("golden_candy", 0) < cost: raise HTTPException(status_code=400, detail="黃金糖果不足")
         inventory["golden_candy"] -= cost
@@ -109,8 +129,8 @@ async def play_gacha(gacha_type: str, db: Session = Depends(get_db), current_use
     prize_data = POKEDEX_DATA.get(prize_name, {"img": ""})
     
     # 廣播稀有獲得
-    if gacha_type == 'golden' or prize_name in ['快龍', '超夢']:
-        await manager.broadcast(f"🎰 恭喜 [{current_user.username}] 在{msg_type}扭蛋中獲得了傳說的 [{prize_name}]！")
+    if gacha_type == 'golden' or prize_name in ['快龍', '超夢', '拉普拉斯', '幸福蛋']:
+        await manager.broadcast(f"🎰 恭喜 [{current_user.username}] 在{msg_type}扭蛋中獲得了稀有的 [{prize_name}]！")
         
     return {"message": f"獲得 {prize_name}!", "prize": {"name": prize_name, "img": prize_data["img"]}, "is_new": is_new, "user": current_user}
 
@@ -135,7 +155,6 @@ async def swap_pokemon(target_name: str, db: Session = Depends(get_db), current_
     current_user.pokemon_image = base_data["img"]
     current_user.pokemon_storage = json.dumps(storage)
 
-    # [cite: 1] 玩家升級數值重算：HP*1.08, ATK*1.06
     lv = current_user.pet_level
     current_user.max_hp = int(base_data["hp"] * (1.08 ** (lv - 1)))
     current_user.hp = current_user.max_hp
@@ -152,7 +171,7 @@ async def buy_heal(db: Session = Depends(get_db), current_user: User = Depends(g
     db.commit()
     return {"message": "體力已補滿"}
 
-# (PVP 相關路由保持不變，省略以節省空間)
+# (PVP 部分保持不變)
 @router.post("/duel/invite/{target_id}")
 async def invite_duel(target_id: int, db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
     target = db.query(User).filter(User.id == target_id).first()
