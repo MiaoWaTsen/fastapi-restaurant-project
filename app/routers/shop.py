@@ -13,7 +13,7 @@ from app.common.websocket import manager
 
 router = APIRouter()
 
-# (POKEDEX_DATA, GACHA Lists 保持不變，為節省篇幅省略，請保留原有的)
+# (POKEDEX_DATA, GACHA Lists 保持不變，省略以節省篇幅)
 POKEDEX_DATA = {
     "妙蛙種子": {"hp": 130, "atk": 112, "img": "https://img.pokemondb.net/artwork/large/bulbasaur.jpg"},
     "小火龍": {"hp": 112, "atk": 130, "img": "https://img.pokemondb.net/artwork/large/charmander.jpg"},
@@ -223,12 +223,11 @@ async def end_duel_api(target_id: int, current_user: User = Depends(get_current_
     if battle_key in ACTIVE_BATTLES: del ACTIVE_BATTLES[battle_key]
     return {"message": "戰鬥結束"}
 
-# 🔥 修正 PVP 回血 BUG 🔥
-# 這裡接收 damage 參數，並真實更新資料庫
+# 🔥 修正：PVP 擊殺與獎勵 🔥
 @router.post("/pvp/{target_id}")
 async def pvp_attack(
     target_id: int, 
-    damage: int = Query(0), # 接收傷害值
+    damage: int = Query(0), 
     db: Session = Depends(get_db), 
     current_user: User = Depends(get_current_user)
 ):
@@ -236,13 +235,37 @@ async def pvp_attack(
     if battle_key not in ACTIVE_BATTLES: ACTIVE_BATTLES[battle_key] = {"turn": current_user.id}
     if ACTIVE_BATTLES[battle_key]["turn"] != current_user.id: raise HTTPException(status_code=400, detail="還沒輪到你！")
     
-    # 真實扣血
     target = db.query(User).filter(User.id == target_id).first()
+    reward_msg = ""
+    result_type = "MOVE"
+    
     if target:
         target.hp = max(0, target.hp - damage)
-        db.commit() # 存檔
+        
+        # 🔥 判定擊殺 🔥
+        if target.hp <= 0:
+            result_type = "WIN"
+            # 50% 糖果，50% 金幣
+            if random.random() < 0.5:
+                inv = json.loads(current_user.inventory) if current_user.inventory else {}
+                inv["candy"] = inv.get("candy", 0) + 1
+                current_user.inventory = json.dumps(inv)
+                reward_msg = "🍬 神奇糖果 x1"
+            else:
+                current_user.money += 200
+                reward_msg = "💰 200 金幣"
+            
+            # 清除戰鬥狀態
+            if battle_key in ACTIVE_BATTLES: del ACTIVE_BATTLES[battle_key]
+            
+        db.commit()
     
-    ACTIVE_BATTLES[battle_key]["turn"] = target_id
-    msg = f"EVENT:PVP_MOVE|{current_user.id}|{target_id}|{damage}" # 廣播包含傷害
+    # 如果沒結束，換邊
+    if result_type == "MOVE":
+        ACTIVE_BATTLES[battle_key]["turn"] = target_id
+    
+    # 廣播
+    msg = f"EVENT:PVP_MOVE|{current_user.id}|{target_id}|{damage}"
     await manager.broadcast(msg)
-    return {"message": "攻擊成功"}
+    
+    return {"message": "攻擊成功", "result": result_type, "reward": reward_msg, "user": current_user}

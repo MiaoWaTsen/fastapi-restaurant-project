@@ -14,16 +14,20 @@ from app.common.deps import get_current_user
 
 router = APIRouter()
 
-# --- 🏆 排行榜系統 (新增) ---
+# 總寶可夢數量 (根據 index.html 的 ALL_POKEMON)
+TOTAL_POKEMON_COUNT = 22
+
+# --- 🏆 排行榜 (新增圖鑑完成率) ---
 @router.get("/leaderboard")
 def get_leaderboard(db: Session = Depends(get_db)):
-    # 依照 等級(高到低) -> 金幣(高到低) 排序，取前 10 名
     leaders = db.query(User).order_by(desc(User.level), desc(User.money)).limit(10).all()
     
     result = []
     for idx, u in enumerate(leaders):
-        # 計算收集率給前端顯示
         unlocked_count = len(u.unlocked_monsters.split(',')) if u.unlocked_monsters else 0
+        # 🔥 計算百分比 🔥
+        collection_rate = int((unlocked_count / TOTAL_POKEMON_COUNT) * 100)
+        
         result.append({
             "rank": idx + 1,
             "username": u.username,
@@ -31,12 +35,11 @@ def get_leaderboard(db: Session = Depends(get_db)):
             "money": u.money,
             "pet": u.pokemon_name,
             "img": u.pokemon_image,
-            "collection": unlocked_count
+            "collection": collection_rate # 回傳百分比
         })
     return result
 
-# --- 好友基本功能 (保持不變) ---
-
+# (好友與禮物功能保持不變)
 @router.get("/list")
 def get_friends(db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
     friends_rel = db.query(Friend).filter(
@@ -122,8 +125,6 @@ def reject_request(req_id: int, db: Session = Depends(get_db), current_user: Use
         db.delete(req)
         db.commit()
     return {"message": "已拒絕"}
-
-# --- 禮物系統 ---
 
 @router.get("/gifts")
 def get_my_gifts(db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
