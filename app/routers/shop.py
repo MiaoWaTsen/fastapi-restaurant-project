@@ -13,7 +13,7 @@ from app.common.websocket import manager
 
 router = APIRouter()
 
-# 🔥 資料庫更新：新增大量寶可夢與數據 🔥
+# 資料庫與扭蛋池 (保持最新版 V22)
 POKEDEX_DATA = {
     "妙蛙種子": {"hp": 130, "atk": 112, "img": "https://img.pokemondb.net/artwork/large/bulbasaur.jpg"},
     "小火龍": {"hp": 112, "atk": 130, "img": "https://img.pokemondb.net/artwork/large/charmander.jpg"},
@@ -37,7 +37,6 @@ POKEDEX_DATA = {
     "超夢":   {"hp": 150, "atk": 155, "img": "https://img.pokemondb.net/artwork/large/mewtwo.jpg"},
 }
 
-# 🔥 初級扭蛋 (1500G) 🔥
 GACHA_NORMAL = [
     {"name": "妙蛙種子", "rate": 5}, {"name": "小火龍", "rate": 5}, {"name": "傑尼龜", "rate": 5},
     {"name": "伊布", "rate": 8}, {"name": "皮卡丘", "rate": 8}, {"name": "皮皮", "rate": 10},
@@ -46,7 +45,6 @@ GACHA_NORMAL = [
     {"name": "吉利蛋", "rate": 2}
 ]
 
-# 🔥 中級扭蛋 (3000G) 🔥
 GACHA_MEDIUM = [
     {"name": "妙蛙種子", "rate": 10}, {"name": "小火龍", "rate": 10}, {"name": "傑尼龜", "rate": 10},
     {"name": "伊布", "rate": 10}, {"name": "皮卡丘", "rate": 10}, {"name": "呆呆獸", "rate": 10},
@@ -55,7 +53,6 @@ GACHA_MEDIUM = [
     {"name": "噴火龍", "rate": 3}, {"name": "水箭龜", "rate": 3}
 ]
 
-# 🔥 糖果扭蛋 (12 Candy) 🔥
 GACHA_CANDY = [
     {"name": "伊布", "rate": 20}, {"name": "皮卡丘", "rate": 20},
     {"name": "妙蛙花", "rate": 10}, {"name": "噴火龍", "rate": 10}, {"name": "水箭龜", "rate": 10},
@@ -63,7 +60,6 @@ GACHA_CANDY = [
     {"name": "幸福蛋", "rate": 4}, {"name": "拉普拉斯", "rate": 3}, {"name": "快龍", "rate": 3}
 ]
 
-# 🔥 黃金扭蛋 (3 Golden) 🔥
 GACHA_GOLDEN = [
     {"name": "卡比獸", "rate": 30}, {"name": "吉利蛋", "rate": 40},
     {"name": "幸福蛋", "rate": 15}, {"name": "拉普拉斯", "rate": 7},
@@ -71,6 +67,40 @@ GACHA_GOLDEN = [
 ]
 
 ACTIVE_BATTLES = {}
+
+# 🔥 複製升級邏輯，以便在抽到重複怪時能即時觸發升級 🔥
+LEVEL_XP = { 
+    1: 50, 2: 150, 3: 300, 4: 500, 5: 800, 
+    6: 1300, 7: 2000, 8: 3000, 9: 5000 
+}
+def get_req_xp(lv):
+    if lv >= 25: return 999999999
+    if lv < 10: return LEVEL_XP.get(lv, 5000)
+    return 5000 + (lv - 9) * 2000
+
+async def check_levelup_dual(user: User):
+    msg_list = []
+    # 1. 訓練師升級
+    req_xp_player = get_req_xp(user.level)
+    if user.exp >= req_xp_player and user.level < 25:
+        user.level += 1
+        user.exp -= req_xp_player
+        msg_list.append(f"訓練師升級(Lv.{user.level})")
+        await manager.broadcast(f"📢 恭喜玩家 [{user.username}] 提升到了 訓練師等級 {user.level}！")
+    # 2. 寶可夢升級
+    if (user.pet_level < user.level or (user.level == 1 and user.pet_level == 1)) and user.pet_level < 25:
+        req_xp_pet = get_req_xp(user.pet_level)
+        while user.pet_exp >= req_xp_pet:
+            if user.pet_level >= user.level and user.level > 1: break
+            if user.pet_level >= 25: break 
+            user.pet_level += 1
+            user.pet_exp -= req_xp_pet
+            user.max_hp = int(user.max_hp * 1.08)
+            user.hp = user.max_hp
+            user.attack = int(user.attack * 1.06)
+            msg_list.append(f"{user.pokemon_name}升級(Lv.{user.pet_level})")
+            req_xp_pet = get_req_xp(user.pet_level)
+    return " & ".join(msg_list) if msg_list else None
 
 @router.post("/gacha/{gacha_type}")
 async def play_gacha(gacha_type: str, db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
@@ -81,25 +111,21 @@ async def play_gacha(gacha_type: str, db: Session = Depends(get_db), current_use
         if current_user.money < cost: raise HTTPException(status_code=400, detail="金幣不足")
         current_user.money -= cost
         msg_type = "初級"
-        
     elif gacha_type == 'medium':
         pool = GACHA_MEDIUM; cost = 3000
         if current_user.money < cost: raise HTTPException(status_code=400, detail="金幣不足")
         current_user.money -= cost
         msg_type = "中級"
-        
     elif gacha_type == 'candy':
         pool = GACHA_CANDY; cost = 12
         if inventory.get("candy", 0) < cost: raise HTTPException(status_code=400, detail="糖果不足")
         inventory["candy"] -= cost
         msg_type = "糖果"
-        
     elif gacha_type == 'golden':
         pool = GACHA_GOLDEN; cost = 3
         if inventory.get("golden_candy", 0) < cost: raise HTTPException(status_code=400, detail="黃金糖果不足")
         inventory["golden_candy"] -= cost
         msg_type = "✨黃金"
-        
     else:
         raise HTTPException(status_code=400, detail="未知類型")
     
@@ -118,21 +144,38 @@ async def play_gacha(gacha_type: str, db: Session = Depends(get_db), current_use
     storage = json.loads(current_user.pokemon_storage) if current_user.pokemon_storage else {}
     is_new = False
     
+    # 🔥 重複獲得邏輯更新 🔥
     if prize_name not in unlocked:
         unlocked.append(prize_name)
         current_user.unlocked_monsters = ",".join(unlocked)
         storage[prize_name] = {"lv": 1, "exp": 0}
-        current_user.pokemon_storage = json.dumps(storage)
         is_new = True
-    
+        msg = f"獲得新夥伴 {prize_name}!"
+    else:
+        # 重複獲得，加 500 XP
+        if prize_name in storage:
+            storage[prize_name]["exp"] = storage[prize_name].get("exp", 0) + 500
+        else:
+            storage[prize_name] = {"lv": 1, "exp": 500}
+            
+        is_new = False
+        msg = f"獲得 {prize_name} (重複)！經驗值 +500"
+        
+        # 如果是當前出戰的寶可夢，同步加到 pet_exp 並檢查升級
+        if current_user.pokemon_name == prize_name:
+            current_user.pet_exp += 500
+            lvl_msg = await check_levelup_dual(current_user)
+            if lvl_msg: msg += f" 🎉 {lvl_msg}！"
+
+    current_user.pokemon_storage = json.dumps(storage)
     db.commit()
     prize_data = POKEDEX_DATA.get(prize_name, {"img": ""})
     
     # 廣播稀有獲得
-    if gacha_type == 'golden' or prize_name in ['快龍', '超夢', '拉普拉斯', '幸福蛋']:
+    if is_new and (gacha_type == 'golden' or prize_name in ['快龍', '超夢', '拉普拉斯', '幸福蛋']):
         await manager.broadcast(f"🎰 恭喜 [{current_user.username}] 在{msg_type}扭蛋中獲得了稀有的 [{prize_name}]！")
         
-    return {"message": f"獲得 {prize_name}!", "prize": {"name": prize_name, "img": prize_data["img"]}, "is_new": is_new, "user": current_user}
+    return {"message": msg, "prize": {"name": prize_name, "img": prize_data["img"]}, "is_new": is_new, "user": current_user}
 
 @router.post("/swap/{target_name}")
 async def swap_pokemon(target_name: str, db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
@@ -171,7 +214,6 @@ async def buy_heal(db: Session = Depends(get_db), current_user: User = Depends(g
     db.commit()
     return {"message": "體力已補滿"}
 
-# (PVP 部分保持不變)
 @router.post("/duel/invite/{target_id}")
 async def invite_duel(target_id: int, db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
     target = db.query(User).filter(User.id == target_id).first()
