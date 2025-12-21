@@ -13,7 +13,7 @@ from app.common.websocket import manager
 
 router = APIRouter()
 
-# (POKEDEX_DATA, GACHA Lists 保持不變，省略以節省篇幅)
+# (POKEDEX_DATA, GACHA Lists 保持不變，請保留原有的)
 POKEDEX_DATA = {
     "妙蛙種子": {"hp": 130, "atk": 112, "img": "https://img.pokemondb.net/artwork/large/bulbasaur.jpg"},
     "小火龍": {"hp": 112, "atk": 130, "img": "https://img.pokemondb.net/artwork/large/charmander.jpg"},
@@ -159,6 +159,7 @@ async def play_gacha(gacha_type: str, db: Session = Depends(get_db), current_use
         
     return {"message": msg, "prize": {"name": prize_name, "img": prize_data["img"]}, "is_new": is_new, "user": current_user}
 
+# 🔥 修正：換寶可夢時廣播通知所有連線者 🔥
 @router.post("/swap/{target_name}")
 async def swap_pokemon(target_name: str, db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
     storage = json.loads(current_user.pokemon_storage) if current_user.pokemon_storage else {}
@@ -182,6 +183,11 @@ async def swap_pokemon(target_name: str, db: Session = Depends(get_db), current_
     current_user.hp = current_user.max_hp
     current_user.attack = int(base_data["atk"] * (1.06 ** (lv - 1)))
     db.commit()
+    
+    # 📢 廣播換角訊息：ID | 名字 | 圖片 | HP | MaxHP | ATK
+    msg = f"EVENT:PVP_SWAP|{current_user.id}|{target_name}|{base_data['img']}|{current_user.hp}|{current_user.max_hp}|{current_user.attack}"
+    await manager.broadcast(msg)
+    
     return {"message": f"變身為 {target_name}!", "user": current_user}
 
 @router.post("/heal")
@@ -229,13 +235,12 @@ async def end_duel_api(target_id: int, current_user: User = Depends(get_current_
     if battle_key in ACTIVE_BATTLES: del ACTIVE_BATTLES[battle_key]
     return {"message": "戰鬥結束"}
 
-# 🔥 修正 PVP 邏輯：接收 damage, heal, display_atk 🔥
 @router.post("/pvp/{target_id}")
 async def pvp_attack(
     target_id: int, 
     damage: int = Query(0), 
-    heal: int = Query(0), # 接收回血量
-    display_atk: int = Query(0), # 接收面板攻擊力
+    heal: int = Query(0), 
+    display_atk: int = Query(0), 
     db: Session = Depends(get_db), 
     current_user: User = Depends(get_current_user)
 ):
@@ -247,15 +252,11 @@ async def pvp_attack(
     reward_msg = ""
     result_type = "MOVE"
     
-    # 1. 處理自己回血 (並存檔)
     if heal > 0:
         current_user.hp = min(current_user.max_hp, current_user.hp + heal)
     
-    # 2. 處理對手扣血 (並存檔)
     if target:
         target.hp = max(0, target.hp - damage)
-        
-        # 判定擊殺
         if target.hp <= 0:
             result_type = "WIN"
             if random.random() < 0.5:
@@ -269,13 +270,11 @@ async def pvp_attack(
             
             if battle_key in ACTIVE_BATTLES: del ACTIVE_BATTLES[battle_key]
             
-    db.commit() # 一次儲存雙方狀態
+    db.commit()
     
     if result_type == "MOVE":
         ACTIVE_BATTLES[battle_key]["turn"] = target_id
     
-    # 廣播：增加 heal, display_atk 資訊
-    # 格式: EVENT:PVP_MOVE|攻擊者ID|目標ID|傷害|攻擊者新ATK
     msg = f"EVENT:PVP_MOVE|{current_user.id}|{target_id}|{damage}|{display_atk}"
     await manager.broadcast(msg)
     

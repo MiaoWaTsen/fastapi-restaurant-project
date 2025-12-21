@@ -6,7 +6,7 @@
     <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate" />
     <meta http-equiv="Pragma" content="no-cache" />
     <meta http-equiv="Expires" content="0" />
-    <title>⚡️ 寶可夢大亂鬥 (V31 備戰修復版) ⚡️</title>
+    <title>⚡️ 寶可夢大亂鬥 V32 ⚡️</title>
     <script src="https://unpkg.com/vue@3/dist/vue.global.js"></script>
     
     <style>
@@ -75,7 +75,6 @@
         .btn-yes { background: #27ae60; padding: 10px 20px; border:none; color:white; border-radius:5px; cursor:pointer; margin:5px; }
         .btn-no { background: #7f8c8d; padding: 10px 20px; border:none; color:white; border-radius:5px; cursor:pointer; margin:5px; }
         .floating-damage { position: absolute; color: #ffeb3b; font-weight: bold; font-size: 32px; animation: floatUp 2.0s forwards; z-index: 3000; text-shadow: 2px 2px 0 #000; pointer-events: none; }
-        
         .levelup-overlay { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(241, 196, 15, 0.95); z-index: 6000; display: flex; justify-content: center; align-items: center; flex-direction: column; animation: popIn 0.5s; pointer-events: none; }
         .levelup-text { font-size: 4em; font-weight: bold; color: #fff; text-shadow: 0 0 20px #000; margin-bottom: 20px; }
         .levelup-sub { font-size: 2em; color: #000; font-weight: bold; }
@@ -179,11 +178,11 @@
         
         <div v-if="newsState.show" class="modal-overlay">
             <div class="modal-box" style="text-align:left;">
-                <div class="modal-title" style="text-align:center;">📢 V31 更新公告</div>
+                <div class="modal-title" style="text-align:center;">📢 V32 更新公告</div>
                 <ul>
-                    <li><b>⏳ 備戰介面優化</b>：倒數計時現在位於底部，您可以在備戰期間自由操作圖鑑與背包！</li>
+                    <li><b>⚡️ 即時換角</b>：在備戰期間換寶可夢，對手現在會馬上看到您的新陣容！</li>
+                    <li><b>⏳ 備戰優化</b>：倒數計時現在位於底部，您可以在備戰期間自由操作。</li>
                     <li><b>⚔️ 戰鬥優化</b>：對戰時能即時看到對手攻擊力變化。</li>
-                    <li><b>🚑 補血修復</b>：戰鬥中回血不會再被系統扣回去了。</li>
                 </ul>
                 <button class="btn-yes" style="width:100%; margin-top:15px;" @click="closeNews">我知道了</button>
             </div>
@@ -230,7 +229,7 @@
 
         <div v-if="isGachaAnimating" class="gacha-anim-overlay"><div class="pokeball-anim"></div><div class="gacha-text">捕捉中...</div></div>
 
-        <h1 style="text-align: center; color: #e94560;" v-if="!battleState.isActive">⚔️ 妙蛙宸的熱血戰場 ⚔️</h1>
+        <h1 style="text-align: center; color: #e94560;" v-if="!battleState.isActive && !inLobby">⚔️ 妙蛙宸的熱血戰場 ⚔️</h1>
 
         <div v-if="battleState.isActive && !inLobby" class="battle-overlay">
             <div class="battle-header"><h3>{{ battleState.mode==='wild'?'🌲 野生遭遇':'🏟️ PVP對決' }}</h3><div class="battle-timer" v-if="battleState.winner !== 'win_modal' && !battleState.winner">⏱️ {{ battleState.timer }}</div></div>
@@ -390,7 +389,7 @@
     const API_URL = `https://mwtpokemons.zeabur.app/api/v1`;
     const WS_URL = `wss://mwtpokemons.zeabur.app/ws`;
 
-    // (MOVES_DB, WILD_MOVES, ALL_POKEMON 保持不變，省略以節省空間)
+    // (省略 MOVES_DB, WILD_MOVES, ALL_POKEMON 保持不變)
     const MOVES_DB = { "妙蛙種子": [{name:"藤鞭",dmg:16,chance:0.35,buff:0.2,desc:"16傷,35%攻+20%"}, {name:"種子炸彈",dmg:26,desc:"26傷"}, {name:"污泥炸彈",dmg:18,chance:0.3,buff:0.2,desc:"18傷,30%攻+20%"}], "小火龍": [{name:"火花",dmg:16,chance:0.35,buff:0.2,desc:"16傷,35%攻+20%"}, {name:"噴射火焰",dmg:18,chance:0.3,buff:0.2,desc:"18傷,30%攻+20%"}, {name:"火焰輪",dmg:26,desc:"26傷"}], "傑尼龜": [{name:"水槍",dmg:14,chance:0.5,heal:0.15,desc:"14傷,50%回15%血"}, {name:"水流噴射",dmg:18,chance:0.3,buff:0.2,desc:"18傷,30%攻+20%"}, {name:"水流尾",dmg:26,desc:"26傷"}], "妙蛙花": [{name:"藤鞭",dmg:16,chance:0.35,buff:0.2,desc:"16傷,35%攻+20%"}, {name:"種子炸彈",dmg:26,desc:"26傷"}, {name:"污泥炸彈",dmg:18,chance:0.3,buff:0.2,desc:"18傷,30%攻+20%"}], "噴火龍": [{name:"火花",dmg:16,chance:0.35,buff:0.2,desc:"16傷,35%攻+20%"}, {name:"噴射火焰",dmg:18,chance:0.3,buff:0.2,desc:"18傷,30%攻+20%"}, {name:"火焰輪",dmg:26,desc:"26傷"}], "水箭龜": [{name:"水槍",dmg:14,chance:0.5,heal:0.15,desc:"14傷,50%回15%血"}, {name:"水流噴射",dmg:18,chance:0.3,buff:0.2,desc:"18傷,30%攻+20%"}, {name:"水流尾",dmg:26,desc:"26傷"}], "毛辮羊": [{name:"撞擊",dmg:24,desc:"24傷"}, {name:"撒嬌",dmg:14,chance:0.5,heal:0.15,desc:"14傷,50%回15%血"}, {name:"電擊",dmg:18,chance:0.3,buff:0.2,desc:"18傷,30%攻+20%"}], "皮卡丘": [{name:"電光",dmg:16,chance:0.35,buff:0.2,desc:"16傷,35%攻+20%"}, {name:"放電",dmg:26,desc:"26傷"}, {name:"電擊",dmg:18,chance:0.3,buff:0.2,desc:"18傷,30%攻+20%"}], "伊布": [{name:"撞擊",dmg:24,desc:"24傷"}, {name:"挖洞",dmg:16,chance:0.35,buff:0.2,desc:"16傷,35%攻+20%"}, {name:"高速星星",dmg:26,desc:"26傷"}], "胖丁": [{name:"撞擊",dmg:24,desc:"24傷"}, {name:"撒嬌",dmg:14,chance:0.5,heal:0.15,desc:"14傷,50%回15%血"}, {name:"精神強念",dmg:18,chance:0.3,buff:0.2,desc:"18傷,30%攻+20%"}], "皮皮": [{name:"撞擊",dmg:24,desc:"24傷"}, {name:"撒嬌",dmg:14,chance:0.5,heal:0.15,desc:"14傷,50%回15%血"}, {name:"精神強念",dmg:18,chance:0.3,buff:0.2,desc:"18傷,30%攻+20%"}], "大蔥鴨": [{name:"啄",dmg:24,desc:"24傷"}, {name:"葉刃",dmg:24,desc:"24傷"}, {name:"勇鳥猛攻",dmg:36,selfDmg:0.15,desc:"36傷,自損15%"}], "呆呆獸": [{name:"水槍",dmg:14,chance:0.5,heal:0.15,desc:"14傷,50%回15%血"}, {name:"幻象光線",dmg:26,desc:"26傷"}, {name:"水流噴射",dmg:18,chance:0.3,buff:0.2,desc:"18傷,30%攻+20%"}], "可達鴨": [{name:"水槍",dmg:14,chance:0.5,heal:0.15,desc:"14傷,50%回15%血"}, {name:"幻象光線",dmg:26,desc:"26傷"}, {name:"水流噴射",dmg:18,chance:0.3,buff:0.2,desc:"18傷,30%攻+20%"}], "卡比獸": [{name:"泰山壓頂",dmg:26,desc:"26傷"}, {name:"地震",dmg:16,chance:0.35,heal:0.15,desc:"16傷,35%回15%血"}, {name:"撞擊",dmg:24,desc:"24傷"}], "吉利蛋": [{name:"抓",dmg:26,desc:"26傷"}, {name:"精神強念",dmg:18,chance:0.3,buff:0.2,desc:"18傷,30%攻+20%"}, {name:"撞擊",dmg:24,desc:"24傷"}], "幸福蛋": [{name:"抓",dmg:26,desc:"26傷"}, {name:"精神強念",dmg:18,chance:0.3,buff:0.2,desc:"18傷,30%攻+20%"}, {name:"撞擊",dmg:24,desc:"24傷"}], "拉普拉斯": [{name:"水槍",dmg:14,chance:0.5,heal:0.15,desc:"14傷,50%回15%血"}, {name:"水流噴射",dmg:18,chance:0.3,buff:0.2,desc:"18傷,30%攻+20%"}, {name:"冰凍光束",dmg:26,desc:"26傷"}], "快龍": [{name:"抓",dmg:26,desc:"26傷"}, {name:"逆鱗",dmg:28,desc:"28傷"}, {name:"勇鳥猛攻",dmg:36,selfDmg:0.15,desc:"36傷,自損15%"}], "超夢": [{name:"念力",dmg:14,chance:0.5,heal:0.15,desc:"14傷,50%回15%血"}, {name:"精神強念",dmg:18,chance:0.3,buff:0.2,desc:"18傷,30%攻+20%"}, {name:"精神擊破",dmg:28,desc:"28傷"}], "default": [{name:"撞擊",dmg:24,desc:"24傷"}] };
     const WILD_MOVES = { "小拉達": [{name:"抓",dmg:26},{name:"出奇一擊",dmg:26},{name:"撞擊",dmg:24}], "波波": [{name:"抓",dmg:26},{name:"啄",dmg:24},{name:"燕返",dmg:26}], "烈雀": [{name:"抓",dmg:26},{name:"啄",dmg:24},{name:"燕返",dmg:26}], "阿柏蛇": [{name:"毒針",dmg:14,chance:0.5,buff:0.2},{name:"毒擊",dmg:26},{name:"緊束",dmg:24}], "瓦斯彈": [{name:"毒針",dmg:14,chance:0.5,buff:0.2},{name:"撞擊",dmg:24}], "海星星": [{name:"水槍",dmg:14,chance:0.5,heal:0.15},{name:"幻象光線",dmg:26},{name:"撞擊",dmg:24}], "角金魚": [{name:"水槍",dmg:14,chance:0.5,heal:0.15},{name:"幻象光線",dmg:26},{name:"泥巴射擊",dmg:18,chance:0.3,buff:0.2}], "走路草": [{name:"種子炸彈",dmg:26},{name:"撞擊",dmg:24},{name:"毒擊",dmg:26}], "穿山鼠": [{name:"抓",dmg:26},{name:"泥巴射擊",dmg:18,chance:0.3,buff:0.2},{name:"泥巴炸彈",dmg:26}], "蚊香勇士": [{name:"雙倍奉還",dmg:28},{name:"冰凍光束",dmg:26},{name:"水槍",dmg:14}], "小磁怪": [{name:"電擊",dmg:18},{name:"放電",dmg:26},{name:"撞擊",dmg:24}], "卡拉卡拉": [{name:"泥巴射擊",dmg:18},{name:"泥巴炸彈",dmg:26},{name:"挖洞",dmg:16}], "喵喵": [{name:"抓",dmg:26},{name:"出奇一擊",dmg:26},{name:"撞擊",dmg:24}], "瑪瑙水母": [{name:"水槍",dmg:14},{name:"水流尾",dmg:26},{name:"緊束",dmg:24}], "暴鯉龍": [{name:"水槍",dmg:14},{name:"水流尾",dmg:26},{name:"逆鱗",dmg:28}] };
     const ALL_POKEMON = { "妙蛙種子":{img:"https://img.pokemondb.net/artwork/large/bulbasaur.jpg"}, "小火龍":{img:"https://img.pokemondb.net/artwork/large/charmander.jpg"}, "傑尼龜":{img:"https://img.pokemondb.net/artwork/large/squirtle.jpg"}, "妙蛙花":{img:"https://img.pokemondb.net/artwork/large/venusaur.jpg"}, "噴火龍":{img:"https://img.pokemondb.net/artwork/large/charizard.jpg"}, "水箭龜":{img:"https://img.pokemondb.net/artwork/large/blastoise.jpg"}, "毛辮羊":{img:"https://img.pokemondb.net/artwork/large/wooloo.jpg"}, "皮卡丘":{img:"https://img.pokemondb.net/artwork/large/pikachu.jpg"}, "伊布":{img:"https://img.pokemondb.net/artwork/large/eevee.jpg"}, "胖丁":{img:"https://img.pokemondb.net/artwork/large/jigglypuff.jpg"}, "皮皮":{img:"https://img.pokemondb.net/artwork/large/clefairy.jpg"}, "波波":{img:"https://img.pokemondb.net/artwork/large/pidgey.jpg"}, "海星星":{img:"https://img.pokemondb.net/artwork/large/staryu.jpg"}, "大蔥鴨":{img:"https://img.pokemondb.net/artwork/large/farfetchd.jpg"}, "呆呆獸":{img:"https://img.pokemondb.net/artwork/large/slowpoke.jpg"}, "可達鴨":{img:"https://img.pokemondb.net/artwork/large/psyduck.jpg"}, "卡比獸":{img:"https://img.pokemondb.net/artwork/large/snorlax.jpg"}, "吉利蛋":{img:"https://img.pokemondb.net/artwork/large/chansey.jpg"}, "幸福蛋":{img:"https://img.pokemondb.net/artwork/large/blissey.jpg"}, "拉普拉斯":{img:"https://img.pokemondb.net/artwork/large/lapras.jpg"}, "快龍":{img:"https://img.pokemondb.net/artwork/large/dragonite.jpg"}, "超夢":{img:"https://img.pokemondb.net/artwork/large/mewtwo.jpg"} };
@@ -600,6 +599,7 @@
             const startTimer = () => { clearInterval(timerInterval); battleState.value.timer = 10; timerInterval = setInterval(() => { if (!battleState.value.isActive) { clearInterval(timerInterval); return; } battleState.value.timer--; if (battleState.value.timer <= 0) { clearInterval(timerInterval); if(battleState.value.mode === 'wild') { battleState.value.turn = 'enemy'; setTimeout(executeEnemyTurn, 1000); } else { fetch(`${API_URL.replace('/items', '')}/shop/pvp/${battleState.value.target.id}`, { method: 'POST', headers: { 'Authorization': `Bearer ${token}` } }); battleState.value.turn = 'enemy'; } } }, 1000); };
             const checkWinCondition = () => { if (battleState.value.target.hp <= 0) { battleState.value.winner = 'player'; return true; } if (user.value.hp <= 0) { battleState.value.winner = 'enemy'; return true; } return false; };
             
+            // 🔥 修正 WebSocket: 處理 PVP_SWAP 🔥
             const connectWebSocket = () => { socket = new WebSocket(`${WS_URL}?token=${token}`); socket.onopen = () => setInterval(() => socket.readyState===1 && socket.send("ping"), 30000); socket.onmessage = (e) => { const msg = e.data; const parts = msg.split("|"); 
                 if (msg.startsWith("📢")) addLog(msg); 
                 if (msg.startsWith("EVENT:DUEL_INVITE") && parseInt(parts[3]) === user.value.id) inviteState.value = { show: true, senderId: parts[1], senderName: parts[2] }; 
@@ -628,7 +628,28 @@
                             } 
                         }); 
                     } 
-                } 
+                }
+                // 🔥 新增：處理換角廣播 🔥
+                if (msg.startsWith("EVENT:PVP_SWAP")) {
+                    const uid = parseInt(parts[1]);
+                    const pName = parts[2];
+                    const pImg = parts[3];
+                    const pHp = parseInt(parts[4]);
+                    const pMaxHp = parseInt(parts[5]);
+                    const pAtk = parseInt(parts[6]);
+
+                    // 如果廣播來自對手，更新對手資料
+                    if (battleState.value.isActive && battleState.value.target && battleState.value.target.id === uid) {
+                        battleState.value.target.pokemon_name = pName;
+                        battleState.value.target.pokemon_image = pImg; // V30 uses pokemon_image in most places, image_url in init
+                        battleState.value.target.image_url = pImg;     // Update both to be safe
+                        battleState.value.target.hp = pHp;
+                        battleState.value.target.max_hp = pMaxHp;
+                        battleState.value.target.attack = pAtk;
+                        addLog(`⚠️ 對手更換為 ${pName}！`);
+                    }
+                }
+
                 if (msg.startsWith("EVENT:PVP_MOVE")) { 
                     const targetId = parseInt(parts[2]);
                     const dmg = parseInt(parts[3]) || 0; 
