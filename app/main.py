@@ -8,7 +8,6 @@ import os
 import logging
 import sys
 
-# 設定日誌
 logging.basicConfig(level=logging.INFO, format="%(asctime)s [%(levelname)s] %(message)s", handlers=[logging.StreamHandler(sys.stdout)])
 logger = logging.getLogger(__name__)
 
@@ -27,17 +26,18 @@ try:
     from app.db.session import engine, SessionLocal
     from app.models.base import Base
     
-    # 🔥 關鍵順序：必須先載入 User，再載入 Friend 🔥
     from app.models import user as user_model
     from app.models import item as item_model
     from app.models import friend as friend_model 
+    # 🔥 引入禮物模型 🔥
+    from app.models import gift as gift_model
     
     from app.core.security import SECRET_KEY, ALGORITHM
     from app.routers import item, auth, shop, quest, social
     from app.common.websocket import manager
 
     logger.info("正在連線資料庫...")
-    # 這裡會依序建立表格：users -> items -> friends
+    # 自動建立新表格 (gifts, gift_cooldowns)
     Base.metadata.create_all(bind=engine)
     logger.info("資料庫連線成功！")
     db_status = "Connected"
