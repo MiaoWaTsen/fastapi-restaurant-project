@@ -26,20 +26,18 @@ db_status = "Not Connected"
 try:
     from app.db.session import engine, SessionLocal
     from app.models.base import Base
-    from app.models import item as item_model
+    
+    # 🔥 關鍵順序：必須先載入 User，再載入 Friend 🔥
     from app.models import user as user_model
-    # 🔥 1. 引入新 Model，這樣 create_all 才會建立表格 🔥
+    from app.models import item as item_model
     from app.models import friend as friend_model 
     
     from app.core.security import SECRET_KEY, ALGORITHM
-    from app.routers import item, auth, shop, quest
-    # 🔥 2. 引入新 Router 🔥
-    from app.routers import social
-    
+    from app.routers import item, auth, shop, quest, social
     from app.common.websocket import manager
 
     logger.info("正在連線資料庫...")
-    # 這行會自動檢查：如果 users 表存在就不動，發現 friends 表不存在就會建立
+    # 這裡會依序建立表格：users -> items -> friends
     Base.metadata.create_all(bind=engine)
     logger.info("資料庫連線成功！")
     db_status = "Connected"
@@ -48,7 +46,6 @@ try:
     app.include_router(item.router, prefix="/api/v1/items", tags=["Items"])
     app.include_router(shop.router, prefix="/api/v1/shop", tags=["Shop"])
     app.include_router(quest.router, prefix="/api/v1/quests", tags=["Quest"])
-    # 🔥 3. 掛載新 Router 🔥
     app.include_router(social.router, prefix="/api/v1/social", tags=["Social"])
 
 except Exception as e:

@@ -1,11 +1,12 @@
 # app/models/user.py
 
-from sqlalchemy import Column, Integer, String
+from sqlalchemy import Column, Integer, String, Text
 from pydantic import BaseModel, ConfigDict
 from app.models.base import Base
 
 class User(Base):
-    __tablename__ = "users_v9" # 🔥 改名 v9 強制更新結構
+    # 🔥 關鍵：必須保留這個名稱，你的存檔才不會不見！
+    __tablename__ = "users_v9" 
 
     id = Column(Integer, primary_key=True, index=True)
     username = Column(String(50), unique=True, index=True, nullable=False)
@@ -13,12 +14,10 @@ class User(Base):
     
     pokemon_name = Column(String(50), default="未知圖騰")
     pokemon_image = Column(String(255), default="")
-    pokemon_storage = Column(String(4000), default="{}") 
-    unlocked_monsters = Column(String(1000), default="")
-    inventory = Column(String(4000), default="{}")
-    
-    # 🔥 新增：已擊敗的 Boss (逗號分隔，例如 "蚊香勇士,暴鯉龍")
-    defeated_bosses = Column(String(1000), default="")
+    pokemon_storage = Column(Text, default="{}") 
+    unlocked_monsters = Column(Text, default="")
+    inventory = Column(Text, default="{}")
+    defeated_bosses = Column(Text, default="")
 
     hp = Column(Integer, default=100)
     max_hp = Column(Integer, default=100)
@@ -31,8 +30,9 @@ class User(Base):
     exp = Column(Integer, default=0)
     money = Column(Integer, default=0)
     
-    quests = Column(String(4000), default="[]")
+    quests = Column(Text, default="[]")
 
+# Pydantic Models (保留你的設定)
 class UserCreate(BaseModel):
     username: str
     password: str
@@ -44,7 +44,7 @@ class UserRead(BaseModel):
     pokemon_name: str
     pokemon_image: str
     unlocked_monsters: str
-    defeated_bosses: str # 新增
+    defeated_bosses: str
     quests: str
     inventory: str
     hp: int
