@@ -6,7 +6,7 @@
     <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate" />
     <meta http-equiv="Pragma" content="no-cache" />
     <meta http-equiv="Expires" content="0" />
-    <title>⚡️ 寶可夢大亂鬥 (V33 公平備戰版) ⚡️</title>
+    <title>⚡️ 寶可夢大亂鬥 (V34 完美備戰版) ⚡️</title>
     <script src="https://unpkg.com/vue@3/dist/vue.global.js"></script>
     
     <style>
@@ -175,11 +175,11 @@
         
         <div v-if="newsState.show" class="modal-overlay">
             <div class="modal-box" style="text-align:left;">
-                <div class="modal-title" style="text-align:center;">📢 V33 更新公告</div>
+                <div class="modal-title" style="text-align:center;">📢 V34 更新公告</div>
                 <ul>
-                    <li><b>⏳ 公平備戰</b>：PVP 現在必須等待完整的 15 秒備戰時間。</li>
-                    <li><b>⚡️ 即時換角</b>：在備戰期間換寶可夢，對手會馬上看到您的新陣容！</li>
+                    <li><b>⏳ 備戰介面優化</b>：倒數計時現在位於底部，您可以在備戰期間自由操作圖鑑與背包！</li>
                     <li><b>⚔️ 戰鬥優化</b>：對戰時能即時看到對手攻擊力變化。</li>
+                    <li><b>🚑 補血修復</b>：戰鬥中回血不會再被系統扣回去了。</li>
                 </ul>
                 <button class="btn-yes" style="width:100%; margin-top:15px;" @click="closeNews">我知道了</button>
             </div>
@@ -226,7 +226,7 @@
 
         <div v-if="isGachaAnimating" class="gacha-anim-overlay"><div class="pokeball-anim"></div><div class="gacha-text">捕捉中...</div></div>
 
-        <h1 style="text-align: center; color: #e94560;" v-if="!battleState.isActive && !inLobby">⚔️ 妙蛙宸的熱血戰場 ⚔️</h1>
+        <h1 style="text-align: center; color: #e94560;" v-if="!battleState.isActive">⚔️ 妙蛙宸的熱血戰場 ⚔️</h1>
 
         <div v-if="battleState.isActive && !inLobby" class="battle-overlay">
             <div class="battle-header"><h3>{{ battleState.mode==='wild'?'🌲 野生遭遇':'🏟️ PVP對決' }}</h3><div class="battle-timer" v-if="battleState.winner !== 'win_modal' && !battleState.winner">⏱️ {{ battleState.timer }}</div></div>
@@ -265,7 +265,7 @@
             </div>
         </div>
 
-        <div class="tabs" v-if="!battleState.isActive && !inLobby">
+        <div class="tabs" v-if="!battleState.isActive">
             <button class="tab-btn" @click="currentTab='wild'" :class="{active: currentTab=='wild'}">🌲 野外</button>
             <button class="tab-btn" @click="currentTab='arena'" :class="{active: currentTab=='arena'}">🏟️ 競技</button>
             <button class="tab-btn" @click="currentTab='rank'" :class="{active: currentTab=='rank'}">🏆 排行</button>
@@ -279,7 +279,7 @@
             </button>
         </div>
 
-        <div class="game-area" v-if="!battleState.isActive && !inLobby">
+        <div class="game-area" v-if="!battleState.isActive">
             <div v-if="currentTab === 'wild'" style="width:100%">
                 <div class="level-selector"><label>⚔️ 選擇難度：</label><select v-model="selectedWildLevel" @change="fetchMonsters" style="margin-bottom:10px; padding:5px;"><option v-for="n in user.level" :value="n">Lv. {{ n }}</option></select></div>
                 <div class="card-grid"><div v-for="m in monsters" :key="m.id" class="card"><img :src="m.image_url" class="card-img"><div class="card-body"><b>{{ m.name }}</b><br><small>XP:{{m.xp}} G:{{m.gold}}</small><br><button class="btn-action" @click="initBattle(m, 'wild')">戰鬥</button></div></div></div>
@@ -590,7 +590,6 @@
             const startTimer = () => { clearInterval(timerInterval); battleState.value.timer = 10; timerInterval = setInterval(() => { if (!battleState.value.isActive) { clearInterval(timerInterval); return; } battleState.value.timer--; if (battleState.value.timer <= 0) { clearInterval(timerInterval); if(battleState.value.mode === 'wild') { battleState.value.turn = 'enemy'; setTimeout(executeEnemyTurn, 1000); } else { fetch(`${API_URL.replace('/items', '')}/shop/pvp/${battleState.value.target.id}`, { method: 'POST', headers: { 'Authorization': `Bearer ${token}` } }); battleState.value.turn = 'enemy'; } } }, 1000); };
             const checkWinCondition = () => { if (battleState.value.target.hp <= 0) { battleState.value.winner = 'player'; return true; } if (user.value.hp <= 0) { battleState.value.winner = 'enemy'; return true; } return false; };
             
-            // 🔥 修正 WebSocket: 處理 PVP_SWAP 🔥
             const connectWebSocket = () => { socket = new WebSocket(`${WS_URL}?token=${token}`); socket.onopen = () => setInterval(() => socket.readyState===1 && socket.send("ping"), 30000); socket.onmessage = (e) => { const msg = e.data; const parts = msg.split("|"); 
                 if (msg.startsWith("📢")) addLog(msg); 
                 if (msg.startsWith("EVENT:DUEL_INVITE") && parseInt(parts[3]) === user.value.id) inviteState.value = { show: true, senderId: parts[1], senderName: parts[2] }; 
