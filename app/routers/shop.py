@@ -13,7 +13,7 @@ from app.common.websocket import manager
 
 router = APIRouter()
 
-# (POKEDEX_DATA, GACHA Lists 保持不變，請保留原有的資料)
+# (POKEDEX_DATA, GACHA Lists 保持不變，省略)
 POKEDEX_DATA = {
     "妙蛙種子": {"hp": 130, "atk": 112, "img": "https://img.pokemondb.net/artwork/large/bulbasaur.jpg"},
     "小火龍": {"hp": 112, "atk": 130, "img": "https://img.pokemondb.net/artwork/large/charmander.jpg"},
@@ -36,7 +36,6 @@ POKEDEX_DATA = {
     "快龍":   {"hp": 150, "atk": 148, "img": "https://img.pokemondb.net/artwork/large/dragonite.jpg"},
     "超夢":   {"hp": 150, "atk": 155, "img": "https://img.pokemondb.net/artwork/large/mewtwo.jpg"},
 }
-
 GACHA_NORMAL = [
     {"name": "妙蛙種子", "rate": 5}, {"name": "小火龍", "rate": 5}, {"name": "傑尼龜", "rate": 5},
     {"name": "伊布", "rate": 8}, {"name": "皮卡丘", "rate": 8}, {"name": "皮皮", "rate": 10},
@@ -44,7 +43,6 @@ GACHA_NORMAL = [
     {"name": "呆呆獸", "rate": 12}, {"name": "可達鴨", "rate": 12}, {"name": "卡比獸", "rate": 2},
     {"name": "吉利蛋", "rate": 2}
 ]
-
 GACHA_MEDIUM = [
     {"name": "妙蛙種子", "rate": 10}, {"name": "小火龍", "rate": 10}, {"name": "傑尼龜", "rate": 10},
     {"name": "伊布", "rate": 10}, {"name": "皮卡丘", "rate": 10}, {"name": "呆呆獸", "rate": 10},
@@ -52,14 +50,12 @@ GACHA_MEDIUM = [
     {"name": "吉利蛋", "rate": 3}, {"name": "拉普拉斯", "rate": 3}, {"name": "妙蛙花", "rate": 3},
     {"name": "噴火龍", "rate": 3}, {"name": "水箭龜", "rate": 3}
 ]
-
 GACHA_CANDY = [
     {"name": "伊布", "rate": 20}, {"name": "皮卡丘", "rate": 20},
     {"name": "妙蛙花", "rate": 10}, {"name": "噴火龍", "rate": 10}, {"name": "水箭龜", "rate": 10},
     {"name": "卡比獸", "rate": 10}, {"name": "吉利蛋", "rate": 10},
     {"name": "幸福蛋", "rate": 4}, {"name": "拉普拉斯", "rate": 3}, {"name": "快龍", "rate": 3}
 ]
-
 GACHA_GOLDEN = [
     {"name": "卡比獸", "rate": 30}, {"name": "吉利蛋", "rate": 40},
     {"name": "幸福蛋", "rate": 15}, {"name": "拉普拉斯", "rate": 7},
@@ -233,7 +229,7 @@ async def end_duel_api(target_id: int, current_user: User = Depends(get_current_
     if battle_key in ACTIVE_BATTLES: del ACTIVE_BATTLES[battle_key]
     return {"message": "戰鬥結束"}
 
-# 🔥 修正 PVP 擊殺獎勵邏輯 🔥
+# 🔥 修正 PVP 擊殺與獎勵邏輯 (確保輸家也有經驗) 🔥
 @router.post("/pvp/{target_id}")
 async def pvp_attack(
     target_id: int, 
@@ -261,20 +257,32 @@ async def pvp_attack(
         if target.hp <= 0:
             result_type = "WIN"
             
-            # 🔥 贏家獎勵：玩家等級 * 30 XP 🔥
+            # 🔥 1. 贏家獎勵：玩家等級 * 30 XP 🔥
             win_xp = current_user.level * 30
             current_user.exp += win_xp
-            current_user.pet_exp += win_xp # 寵物也加
-            reward_msg = f"{win_xp} XP"
+            current_user.pet_exp += win_xp
+            reward_msg = f"🏆 勝利！獲得 {win_xp} XP"
             
-            # 🔥 輸家獎勵：玩家等級 * 10 XP 🔥
-            lose_xp = target.level * 10
-            target.exp += lose_xp
-            target.pet_exp += lose_xp
+            # 隨機獎勵 (50% 糖果 / 50% 金幣)
+            if random.random() < 0.5:
+                inv = json.loads(current_user.inventory) if current_user.inventory else {}
+                inv["candy"] = inv.get("candy", 0) + 1
+                current_user.inventory = json.dumps(inv)
+                reward_msg += " & 🍬 糖果 x1"
+            else:
+                current_user.money += 200
+                reward_msg += " & 💰 200 G"
             
             # 贏家檢查升級
             lvl_msg = await check_levelup_dual(current_user)
             if lvl_msg: reward_msg += f" (升級!)"
+
+            # 🔥 2. 輸家獎勵：玩家等級 * 10 XP 🔥
+            lose_xp = target.level * 10
+            target.exp += lose_xp
+            target.pet_exp += lose_xp
+            # 輸家也要檢查升級 (雖然機率低)
+            await check_levelup_dual(target)
             
             if battle_key in ACTIVE_BATTLES: del ACTIVE_BATTLES[battle_key]
             
