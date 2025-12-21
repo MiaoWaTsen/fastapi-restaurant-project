@@ -6,7 +6,7 @@
     <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate" />
     <meta http-equiv="Pragma" content="no-cache" />
     <meta http-equiv="Expires" content="0" />
-    <title>⚡️ 寶可夢大亂鬥 (V34 完美備戰版) ⚡️</title>
+    <title>⚡️ 寶可夢大亂鬥 (V35 即時同步修復) ⚡️</title>
     <script src="https://unpkg.com/vue@3/dist/vue.global.js"></script>
     
     <style>
@@ -175,7 +175,7 @@
         
         <div v-if="newsState.show" class="modal-overlay">
             <div class="modal-box" style="text-align:left;">
-                <div class="modal-title" style="text-align:center;">📢 V34 更新公告</div>
+                <div class="modal-title" style="text-align:center;">📢 V35 更新公告</div>
                 <ul>
                     <li><b>⏳ 備戰介面優化</b>：倒數計時現在位於底部，您可以在備戰期間自由操作圖鑑與背包！</li>
                     <li><b>⚔️ 戰鬥優化</b>：對戰時能即時看到對手攻擊力變化。</li>
@@ -445,6 +445,7 @@
             const playerXpPercent = computed(() => user.value ? Math.min(100, (user.value.exp / (user.value.next_level_exp || 9999)) * 100) : 0);
             
             const currentAtkMe = computed(() => user.value ? Math.floor(user.value.attack * (1 + battleState.value.buffs.me)) : 0);
+            // 🔥 對手的攻擊力現在會根據 buffs.target 更新 🔥
             const currentAtkTarget = computed(() => battleState.value.target ? Math.floor(battleState.value.target.attack * (1 + battleState.value.buffs.target)) : 0);
             const hpPercent = (u) => (u.hp / u.max_hp) * 100;
             const getMoveClass = (move) => { if (move.type === 'buff') return 'move-buff'; if (move.type === 'heal') return 'move-heal'; return 'move-damage'; };
@@ -590,6 +591,7 @@
             const startTimer = () => { clearInterval(timerInterval); battleState.value.timer = 10; timerInterval = setInterval(() => { if (!battleState.value.isActive) { clearInterval(timerInterval); return; } battleState.value.timer--; if (battleState.value.timer <= 0) { clearInterval(timerInterval); if(battleState.value.mode === 'wild') { battleState.value.turn = 'enemy'; setTimeout(executeEnemyTurn, 1000); } else { fetch(`${API_URL.replace('/items', '')}/shop/pvp/${battleState.value.target.id}`, { method: 'POST', headers: { 'Authorization': `Bearer ${token}` } }); battleState.value.turn = 'enemy'; } } }, 1000); };
             const checkWinCondition = () => { if (battleState.value.target.hp <= 0) { battleState.value.winner = 'player'; return true; } if (user.value.hp <= 0) { battleState.value.winner = 'enemy'; return true; } return false; };
             
+            // 🔥 修正 WebSocket: 處理 PVP_SWAP 🔥
             const connectWebSocket = () => { socket = new WebSocket(`${WS_URL}?token=${token}`); socket.onopen = () => setInterval(() => socket.readyState===1 && socket.send("ping"), 30000); socket.onmessage = (e) => { const msg = e.data; const parts = msg.split("|"); 
                 if (msg.startsWith("📢")) addLog(msg); 
                 if (msg.startsWith("EVENT:DUEL_INVITE") && parseInt(parts[3]) === user.value.id) inviteState.value = { show: true, senderId: parts[1], senderName: parts[2] }; 
@@ -619,7 +621,7 @@
                         }); 
                     } 
                 }
-                // 🔥 新增：處理換角廣播 🔥
+                // 🔥 新增：處理換角廣播，只要在大廳或戰鬥中都更新 🔥
                 if (msg.startsWith("EVENT:PVP_SWAP")) {
                     const uid = parseInt(parts[1]);
                     const pName = parts[2];
@@ -628,11 +630,11 @@
                     const pMaxHp = parseInt(parts[5]);
                     const pAtk = parseInt(parts[6]);
 
-                    // 如果廣播來自對手，更新對手資料
-                    if (battleState.value.isActive && battleState.value.target && battleState.value.target.id === uid) {
+                    // 關鍵修正：(battleState.isActive || inLobby.value) 確保在大廳也能收到通知
+                    if ((battleState.value.isActive || inLobby.value) && battleState.value.target && battleState.value.target.id === uid) {
                         battleState.value.target.pokemon_name = pName;
-                        battleState.value.target.pokemon_image = pImg; // V30 uses pokemon_image in most places, image_url in init
-                        battleState.value.target.image_url = pImg;     // Update both to be safe
+                        battleState.value.target.pokemon_image = pImg; 
+                        battleState.value.target.image_url = pImg;
                         battleState.value.target.hp = pHp;
                         battleState.value.target.max_hp = pMaxHp;
                         battleState.value.target.attack = pAtk;

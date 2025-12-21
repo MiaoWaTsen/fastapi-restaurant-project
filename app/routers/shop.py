@@ -13,7 +13,7 @@ from app.common.websocket import manager
 
 router = APIRouter()
 
-# (POKEDEX_DATA, GACHA Lists 保持不變，請保留原有的)
+# (POKEDEX_DATA, GACHA Lists 保持不變，請保留原有的資料)
 POKEDEX_DATA = {
     "妙蛙種子": {"hp": 130, "atk": 112, "img": "https://img.pokemondb.net/artwork/large/bulbasaur.jpg"},
     "小火龍": {"hp": 112, "atk": 130, "img": "https://img.pokemondb.net/artwork/large/charmander.jpg"},
@@ -159,7 +159,6 @@ async def play_gacha(gacha_type: str, db: Session = Depends(get_db), current_use
         
     return {"message": msg, "prize": {"name": prize_name, "img": prize_data["img"]}, "is_new": is_new, "user": current_user}
 
-# 🔥 修正：換寶可夢時廣播通知所有連線者 🔥
 @router.post("/swap/{target_name}")
 async def swap_pokemon(target_name: str, db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
     storage = json.loads(current_user.pokemon_storage) if current_user.pokemon_storage else {}
@@ -184,7 +183,6 @@ async def swap_pokemon(target_name: str, db: Session = Depends(get_db), current_
     current_user.attack = int(base_data["atk"] * (1.06 ** (lv - 1)))
     db.commit()
     
-    # 📢 廣播換角訊息：ID | 名字 | 圖片 | HP | MaxHP | ATK
     msg = f"EVENT:PVP_SWAP|{current_user.id}|{target_name}|{base_data['img']}|{current_user.hp}|{current_user.max_hp}|{current_user.attack}"
     await manager.broadcast(msg)
     
@@ -235,6 +233,7 @@ async def end_duel_api(target_id: int, current_user: User = Depends(get_current_
     if battle_key in ACTIVE_BATTLES: del ACTIVE_BATTLES[battle_key]
     return {"message": "戰鬥結束"}
 
+# 🔥 修正 PVP 擊殺獎勵邏輯 🔥
 @router.post("/pvp/{target_id}")
 async def pvp_attack(
     target_id: int, 
@@ -257,16 +256,25 @@ async def pvp_attack(
     
     if target:
         target.hp = max(0, target.hp - damage)
+        
+        # 判定擊殺
         if target.hp <= 0:
             result_type = "WIN"
-            if random.random() < 0.5:
-                inv = json.loads(current_user.inventory) if current_user.inventory else {}
-                inv["candy"] = inv.get("candy", 0) + 1
-                current_user.inventory = json.dumps(inv)
-                reward_msg = "🍬 神奇糖果 x1"
-            else:
-                current_user.money += 200
-                reward_msg = "💰 200 金幣"
+            
+            # 🔥 贏家獎勵：玩家等級 * 30 XP 🔥
+            win_xp = current_user.level * 30
+            current_user.exp += win_xp
+            current_user.pet_exp += win_xp # 寵物也加
+            reward_msg = f"{win_xp} XP"
+            
+            # 🔥 輸家獎勵：玩家等級 * 10 XP 🔥
+            lose_xp = target.level * 10
+            target.exp += lose_xp
+            target.pet_exp += lose_xp
+            
+            # 贏家檢查升級
+            lvl_msg = await check_levelup_dual(current_user)
+            if lvl_msg: reward_msg += f" (升級!)"
             
             if battle_key in ACTIVE_BATTLES: del ACTIVE_BATTLES[battle_key]
             
