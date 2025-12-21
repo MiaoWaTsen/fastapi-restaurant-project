@@ -13,7 +13,7 @@ from app.common.websocket import manager
 
 router = APIRouter()
 
-# (POKEDEX_DATA, GACHA Lists 保持不變，省略以節省篇幅)
+# (POKEDEX_DATA, GACHA Lists 保持不變，省略以節省空間，請保留你原有的資料)
 POKEDEX_DATA = {
     "妙蛙種子": {"hp": 130, "atk": 112, "img": "https://img.pokemondb.net/artwork/large/bulbasaur.jpg"},
     "小火龍": {"hp": 112, "atk": 130, "img": "https://img.pokemondb.net/artwork/large/charmander.jpg"},
@@ -200,13 +200,21 @@ async def invite_duel(target_id: int, db: Session = Depends(get_db), current_use
     await manager.broadcast(msg)
     return {"message": "邀請已發送"}
 
+# 🔥 修正：接受決鬥時，強制補滿雙方血量 🔥
 @router.post("/duel/accept/{target_id}")
 async def accept_duel(target_id: int, db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
     target = db.query(User).filter(User.id == target_id).first()
     if not target: raise HTTPException(status_code=404, detail="找不到對手")
+    
+    # 🔥 強制補血 🔥
+    current_user.hp = current_user.max_hp
+    target.hp = target.max_hp
+    db.commit() # 存檔
+
     first = target.id if target.level <= current_user.level else current_user.id
     battle_key = tuple(sorted((current_user.id, target.id)))
     ACTIVE_BATTLES[battle_key] = {"turn": first}
+    
     msg = f"EVENT:DUEL_START|{target.id}|{target.username}|{current_user.id}|{current_user.username}|{first}"
     await manager.broadcast(msg)
     return {"message": "決鬥開始"}
@@ -223,7 +231,6 @@ async def end_duel_api(target_id: int, current_user: User = Depends(get_current_
     if battle_key in ACTIVE_BATTLES: del ACTIVE_BATTLES[battle_key]
     return {"message": "戰鬥結束"}
 
-# 🔥 修正：PVP 擊殺與獎勵 🔥
 @router.post("/pvp/{target_id}")
 async def pvp_attack(
     target_id: int, 
@@ -242,10 +249,8 @@ async def pvp_attack(
     if target:
         target.hp = max(0, target.hp - damage)
         
-        # 🔥 判定擊殺 🔥
         if target.hp <= 0:
             result_type = "WIN"
-            # 50% 糖果，50% 金幣
             if random.random() < 0.5:
                 inv = json.loads(current_user.inventory) if current_user.inventory else {}
                 inv["candy"] = inv.get("candy", 0) + 1
@@ -255,16 +260,13 @@ async def pvp_attack(
                 current_user.money += 200
                 reward_msg = "💰 200 金幣"
             
-            # 清除戰鬥狀態
             if battle_key in ACTIVE_BATTLES: del ACTIVE_BATTLES[battle_key]
             
         db.commit()
     
-    # 如果沒結束，換邊
     if result_type == "MOVE":
         ACTIVE_BATTLES[battle_key]["turn"] = target_id
     
-    # 廣播
     msg = f"EVENT:PVP_MOVE|{current_user.id}|{target_id}|{damage}"
     await manager.broadcast(msg)
     
