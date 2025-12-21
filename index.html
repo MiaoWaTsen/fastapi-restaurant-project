@@ -6,7 +6,7 @@
     <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate" />
     <meta http-equiv="Pragma" content="no-cache" />
     <meta http-equiv="Expires" content="0" />
-    <title>⚡️ 寶可夢大亂鬥 (V24 完整版) ⚡️</title>
+    <title>⚡️ 寶可夢大亂鬥 (V25 好友社交版) ⚡️</title>
     <script src="https://unpkg.com/vue@3/dist/vue.global.js"></script>
     
     <style>
@@ -31,31 +31,31 @@
         
         /* Tabs */
         .tabs { display: flex; gap: 10px; margin-bottom: 20px; flex-wrap: wrap; }
-        .tab-btn { flex: 1; padding: 12px; background: #0f3460; border: none; color: #aaa; cursor: pointer; border-radius: 8px; font-weight: bold; min-width: 80px; transition:0.2s; display:flex; flex-direction:column; align-items:center; }
+        .tab-btn { flex: 1; padding: 12px; background: #0f3460; border: none; color: #aaa; cursor: pointer; border-radius: 8px; font-weight: bold; min-width: 80px; transition:0.2s; display:flex; flex-direction:column; align-items:center; justify-content: center; }
         .tab-btn.active { background: #e94560; color: white; transform: translateY(-3px); }
         .tab-sub { font-size: 0.7em; margin-top: 2px; opacity: 0.8; }
         
         /* Game Area */
         .game-area { display: flex; gap: 20px; }
         .card-grid { flex: 2; display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 15px; }
-        .card { background: #0f3460; border-radius: 10px; padding: 10px; text-align: center; cursor: pointer; border: 1px solid transparent; transition:0.2s; }
+        .card { background: #0f3460; border-radius: 10px; padding: 10px; text-align: center; cursor: pointer; border: 1px solid transparent; transition:0.2s; position: relative; }
         .card:hover { border-color: #f1c40f; transform: translateY(-5px); }
         .card-img { width: 100%; height: 150px; object-fit: contain; background: #222; border-radius: 5px; }
         .btn-action { width: 100%; padding: 8px; margin-top: 5px; border: none; border-radius: 5px; cursor: pointer; font-weight: bold; background: #c0392b; color: white; }
+        .btn-small { width: 48%; padding: 5px; font-size: 0.9em; margin-top: 5px; border: none; border-radius: 5px; cursor: pointer; color: white; }
         .level-selector { margin-bottom: 15px; text-align: center; background: #2c3e50; padding: 10px; border-radius: 8px; border: 1px solid #444; }
         .level-selector select { padding: 5px 10px; border-radius: 5px; border: none; background: #16213e; color: white; font-weight: bold; cursor: pointer; font-size: 1em; }
         
-        /* Quest & Bag */
-        .quest-card { border-left: 5px solid #aaa; background: #2c3e50; padding: 15px; margin-bottom: 10px; text-align: left; border-radius: 5px; }
+        /* Social & Quest */
+        .quest-card, .social-card { border-left: 5px solid #aaa; background: #2c3e50; padding: 15px; margin-bottom: 10px; text-align: left; border-radius: 5px; }
         .quest-active { border-left-color: #f1c40f; } .quest-completed { border-left-color: #2ecc71; }
         .quest-golden { background: linear-gradient(45deg, #f1c40f, #f39c12); color: #000; border-left: 5px solid #fff; border: 2px solid #fff; box-shadow: 0 0 15px rgba(241, 196, 15, 0.5); }
-        .quest-golden h4, .quest-golden p { color: #000; font-weight: bold; }
         .inv-item { background: #2c3e50; padding: 15px; border-radius: 10px; display: flex; justify-content: space-between; align-items: center; margin-bottom: 5px; }
         
+        /* Gacha & Battle */
         .gacha-box { text-align: center; padding: 40px; background: #16213e; border-radius: 15px; position: relative; }
         .gacha-btn { width: 80%; margin: 10px auto; padding: 15px; border-radius: 50px; border: none; cursor: pointer; font-size: 1.2em; background: linear-gradient(45deg, #f1c40f, #d35400); color: white; transition: 0.3s; }
         .gacha-btn:hover { transform: scale(1.05); }
-        
         .battle-overlay { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(15, 15, 30, 0.98); z-index: 2000; padding: 20px; display: flex; flex-direction: column; align-items: center; }
         .battle-header { width: 100%; max-width: 800px; display: flex; justify-content: space-between; margin-bottom: 20px; font-size: 1.5em; font-weight: bold; color: #f1c40f; }
         .battle-timer { font-family: monospace; font-size: 1.5em; color: #e74c3c; border: 2px solid #e74c3c; padding: 5px 15px; border-radius: 10px; background: rgba(0,0,0,0.5); }
@@ -94,6 +94,7 @@
         .dex-card { text-align: center; cursor: pointer; border: 2px solid transparent; } .dex-card:hover { border: 2px solid #f1c40f; }
         .dex-img { width: 100%; height: 120px; object-fit: contain; background: #222; border-radius: 5px; transition: 0.3s; }
         .dex-locked { filter: brightness(0); opacity: 0.3; }
+        .dex-unlocked-name { color: #f1c40f; }
         
         .rate-table { width: 100%; border-collapse: collapse; margin-top: 10px; }
         .rate-table th, .rate-table td { border: 1px solid #444; padding: 8px; text-align: left; }
@@ -171,18 +172,10 @@
         
         <div v-if="gachaResult.show" class="modal-overlay">
             <div class="modal-box">
-                <div class="modal-title">
-                    {{ gachaResult.isNew ? '🎉 獲得新夥伴！' : '🔁 獲得重複夥伴' }}
-                </div>
+                <div class="modal-title">{{ gachaResult.isNew ? '🎉 獲得新夥伴！' : '🔁 獲得重複夥伴' }}</div>
                 <img :src="gachaResult.prize.img" class="modal-img">
-                <p v-if="gachaResult.isNew">
-                    獲得 <b>{{ gachaResult.prize.name }}</b>！
-                </p>
-                <p v-else>
-                    獲得 <b>{{ gachaResult.prize.name }}</b> (重複)<br>
-                    <span style="color:#f1c40f; font-weight:bold;">經驗值 +500</span>
-                </p>
-                
+                <p v-if="gachaResult.isNew">獲得 <b>{{ gachaResult.prize.name }}</b>！</p>
+                <p v-else>獲得 <b>{{ gachaResult.prize.name }}</b> (重複)<br><span style="color:#f1c40f; font-weight:bold;">經驗值 +500</span></p>
                 <div class="modal-btns">
                     <button class="btn-yes" @click="confirmSwap(true)" v-if="gachaResult.isNew">變身</button>
                     <button class="btn-no" @click="confirmSwap(false)">收下</button>
@@ -234,6 +227,7 @@
         <div class="tabs" v-if="!battleState.isActive">
             <button class="tab-btn" @click="currentTab='wild'" :class="{active: currentTab=='wild'}">🌲 野外</button>
             <button class="tab-btn" @click="currentTab='arena'" :class="{active: currentTab=='arena'}">🏟️ 競技</button>
+            <button class="tab-btn" @click="currentTab='social'" :class="{active: currentTab=='social'}">🤝 好友</button>
             <button class="tab-btn" @click="currentTab='quest'" :class="{active: currentTab=='quest'}">📜 任務</button>
             <button class="tab-btn" @click="currentTab='shop'" :class="{active: currentTab=='shop'}">🛒 商店</button>
             <button class="tab-btn" @click="currentTab='bag'" :class="{active: currentTab=='bag'}">🎒 背包</button>
@@ -248,25 +242,54 @@
                 <div class="level-selector"><label>⚔️ 選擇難度：</label><select v-model="selectedWildLevel" @change="fetchMonsters" style="margin-bottom:10px; padding:5px;"><option v-for="n in user.level" :value="n">Lv. {{ n }}</option></select></div>
                 <div class="card-grid"><div v-for="m in monsters" :key="m.id" class="card"><img :src="m.image_url" class="card-img"><div class="card-body"><b>{{ m.name }}</b><br><small>XP:{{m.xp}} G:{{m.gold}}</small><br><button class="btn-action" @click="initBattle(m, 'wild')">戰鬥</button></div></div></div>
             </div>
-            <div v-if="currentTab === 'arena'" class="card-grid"><div v-for="p in players" :key="p.id" class="card"><img :src="p.pokemon_image" class="card-img"><div class="card-body"><b>{{ p.username }}</b> (Lv.{{ p.level }})<br><button class="btn-action" v-if="p.is_online" @click="sendInvite(p)">邀請</button><button v-else class="btn-action" disabled style="background:#555">離線</button></div></div></div>
-            <div v-if="currentTab === 'quest'" style="width:100%">
-                <div v-if="quests.length === 0" style="text-align:center; padding:20px;">
-                    <p v-if="isQuestLoading">正在讀取任務...</p>
-                    <p v-else>暫無任務，請稍後重試。</p>
-                </div>
-                <div v-for="q in quests" :key="q.id" class="card quest-card" 
-                     :class="{'quest-active': q.status=='ACTIVE', 'quest-completed': q.status=='COMPLETED', 'quest-golden': q.type=='GOLDEN'}">
-                    <h4>
-                        <span v-if="q.type=='GOLDEN'">✨ 黃金任務: </span>
-                        擊敗 {{ q.req }} 隻 Lv.{{ q.target_lv }} {{ q.target }}
-                    </h4>
-                    <p v-if="q.type=='GOLDEN'">獎勵: 🍬 黃金糖果</p>
-                    <p v-else>獎勵: {{ q.gold }}G, {{ q.xp }}XP</p>
-                    <button v-if="q.status=='WAITING'" class="btn-action" style="background:#3498db" @click="acceptQuest(q.id)">接受任務</button>
-                    <div v-if="q.status=='ACTIVE'">
-                        <button class="btn-action" disabled style="background:#555; margin-bottom:5px;">進行中 ({{ q.now }}/{{ q.req }})</button>
-                        <button class="btn-action" style="background:#e74c3c" @click="abandonQuest(q.id)">放棄</button>
+            
+            <div v-if="currentTab === 'arena'" class="card-grid">
+                <div v-for="p in players" :key="p.id" class="card">
+                    <img :src="p.pokemon_image" class="card-img">
+                    <div class="card-body">
+                        <b>{{ p.username }}</b> (Lv.{{ p.level }})
+                        <div style="margin-top:5px; display:flex; gap:5px;">
+                            <button class="btn-small" style="background:#c0392b" v-if="p.is_online" @click="sendInvite(p)">決鬥</button>
+                            <button class="btn-small" style="background:#27ae60" @click="addFriend(p.id)">➕ 加好友</button>
+                        </div>
                     </div>
+                </div>
+            </div>
+
+            <div v-if="currentTab === 'social'" style="width:100%">
+                <div v-if="friendRequests.length > 0">
+                    <h3 style="color:#f1c40f">📩 好友邀請</h3>
+                    <div v-for="req in friendRequests" :key="req.req_id" class="social-card" style="border-left-color:#f1c40f">
+                        <div style="display:flex; justify-content:space-between; align-items:center;">
+                            <span><b>{{ req.sender_name }}</b> (Lv.{{ req.sender_lv }}) 想加你為好友</span>
+                            <div>
+                                <button class="btn-small" style="background:#27ae60" @click="respondFriendRequest(req.req_id, true)">接受</button>
+                                <button class="btn-small" style="background:#e74c3c" @click="respondFriendRequest(req.req_id, false)">拒絕</button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <h3>🤝 我的好友 ({{ friends.length }})</h3>
+                <div v-if="friends.length === 0" style="color:#aaa">還沒有好友，去競技場加人吧！</div>
+                <div class="card-grid">
+                    <div v-for="f in friends" :key="f.id" class="card">
+                        <img :src="f.img" class="card-img">
+                        <div class="card-body">
+                            <b>{{ f.username }}</b> (Lv.{{ f.level }})<br>
+                            <small>夥伴: {{ f.pet }}</small>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div v-if="currentTab === 'quest'" style="width:100%">
+                <div v-if="quests.length === 0" style="text-align:center; padding:20px;"><p v-if="isQuestLoading">正在讀取任務...</p><p v-else>暫無任務，請稍後重試。</p></div>
+                <div v-for="q in quests" :key="q.id" class="card quest-card" :class="{'quest-active': q.status=='ACTIVE', 'quest-completed': q.status=='COMPLETED', 'quest-golden': q.type=='GOLDEN'}">
+                    <h4><span v-if="q.type=='GOLDEN'">✨ 黃金任務: </span>擊敗 {{ q.req }} 隻 Lv.{{ q.target_lv }} {{ q.target }}</h4>
+                    <p v-if="q.type=='GOLDEN'">獎勵: 🍬 黃金糖果</p><p v-else>獎勵: {{ q.gold }}G, {{ q.xp }}XP</p>
+                    <button v-if="q.status=='WAITING'" class="btn-action" style="background:#3498db" @click="acceptQuest(q.id)">接受任務</button>
+                    <div v-if="q.status=='ACTIVE'"><button class="btn-action" disabled style="background:#555; margin-bottom:5px;">進行中 ({{ q.now }}/{{ q.req }})</button><button class="btn-action" style="background:#e74c3c" @click="abandonQuest(q.id)">放棄</button></div>
                     <button v-if="q.status=='COMPLETED'" class="btn-action" style="background:#2ecc71" @click="claimQuest(q.id)">領取獎勵</button>
                 </div>
             </div>
@@ -282,18 +305,8 @@
                     <button class="btn-action" style="width:200px; background:#27ae60" @click="buyHeal">💊 補血 (50G)</button>
                 </div>
             </div>
-            <div v-if="currentTab === 'bag'" style="width:100%">
-                <div class="inv-item"><span>🍬 神奇糖果</span> <span style="float:right; font-weight:bold; color:#f1c40f">x {{ inventory.candy || 0 }}</span></div>
-                <div class="inv-item" v-if="inventory.golden_candy > 0"><span>✨ 黃金糖果</span> <span style="float:right; font-weight:bold; color:#ffd700">x {{ inventory.golden_candy || 0 }}</span></div>
-            </div>
-            <div v-if="currentTab === 'dex'" class="card-grid">
-                <div v-for="(p, name) in ALL_POKEMON" :key="name" class="card" @click="swapFromDex(name)">
-                    <img :src="p.img" class="card-img" :style="{filter: isUnlocked(name)?'none':'brightness(0)'}">
-                    <div class="card-body">
-                        <b :class="{'dex-unlocked-name': isUnlocked(name)}">{{ isUnlocked(name) ? name : '???' }}</b>
-                    </div>
-                </div>
-            </div>
+            <div v-if="currentTab === 'bag'" style="width:100%"><div class="inv-item"><span>🍬 神奇糖果</span> <span style="float:right; font-weight:bold; color:#f1c40f">x {{ inventory.candy || 0 }}</span></div><div class="inv-item" v-if="inventory.golden_candy > 0"><span>✨ 黃金糖果</span> <span style="float:right; font-weight:bold; color:#ffd700">x {{ inventory.golden_candy || 0 }}</span></div></div>
+            <div v-if="currentTab === 'dex'" class="card-grid"><div v-for="(p, name) in ALL_POKEMON" :key="name" class="card" @click="swapFromDex(name)"><img :src="p.img" class="card-img" :style="{filter: isUnlocked(name)?'none':'brightness(0)'}"><div class="card-body"><b :class="{'dex-unlocked-name': isUnlocked(name)}">{{ isUnlocked(name) ? name : '???' }}</b></div></div></div>
             <div class="battle-log-panel"><h3 class="log-title">📜 戰鬥紀錄</h3><div v-for="(log, index) in logs" :key="index" class="log-entry" v-html="log"></div></div>
         </div>
     </div>
@@ -304,21 +317,21 @@
     const API_URL = `https://mwtpokemons.zeabur.app/api/v1`;
     const WS_URL = `wss://mwtpokemons.zeabur.app/ws`;
 
-    // (MOVES_DB, WILD_MOVES, ALL_POKEMON 保持不變，省略以節省空間)
+    // (MOVES_DB, WILD_MOVES, ALL_POKEMON 省略)
     const MOVES_DB = { "妙蛙種子": [{name:"藤鞭",dmg:16,chance:0.35,buff:0.2,desc:"16傷,35%攻+20%"}, {name:"種子炸彈",dmg:26,desc:"26傷"}, {name:"污泥炸彈",dmg:18,chance:0.3,buff:0.2,desc:"18傷,30%攻+20%"}], "小火龍": [{name:"火花",dmg:16,chance:0.35,buff:0.2,desc:"16傷,35%攻+20%"}, {name:"噴射火焰",dmg:18,chance:0.3,buff:0.2,desc:"18傷,30%攻+20%"}, {name:"火焰輪",dmg:26,desc:"26傷"}], "傑尼龜": [{name:"水槍",dmg:14,chance:0.5,heal:0.15,desc:"14傷,50%回15%血"}, {name:"水流噴射",dmg:18,chance:0.3,buff:0.2,desc:"18傷,30%攻+20%"}, {name:"水流尾",dmg:26,desc:"26傷"}], "妙蛙花": [{name:"藤鞭",dmg:16,chance:0.35,buff:0.2,desc:"16傷,35%攻+20%"}, {name:"種子炸彈",dmg:26,desc:"26傷"}, {name:"污泥炸彈",dmg:18,chance:0.3,buff:0.2,desc:"18傷,30%攻+20%"}], "噴火龍": [{name:"火花",dmg:16,chance:0.35,buff:0.2,desc:"16傷,35%攻+20%"}, {name:"噴射火焰",dmg:18,chance:0.3,buff:0.2,desc:"18傷,30%攻+20%"}, {name:"火焰輪",dmg:26,desc:"26傷"}], "水箭龜": [{name:"水槍",dmg:14,chance:0.5,heal:0.15,desc:"14傷,50%回15%血"}, {name:"水流噴射",dmg:18,chance:0.3,buff:0.2,desc:"18傷,30%攻+20%"}, {name:"水流尾",dmg:26,desc:"26傷"}], "毛辮羊": [{name:"撞擊",dmg:24,desc:"24傷"}, {name:"撒嬌",dmg:14,chance:0.5,heal:0.15,desc:"14傷,50%回15%血"}, {name:"電擊",dmg:18,chance:0.3,buff:0.2,desc:"18傷,30%攻+20%"}], "皮卡丘": [{name:"電光",dmg:16,chance:0.35,buff:0.2,desc:"16傷,35%攻+20%"}, {name:"放電",dmg:26,desc:"26傷"}, {name:"電擊",dmg:18,chance:0.3,buff:0.2,desc:"18傷,30%攻+20%"}], "伊布": [{name:"撞擊",dmg:24,desc:"24傷"}, {name:"挖洞",dmg:16,chance:0.35,buff:0.2,desc:"16傷,35%攻+20%"}, {name:"高速星星",dmg:26,desc:"26傷"}], "胖丁": [{name:"撞擊",dmg:24,desc:"24傷"}, {name:"撒嬌",dmg:14,chance:0.5,heal:0.15,desc:"14傷,50%回15%血"}, {name:"精神強念",dmg:18,chance:0.3,buff:0.2,desc:"18傷,30%攻+20%"}], "皮皮": [{name:"撞擊",dmg:24,desc:"24傷"}, {name:"撒嬌",dmg:14,chance:0.5,heal:0.15,desc:"14傷,50%回15%血"}, {name:"精神強念",dmg:18,chance:0.3,buff:0.2,desc:"18傷,30%攻+20%"}], "大蔥鴨": [{name:"啄",dmg:24,desc:"24傷"}, {name:"葉刃",dmg:24,desc:"24傷"}, {name:"勇鳥猛攻",dmg:36,selfDmg:0.15,desc:"36傷,自損15%"}], "呆呆獸": [{name:"水槍",dmg:14,chance:0.5,heal:0.15,desc:"14傷,50%回15%血"}, {name:"幻象光線",dmg:26,desc:"26傷"}, {name:"水流噴射",dmg:18,chance:0.3,buff:0.2,desc:"18傷,30%攻+20%"}], "可達鴨": [{name:"水槍",dmg:14,chance:0.5,heal:0.15,desc:"14傷,50%回15%血"}, {name:"幻象光線",dmg:26,desc:"26傷"}, {name:"水流噴射",dmg:18,chance:0.3,buff:0.2,desc:"18傷,30%攻+20%"}], "卡比獸": [{name:"泰山壓頂",dmg:26,desc:"26傷"}, {name:"地震",dmg:16,chance:0.35,heal:0.15,desc:"16傷,35%回15%血"}, {name:"撞擊",dmg:24,desc:"24傷"}], "吉利蛋": [{name:"抓",dmg:26,desc:"26傷"}, {name:"精神強念",dmg:18,chance:0.3,buff:0.2,desc:"18傷,30%攻+20%"}, {name:"撞擊",dmg:24,desc:"24傷"}], "幸福蛋": [{name:"抓",dmg:26,desc:"26傷"}, {name:"精神強念",dmg:18,chance:0.3,buff:0.2,desc:"18傷,30%攻+20%"}, {name:"撞擊",dmg:24,desc:"24傷"}], "拉普拉斯": [{name:"水槍",dmg:14,chance:0.5,heal:0.15,desc:"14傷,50%回15%血"}, {name:"水流噴射",dmg:18,chance:0.3,buff:0.2,desc:"18傷,30%攻+20%"}, {name:"冰凍光束",dmg:26,desc:"26傷"}], "快龍": [{name:"抓",dmg:26,desc:"26傷"}, {name:"逆鱗",dmg:28,desc:"28傷"}, {name:"勇鳥猛攻",dmg:36,selfDmg:0.15,desc:"36傷,自損15%"}], "超夢": [{name:"念力",dmg:14,chance:0.5,heal:0.15,desc:"14傷,50%回15%血"}, {name:"精神強念",dmg:18,chance:0.3,buff:0.2,desc:"18傷,30%攻+20%"}, {name:"精神擊破",dmg:28,desc:"28傷"}], "default": [{name:"撞擊",dmg:24,desc:"24傷"}] };
     const WILD_MOVES = { "小拉達": [{name:"抓",dmg:26},{name:"出奇一擊",dmg:26},{name:"撞擊",dmg:24}], "波波": [{name:"抓",dmg:26},{name:"啄",dmg:24},{name:"燕返",dmg:26}], "烈雀": [{name:"抓",dmg:26},{name:"啄",dmg:24},{name:"燕返",dmg:26}], "阿柏蛇": [{name:"毒針",dmg:14,chance:0.5,buff:0.2},{name:"毒擊",dmg:26},{name:"緊束",dmg:24}], "瓦斯彈": [{name:"毒針",dmg:14,chance:0.5,buff:0.2},{name:"撞擊",dmg:24}], "海星星": [{name:"水槍",dmg:14,chance:0.5,heal:0.15},{name:"幻象光線",dmg:26},{name:"撞擊",dmg:24}], "角金魚": [{name:"水槍",dmg:14,chance:0.5,heal:0.15},{name:"幻象光線",dmg:26},{name:"泥巴射擊",dmg:18,chance:0.3,buff:0.2}], "走路草": [{name:"種子炸彈",dmg:26},{name:"撞擊",dmg:24},{name:"毒擊",dmg:26}], "穿山鼠": [{name:"抓",dmg:26},{name:"泥巴射擊",dmg:18,chance:0.3,buff:0.2},{name:"泥巴炸彈",dmg:26}], "蚊香勇士": [{name:"雙倍奉還",dmg:28},{name:"冰凍光束",dmg:26},{name:"水槍",dmg:14}], "小磁怪": [{name:"電擊",dmg:18},{name:"放電",dmg:26},{name:"撞擊",dmg:24}], "卡拉卡拉": [{name:"泥巴射擊",dmg:18},{name:"泥巴炸彈",dmg:26},{name:"挖洞",dmg:16}], "喵喵": [{name:"抓",dmg:26},{name:"出奇一擊",dmg:26},{name:"撞擊",dmg:24}], "瑪瑙水母": [{name:"水槍",dmg:14},{name:"水流尾",dmg:26},{name:"緊束",dmg:24}], "暴鯉龍": [{name:"水槍",dmg:14},{name:"水流尾",dmg:26},{name:"逆鱗",dmg:28}] };
     const ALL_POKEMON = { "妙蛙種子":{img:"https://img.pokemondb.net/artwork/large/bulbasaur.jpg"}, "小火龍":{img:"https://img.pokemondb.net/artwork/large/charmander.jpg"}, "傑尼龜":{img:"https://img.pokemondb.net/artwork/large/squirtle.jpg"}, "妙蛙花":{img:"https://img.pokemondb.net/artwork/large/venusaur.jpg"}, "噴火龍":{img:"https://img.pokemondb.net/artwork/large/charizard.jpg"}, "水箭龜":{img:"https://img.pokemondb.net/artwork/large/blastoise.jpg"}, "毛辮羊":{img:"https://img.pokemondb.net/artwork/large/wooloo.jpg"}, "皮卡丘":{img:"https://img.pokemondb.net/artwork/large/pikachu.jpg"}, "伊布":{img:"https://img.pokemondb.net/artwork/large/eevee.jpg"}, "胖丁":{img:"https://img.pokemondb.net/artwork/large/jigglypuff.jpg"}, "皮皮":{img:"https://img.pokemondb.net/artwork/large/clefairy.jpg"}, "波波":{img:"https://img.pokemondb.net/artwork/large/pidgey.jpg"}, "海星星":{img:"https://img.pokemondb.net/artwork/large/staryu.jpg"}, "大蔥鴨":{img:"https://img.pokemondb.net/artwork/large/farfetchd.jpg"}, "呆呆獸":{img:"https://img.pokemondb.net/artwork/large/slowpoke.jpg"}, "可達鴨":{img:"https://img.pokemondb.net/artwork/large/psyduck.jpg"}, "卡比獸":{img:"https://img.pokemondb.net/artwork/large/snorlax.jpg"}, "吉利蛋":{img:"https://img.pokemondb.net/artwork/large/chansey.jpg"}, "幸福蛋":{img:"https://img.pokemondb.net/artwork/large/blissey.jpg"}, "拉普拉斯":{img:"https://img.pokemondb.net/artwork/large/lapras.jpg"}, "快龍":{img:"https://img.pokemondb.net/artwork/large/dragonite.jpg"}, "超夢":{img:"https://img.pokemondb.net/artwork/large/mewtwo.jpg"} };
 
     createApp({
         setup() {
-            // Helper Functions
+            // ... (Helper Functions 保持不變)
             const showFloatingDamage = (id, val, crit, heal) => { const el = document.createElement('div'); el.className = 'floating-damage'; el.innerText = heal ? `+${val}` : (crit ? `💥 ${val}` : `-${val}`); const targetEl = document.getElementById(id); if (targetEl) { const rect = targetEl.getBoundingClientRect(); el.style.left = rect.left + 50 + 'px'; el.style.top = rect.top + 'px'; if(crit) el.style.color='red'; if(heal) el.style.color='green'; document.body.appendChild(el); setTimeout(() => el.remove(), 2000); } };
             const calculateRealDamage = (attackerAtk, moveDmg) => { const dmg = moveDmg || 0; const base = (attackerAtk / 100) * dmg; return Math.floor(base * (0.95 + Math.random() * 0.1)); };
             const calculateDisplayDmg = (atk, moveDmg) => Math.floor((atk / 100) * (moveDmg || 0));
 
-            // State
             const user = ref(null); const token = localStorage.getItem('token');
             const monsters = ref([]); const players = ref([]); const quests = ref([]);
+            const friends = ref([]); const friendRequests = ref([]); // 🔥 新增
             const currentTab = ref('wild');
             const battleState = ref({ isActive: false, isActionProcessing: false, mode: 'wild', target: null, turn: 'player', timer: 10, defenseCount: 2, isDefending: false, winner: null, shakeMe: false, shakeTarget: false, buffs: { me: 0, target: 0 }, leechSeed: { onMe: false, onTarget: false }, turnCount: 0 });
             const inviteState = ref({ show: false, senderId: null, senderName: '' });
@@ -351,7 +364,6 @@
                 ]
             };
 
-            // Computed
             const myMoves = computed(() => user.value ? (MOVES_DB[user.value.pokemon_name] || MOVES_DB['default']) : []);
             const isMyTurn = computed(() => battleState.value.turn === 'player' && !battleState.value.winner);
             const petXpPercent = (u) => Math.min(100, (u.pet_exp / (u.next_pet_level_exp || 9999)) * 100);
@@ -380,6 +392,7 @@
                 if(n=='wild') await fetchMonsters(); 
                 if(n=='arena') await fetchPlayers(); 
                 if(n=='quest') await fetchQuests(); 
+                if(n=='social') await fetchSocialData(); // 🔥 自動讀取好友
             });
 
             const updateUserInfo = async () => { 
@@ -393,6 +406,28 @@
                     }
                 } catch(e) { console.error(e); } 
             };
+            
+            // 🔥 Social API 🔥
+            const fetchSocialData = async () => {
+                try {
+                    const res1 = await fetch(`${API_URL}/social/list`, { headers: { 'Authorization': `Bearer ${token}` } });
+                    if(res1.ok) friends.value = await res1.json();
+                    
+                    const res2 = await fetch(`${API_URL}/social/requests`, { headers: { 'Authorization': `Bearer ${token}` } });
+                    if(res2.ok) friendRequests.value = await res2.json();
+                } catch(e) { console.error(e); }
+            };
+            const addFriend = async (uid) => {
+                const res = await fetch(`${API_URL}/social/add/${uid}`, { method: 'POST', headers: { 'Authorization': `Bearer ${token}` } });
+                const d = await res.json();
+                alert(d.message);
+            };
+            const respondFriendRequest = async (reqId, accept) => {
+                const action = accept ? 'accept' : 'reject';
+                const res = await fetch(`${API_URL}/social/${action}/${reqId}`, { method: 'POST', headers: { 'Authorization': `Bearer ${token}` } });
+                if(res.ok) { fetchSocialData(); alert(accept ? "已接受" : "已拒絕"); }
+            };
+
             const fetchMonsters = async () => { try { const lv = selectedWildLevel.value || 1; const res = await fetch(`${API_URL}/items/wild?level=${lv}`, { headers: { 'Authorization': `Bearer ${token}` } }); if(res.ok) monsters.value = await res.json(); } catch(e) { console.error(e); } };
             const fetchPlayers = async () => { try { const res = await fetch(`${API_URL}/auth/all`); if(res.ok) { const data = await res.json(); players.value = data.filter(u => u.id !== user.value?.id).sort((a,b) => b.is_online - a.is_online); } } catch(e) { console.error(e); } };
             const fetchQuests = async () => { 
@@ -466,9 +501,9 @@
             const startTimer = () => { clearInterval(timerInterval); battleState.value.timer = 10; timerInterval = setInterval(() => { if (!battleState.value.isActive) { clearInterval(timerInterval); return; } battleState.value.timer--; if (battleState.value.timer <= 0) { clearInterval(timerInterval); if(battleState.value.mode === 'wild') { battleState.value.turn = 'enemy'; setTimeout(executeEnemyTurn, 1000); } else { fetch(`${API_URL.replace('/items', '')}/shop/pvp/${battleState.value.target.id}`, { method: 'POST', headers: { 'Authorization': `Bearer ${token}` } }); battleState.value.turn = 'enemy'; } } }, 1000); };
             const checkWinCondition = () => { if (battleState.value.target.hp <= 0) { battleState.value.winner = 'player'; return true; } if (user.value.hp <= 0) { battleState.value.winner = 'enemy'; return true; } return false; };
             const connectWebSocket = () => { socket = new WebSocket(`${WS_URL}?token=${token}`); socket.onopen = () => setInterval(() => socket.readyState===1 && socket.send("ping"), 30000); socket.onmessage = (e) => { const msg = e.data; const parts = msg.split("|"); if (msg.startsWith("📢")) addLog(msg); if (msg.startsWith("EVENT:DUEL_INVITE") && parseInt(parts[3]) === user.value.id) inviteState.value = { show: true, senderId: parts[1], senderName: parts[2] }; if (msg.startsWith("EVENT:DUEL_START")) { const p1=parseInt(parts[1]), p2=parseInt(parts[3]), first=parseInt(parts[5]); if(user.value.id===p1 || user.value.id===p2) { inviteState.value.show = false; const oppId = user.value.id===p1 ? p2 : p1; fetchPlayers().then(() => { const opp = players.value.find(p=>p.id===oppId); if(opp) { initBattle(opp, 'pvp'); battleState.value.turn = user.value.id===first?'player':'enemy'; if(battleState.value.turn==='player') startTimer(); } }); } } if (msg.startsWith("EVENT:PVP_MOVE")) { const targetId = parseInt(parts[2]); if (battleState.value.isActive && user.value.id === targetId) { fetchPlayers().then(() => { const opp = players.value.find(p => p.id === parseInt(parts[1])); if(opp) battleState.value.target.hp = opp.hp; const me = players.value.find(p => p.id === user.value.id); if(me) user.value.hp = me.hp; if(!checkWinCondition()) { battleState.value.turn = 'player'; startTimer(); } }); } } fetchMonsters(); fetchPlayers(); updateUserInfo(); fetchQuests(); }; };
-            watch(currentTab, async (n) => { if(n=='wild') await fetchMonsters(); if(n=='arena') await fetchPlayers(); if(n=='quest') await fetchQuests(); });
+            watch(currentTab, async (n) => { if(n=='wild') await fetchMonsters(); if(n=='arena') await fetchPlayers(); if(n=='quest') await fetchQuests(); if(n=='social') await fetchSocialData(); });
 
-            return { user, monsters, players, quests, inventory, currentTab, battleState, myMoves, isMyTurn, inviteState, gachaResult, ALL_POKEMON, hpPercent, petXpPercent, playerXpPercent, logout, initBattle, executePlayerMove, executeDefense, endBattle, playGacha, buyHeal, sendInvite, respondInvite, confirmSwap, swapFromDex, isUnlocked, isGachaAnimating, acceptQuest, claimQuest, abandonQuest, selectedWildLevel, fetchMonsters, currentAtkMe, currentAtkTarget, calculateDisplayDmg, showLevelUp, getMoveClass, logs, isQuestLoading, rateState, gachaRates, collectionPercent };
+            return { user, monsters, players, quests, friends, friendRequests, inventory, currentTab, battleState, myMoves, isMyTurn, inviteState, gachaResult, ALL_POKEMON, hpPercent, petXpPercent, playerXpPercent, logout, initBattle, executePlayerMove, executeDefense, endBattle, playGacha, buyHeal, sendInvite, respondInvite, confirmSwap, swapFromDex, isUnlocked, isGachaAnimating, acceptQuest, claimQuest, abandonQuest, addFriend, respondFriendRequest, selectedWildLevel, fetchMonsters, currentAtkMe, currentAtkTarget, calculateDisplayDmg, showLevelUp, getMoveClass, logs, isQuestLoading, rateState, gachaRates, collectionPercent };
         }
     }).mount('#app');
 </script>
