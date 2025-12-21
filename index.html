@@ -6,7 +6,7 @@
     <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate" />
     <meta http-equiv="Pragma" content="no-cache" />
     <meta http-equiv="Expires" content="0" />
-    <title>⚡️ 寶可夢大亂鬥 V32 ⚡️</title>
+    <title>⚡️ 寶可夢大亂鬥 (V33 公平備戰版) ⚡️</title>
     <script src="https://unpkg.com/vue@3/dist/vue.global.js"></script>
     
     <style>
@@ -103,12 +103,12 @@
             background: rgba(22, 33, 62, 0.95);
             border-top: 3px solid #f1c40f;
             padding: 15px; z-index: 6000;
-            display: flex; justify-content: space-between; align-items: center;
+            display: flex; justify-content: center; align-items: center;
             box-shadow: 0 -5px 15px rgba(0,0,0,0.5);
             animation: slideUp 0.3s;
         }
-        .lobby-info { font-size: 1.2em; font-weight: bold; color: #fff; }
-        .lobby-timer { font-size: 1.5em; color: #f1c40f; font-family: monospace; border: 2px solid #f1c40f; padding: 2px 10px; border-radius: 5px; margin: 0 10px; }
+        .lobby-info { font-size: 1.2em; font-weight: bold; color: #fff; margin-right: 20px; }
+        .lobby-timer { font-size: 2em; color: #f1c40f; font-family: monospace; border: 2px solid #f1c40f; padding: 5px 15px; border-radius: 10px; }
         
         @keyframes slideUp { from { transform: translateY(100%); } to { transform: translateY(0); } }
         @keyframes floatUp { 0% { transform: translateY(0); opacity: 1; } 100% { transform: translateY(-80px); opacity: 0; } }
@@ -137,10 +137,7 @@
                 ⚠️ 戰鬥準備中...
                 <span style="font-size:0.8em; color:#aaa; display:block;">請盡快更換出戰寶可夢</span>
             </div>
-            <div style="display:flex; align-items:center;">
-                <div class="lobby-timer">⏱️ {{ lobbyTimer }}s</div>
-                <button class="btn-yes" style="padding: 10px 20px;" @click="skipLobby">立即開打</button>
-            </div>
+            <div class="lobby-timer">⏱️ {{ lobbyTimer }}s</div>
         </div>
 
         <div class="navbar">
@@ -178,10 +175,10 @@
         
         <div v-if="newsState.show" class="modal-overlay">
             <div class="modal-box" style="text-align:left;">
-                <div class="modal-title" style="text-align:center;">📢 V32 更新公告</div>
+                <div class="modal-title" style="text-align:center;">📢 V33 更新公告</div>
                 <ul>
-                    <li><b>⚡️ 即時換角</b>：在備戰期間換寶可夢，對手現在會馬上看到您的新陣容！</li>
-                    <li><b>⏳ 備戰優化</b>：倒數計時現在位於底部，您可以在備戰期間自由操作。</li>
+                    <li><b>⏳ 公平備戰</b>：PVP 現在必須等待完整的 15 秒備戰時間。</li>
+                    <li><b>⚡️ 即時換角</b>：在備戰期間換寶可夢，對手會馬上看到您的新陣容！</li>
                     <li><b>⚔️ 戰鬥優化</b>：對戰時能即時看到對手攻擊力變化。</li>
                 </ul>
                 <button class="btn-yes" style="width:100%; margin-top:15px;" @click="closeNews">我知道了</button>
@@ -268,7 +265,7 @@
             </div>
         </div>
 
-        <div class="tabs" v-if="!battleState.isActive">
+        <div class="tabs" v-if="!battleState.isActive && !inLobby">
             <button class="tab-btn" @click="currentTab='wild'" :class="{active: currentTab=='wild'}">🌲 野外</button>
             <button class="tab-btn" @click="currentTab='arena'" :class="{active: currentTab=='arena'}">🏟️ 競技</button>
             <button class="tab-btn" @click="currentTab='rank'" :class="{active: currentTab=='rank'}">🏆 排行</button>
@@ -282,7 +279,7 @@
             </button>
         </div>
 
-        <div class="game-area" v-if="!battleState.isActive">
+        <div class="game-area" v-if="!battleState.isActive && !inLobby">
             <div v-if="currentTab === 'wild'" style="width:100%">
                 <div class="level-selector"><label>⚔️ 選擇難度：</label><select v-model="selectedWildLevel" @change="fetchMonsters" style="margin-bottom:10px; padding:5px;"><option v-for="n in user.level" :value="n">Lv. {{ n }}</option></select></div>
                 <div class="card-grid"><div v-for="m in monsters" :key="m.id" class="card"><img :src="m.image_url" class="card-img"><div class="card-body"><b>{{ m.name }}</b><br><small>XP:{{m.xp}} G:{{m.gold}}</small><br><button class="btn-action" @click="initBattle(m, 'wild')">戰鬥</button></div></div></div>
@@ -474,13 +471,7 @@
             
             watch(() => user.value?.level, (newLv, oldLv) => { if(oldLv && newLv > oldLv) { showLevelUp.value = true; setTimeout(() => showLevelUp.value = false, 3000); } });
             
-            watch(currentTab, async (n) => { 
-                if(n=='wild') await fetchMonsters(); 
-                if(n=='arena') await fetchPlayers(); 
-                if(n=='quest') await fetchQuests(); 
-                if(n=='social') await fetchSocialData(); 
-                if(n=='rank') await fetchLeaderboard(); 
-            });
+            watch(currentTab, async (n) => { if(n=='wild') await fetchMonsters(); if(n=='arena') await fetchPlayers(); if(n=='quest') await fetchQuests(); if(n=='social') await fetchSocialData(); if(n=='rank') await fetchLeaderboard(); });
 
             const closeNews = () => { newsState.value.show = false; sessionStorage.setItem('seenNews_v30', 'true'); };
 
