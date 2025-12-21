@@ -1,6 +1,6 @@
 # app/routers/shop.py
 
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.orm import Session
 from typing import Dict, Tuple
 import random
@@ -13,7 +13,7 @@ from app.common.websocket import manager
 
 router = APIRouter()
 
-# 資料庫與扭蛋池 (保持最新版 V22)
+# (POKEDEX_DATA, GACHA Lists 保持不變，為節省篇幅省略，請保留原有的)
 POKEDEX_DATA = {
     "妙蛙種子": {"hp": 130, "atk": 112, "img": "https://img.pokemondb.net/artwork/large/bulbasaur.jpg"},
     "小火龍": {"hp": 112, "atk": 130, "img": "https://img.pokemondb.net/artwork/large/charmander.jpg"},
@@ -68,11 +68,7 @@ GACHA_GOLDEN = [
 
 ACTIVE_BATTLES = {}
 
-# 🔥 複製升級邏輯，以便在抽到重複怪時能即時觸發升級 🔥
-LEVEL_XP = { 
-    1: 50, 2: 150, 3: 300, 4: 500, 5: 800, 
-    6: 1300, 7: 2000, 8: 3000, 9: 5000 
-}
+LEVEL_XP = { 1: 50, 2: 150, 3: 300, 4: 500, 5: 800, 6: 1300, 7: 2000, 8: 3000, 9: 5000 }
 def get_req_xp(lv):
     if lv >= 25: return 999999999
     if lv < 10: return LEVEL_XP.get(lv, 5000)
@@ -80,14 +76,12 @@ def get_req_xp(lv):
 
 async def check_levelup_dual(user: User):
     msg_list = []
-    # 1. 訓練師升級
     req_xp_player = get_req_xp(user.level)
     if user.exp >= req_xp_player and user.level < 25:
         user.level += 1
         user.exp -= req_xp_player
         msg_list.append(f"訓練師升級(Lv.{user.level})")
         await manager.broadcast(f"📢 恭喜玩家 [{user.username}] 提升到了 訓練師等級 {user.level}！")
-    # 2. 寶可夢升級
     if (user.pet_level < user.level or (user.level == 1 and user.pet_level == 1)) and user.pet_level < 25:
         req_xp_pet = get_req_xp(user.pet_level)
         while user.pet_exp >= req_xp_pet:
@@ -105,7 +99,6 @@ async def check_levelup_dual(user: User):
 @router.post("/gacha/{gacha_type}")
 async def play_gacha(gacha_type: str, db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
     inventory = json.loads(current_user.inventory) if current_user.inventory else {}
-    
     if gacha_type == 'normal':
         pool = GACHA_NORMAL; cost = 1500
         if current_user.money < cost: raise HTTPException(status_code=400, detail="金幣不足")
@@ -130,21 +123,17 @@ async def play_gacha(gacha_type: str, db: Session = Depends(get_db), current_use
         raise HTTPException(status_code=400, detail="未知類型")
     
     current_user.inventory = json.dumps(inventory)
-
     r = random.randint(1, 100)
     acc = 0
     prize_name = pool[0]["name"]
     for p in pool:
         acc += p["rate"]
-        if r <= acc:
-            prize_name = p["name"]
-            break
+        if r <= acc: prize_name = p["name"]; break
             
     unlocked = current_user.unlocked_monsters.split(',') if current_user.unlocked_monsters else []
     storage = json.loads(current_user.pokemon_storage) if current_user.pokemon_storage else {}
     is_new = False
     
-    # 🔥 重複獲得邏輯更新 🔥
     if prize_name not in unlocked:
         unlocked.append(prize_name)
         current_user.unlocked_monsters = ",".join(unlocked)
@@ -152,16 +141,10 @@ async def play_gacha(gacha_type: str, db: Session = Depends(get_db), current_use
         is_new = True
         msg = f"獲得新夥伴 {prize_name}!"
     else:
-        # 重複獲得，加 500 XP
-        if prize_name in storage:
-            storage[prize_name]["exp"] = storage[prize_name].get("exp", 0) + 500
-        else:
-            storage[prize_name] = {"lv": 1, "exp": 500}
-            
+        if prize_name in storage: storage[prize_name]["exp"] = storage[prize_name].get("exp", 0) + 500
+        else: storage[prize_name] = {"lv": 1, "exp": 500}
         is_new = False
         msg = f"獲得 {prize_name} (重複)！經驗值 +500"
-        
-        # 如果是當前出戰的寶可夢，同步加到 pet_exp 並檢查升級
         if current_user.pokemon_name == prize_name:
             current_user.pet_exp += 500
             lvl_msg = await check_levelup_dual(current_user)
@@ -171,7 +154,6 @@ async def play_gacha(gacha_type: str, db: Session = Depends(get_db), current_use
     db.commit()
     prize_data = POKEDEX_DATA.get(prize_name, {"img": ""})
     
-    # 廣播稀有獲得
     if is_new and (gacha_type == 'golden' or prize_name in ['快龍', '超夢', '拉普拉斯', '幸福蛋']):
         await manager.broadcast(f"🎰 恭喜 [{current_user.username}] 在{msg_type}扭蛋中獲得了稀有的 [{prize_name}]！")
         
@@ -185,24 +167,20 @@ async def swap_pokemon(target_name: str, db: Session = Depends(get_db), current_
         else: raise HTTPException(status_code=400, detail="未解鎖")
     
     base_data = POKEDEX_DATA.get(target_name)
-    
     old_name = current_user.pokemon_name
     if old_name in storage:
         storage[old_name]["lv"] = current_user.pet_level
         storage[old_name]["exp"] = current_user.pet_exp
-    
     new_stats = storage[target_name]
     current_user.pet_level = new_stats["lv"]
     current_user.pet_exp = new_stats["exp"]
     current_user.pokemon_name = target_name
     current_user.pokemon_image = base_data["img"]
     current_user.pokemon_storage = json.dumps(storage)
-
     lv = current_user.pet_level
     current_user.max_hp = int(base_data["hp"] * (1.08 ** (lv - 1)))
     current_user.hp = current_user.max_hp
     current_user.attack = int(base_data["atk"] * (1.06 ** (lv - 1)))
-    
     db.commit()
     return {"message": f"變身為 {target_name}!", "user": current_user}
 
@@ -239,18 +217,32 @@ async def reject_duel(target_id: int, db: Session = Depends(get_db), current_use
     await manager.broadcast(msg)
     return {"message": "已拒絕"}
 
-@router.post("/pvp/{target_id}")
-async def pvp_attack(target_id: int, db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
-    battle_key = tuple(sorted((current_user.id, target_id)))
-    if battle_key not in ACTIVE_BATTLES: ACTIVE_BATTLES[battle_key] = {"turn": current_user.id}
-    if ACTIVE_BATTLES[battle_key]["turn"] != current_user.id: raise HTTPException(status_code=400, detail="還沒輪到你！")
-    ACTIVE_BATTLES[battle_key]["turn"] = target_id
-    msg = f"EVENT:PVP_MOVE|{current_user.id}|{target_id}"
-    await manager.broadcast(msg)
-    return {"message": "攻擊成功"}
-
 @router.post("/duel/end/{target_id}")
 async def end_duel_api(target_id: int, current_user: User = Depends(get_current_user)):
     battle_key = tuple(sorted((current_user.id, target_id)))
     if battle_key in ACTIVE_BATTLES: del ACTIVE_BATTLES[battle_key]
     return {"message": "戰鬥結束"}
+
+# 🔥 修正 PVP 回血 BUG 🔥
+# 這裡接收 damage 參數，並真實更新資料庫
+@router.post("/pvp/{target_id}")
+async def pvp_attack(
+    target_id: int, 
+    damage: int = Query(0), # 接收傷害值
+    db: Session = Depends(get_db), 
+    current_user: User = Depends(get_current_user)
+):
+    battle_key = tuple(sorted((current_user.id, target_id)))
+    if battle_key not in ACTIVE_BATTLES: ACTIVE_BATTLES[battle_key] = {"turn": current_user.id}
+    if ACTIVE_BATTLES[battle_key]["turn"] != current_user.id: raise HTTPException(status_code=400, detail="還沒輪到你！")
+    
+    # 真實扣血
+    target = db.query(User).filter(User.id == target_id).first()
+    if target:
+        target.hp = max(0, target.hp - damage)
+        db.commit() # 存檔
+    
+    ACTIVE_BATTLES[battle_key]["turn"] = target_id
+    msg = f"EVENT:PVP_MOVE|{current_user.id}|{target_id}|{damage}" # 廣播包含傷害
+    await manager.broadcast(msg)
+    return {"message": "攻擊成功"}
