@@ -42,32 +42,12 @@ POKEDEX_DATA = {
     "夢幻":   {"hp": 155, "atk": 150, "img": "https://img.pokemondb.net/artwork/large/mew.jpg"}
 }
 
-# 扭蛋池定義
+# 扭蛋池
 GACHA_NORMAL = [{"name": "妙蛙種子", "rate": 5}, {"name": "小火龍", "rate": 5}, {"name": "傑尼龜", "rate": 5}, {"name": "伊布", "rate": 8}, {"name": "皮卡丘", "rate": 8}, {"name": "皮皮", "rate": 10}, {"name": "胖丁", "rate": 10}, {"name": "毛辮羊", "rate": 8}, {"name": "大蔥鴨", "rate": 12}, {"name": "呆呆獸", "rate": 12}, {"name": "可達鴨", "rate": 12}, {"name": "卡比獸", "rate": 2}, {"name": "吉利蛋", "rate": 2}]
 GACHA_MEDIUM = [{"name": "妙蛙種子", "rate": 10}, {"name": "小火龍", "rate": 10}, {"name": "傑尼龜", "rate": 10}, {"name": "伊布", "rate": 10}, {"name": "皮卡丘", "rate": 10}, {"name": "呆呆獸", "rate": 10}, {"name": "可達鴨", "rate": 10}, {"name": "毛辮羊", "rate": 10}, {"name": "卡比獸", "rate": 5}, {"name": "吉利蛋", "rate": 3}, {"name": "拉普拉斯", "rate": 3}, {"name": "妙蛙花", "rate": 3}, {"name": "噴火龍", "rate": 3}, {"name": "水箭龜", "rate": 3}]
-
-# 🔥 更新：高級扭蛋池 (10000G) 🔥
-GACHA_HIGH = [
-    {"name": "卡比獸", "rate": 20}, 
-    {"name": "吉利蛋", "rate": 24}, 
-    {"name": "幸福蛋", "rate": 10}, 
-    {"name": "拉普拉斯", "rate": 10}, 
-    {"name": "妙蛙花", "rate": 10}, 
-    {"name": "噴火龍", "rate": 10}, 
-    {"name": "水箭龜", "rate": 10}, 
-    {"name": "快龍", "rate": 6}
-]
-
+GACHA_HIGH = [{"name": "卡比獸", "rate": 20}, {"name": "吉利蛋", "rate": 24}, {"name": "幸福蛋", "rate": 10}, {"name": "拉普拉斯", "rate": 10}, {"name": "妙蛙花", "rate": 10}, {"name": "噴火龍", "rate": 10}, {"name": "水箭龜", "rate": 10}, {"name": "快龍", "rate": 6}] 
 GACHA_CANDY = [{"name": "伊布", "rate": 20}, {"name": "皮卡丘", "rate": 20}, {"name": "妙蛙花", "rate": 10}, {"name": "噴火龍", "rate": 10}, {"name": "水箭龜", "rate": 10}, {"name": "卡比獸", "rate": 10}, {"name": "吉利蛋", "rate": 10}, {"name": "幸福蛋", "rate": 4}, {"name": "拉普拉斯", "rate": 3}, {"name": "快龍", "rate": 3}]
-
-# 🔥 更新：黃金扭蛋池 (3 Golden Candy) 🔥
-GACHA_GOLDEN = [
-    {"name": "卡比獸", "rate": 30}, 
-    {"name": "吉利蛋", "rate": 35}, 
-    {"name": "幸福蛋", "rate": 20}, 
-    {"name": "拉普拉斯", "rate": 10}, 
-    {"name": "快龍", "rate": 5}
-]
+GACHA_GOLDEN = [{"name": "卡比獸", "rate": 30}, {"name": "吉利蛋", "rate": 35}, {"name": "幸福蛋", "rate": 20}, {"name": "拉普拉斯", "rate": 10}, {"name": "快龍", "rate": 5}]
 
 ACTIVE_BATTLES = {}
 RAID_STATE = {"boss_name": None, "hp": 0, "max_hp": 0, "active": False, "players": {}}
@@ -84,6 +64,126 @@ def apply_iv_stats(base_val, iv, level, is_player=True):
     if base_val > 500: growth = 1.08 if is_player else 1.09
     return int(base_val * iv_mult * (growth ** (level - 1)))
 
+# ---------------- 任務系統 (Quests) ----------------
+
+def generate_quests(user_level):
+    new_quests = []
+    # 簡單邏輯：根據等級決定目標數量與獎勵
+    base_req = max(1, user_level)
+    
+    # 任務 1: 打野怪
+    q1 = {
+        "id": str(uuid.uuid4()),
+        "type": "NORMAL",
+        "target": "野怪",
+        "target_lv": user_level,
+        "req": base_req * 2,
+        "now": 0,
+        "gold": base_req * 100,
+        "xp": base_req * 50,
+        "status": "WAITING"
+    }
+    
+    # 任務 2: 黃金任務 (低機率)
+    is_golden = random.random() < 0.2
+    q2 = {
+        "id": str(uuid.uuid4()),
+        "type": "GOLDEN" if is_golden else "NORMAL",
+        "target": "野怪",
+        "target_lv": user_level + 1,
+        "req": base_req * 3,
+        "now": 0,
+        "gold": 0 if is_golden else base_req * 150,
+        "xp": 0 if is_golden else base_req * 80,
+        "status": "WAITING"
+    }
+    
+    new_quests.append(q1)
+    new_quests.append(q2)
+    return new_quests
+
+@router.get("/quests/")
+def get_quests(db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
+    quests = json.loads(current_user.quests) if current_user.quests else []
+    
+    # 如果沒任務或全領完了，補新的
+    active_or_waiting = [q for q in quests if q["status"] in ["ACTIVE", "WAITING", "COMPLETED"]]
+    if not active_or_waiting:
+        quests = generate_quests(current_user.level)
+        current_user.quests = json.dumps(quests)
+        db.commit()
+        
+    return quests
+
+@router.post("/quests/accept/{qid}")
+def accept_quest(qid: str, db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
+    quests = json.loads(current_user.quests)
+    for q in quests:
+        if q["id"] == qid and q["status"] == "WAITING":
+            q["status"] = "ACTIVE"
+            current_user.quests = json.dumps(quests)
+            db.commit()
+            return {"message": "任務已接受"}
+    raise HTTPException(status_code=400, detail="無法接受此任務")
+
+@router.post("/quests/abandon/{qid}")
+def abandon_quest(qid: str, db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
+    # V2.0 規則：刪除任務花 1000 Gold
+    if current_user.money < 1000: raise HTTPException(status_code=400, detail="刪除任務需 1000 Gold")
+    
+    quests = json.loads(current_user.quests)
+    new_quests = [q for q in quests if q["id"] != qid]
+    
+    if len(new_quests) == len(quests): raise HTTPException(status_code=404, detail="找不到任務")
+    
+    current_user.money -= 1000
+    
+    # 補一個新任務
+    base_req = max(1, current_user.level)
+    new_q = {
+        "id": str(uuid.uuid4()), "type": "NORMAL", "target": "野怪",
+        "target_lv": current_user.level, "req": base_req * 2, "now": 0,
+        "gold": base_req * 100, "xp": base_req * 50, "status": "WAITING"
+    }
+    new_quests.append(new_q)
+    
+    current_user.quests = json.dumps(new_quests)
+    db.commit()
+    return {"message": "任務已刪除並刷新 (-1000G)"}
+
+@router.post("/quests/claim/{qid}")
+def claim_quest(qid: str, db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
+    quests = json.loads(current_user.quests)
+    inv = json.loads(current_user.inventory)
+    
+    target_q = None
+    for q in quests:
+        if q["id"] == qid and q["status"] == "COMPLETED":
+            target_q = q
+            break
+    
+    if not target_q: raise HTTPException(status_code=400, detail="無法領取")
+    
+    msg = ""
+    if target_q["type"] == "GOLDEN":
+        inv["golden_candy"] = inv.get("golden_candy", 0) + 1
+        msg = "獲得 ✨ 黃金糖果 x1"
+    else:
+        current_user.money += target_q["gold"]
+        current_user.exp += target_q["xp"]
+        current_user.pet_exp += target_q["xp"]
+        msg = f"獲得 {target_q['gold']}G, {target_q['xp']} XP"
+        
+    # 移除已完成任務
+    quests = [q for q in quests if q["id"] != qid]
+    
+    current_user.quests = json.dumps(quests)
+    current_user.inventory = json.dumps(inv)
+    db.commit()
+    return {"message": msg}
+
+# ---------------------------------------------------
+
 @router.post("/gacha/{gacha_type}")
 async def play_gacha(gacha_type: str, db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
     box = json.loads(current_user.pokemon_storage)
@@ -99,7 +199,6 @@ async def play_gacha(gacha_type: str, db: Session = Depends(get_db), current_use
     elif gacha_type == 'golden': pool = GACHA_GOLDEN; cost = 3
     else: raise HTTPException(status_code=400, detail="未知類型")
 
-    # 扣款
     if gacha_type in ['candy', 'golden']:
         key = "candy" if gacha_type == 'candy' else "golden_candy"
         if inventory.get(key, 0) < cost: raise HTTPException(status_code=400, detail="糖果不足")
@@ -108,7 +207,6 @@ async def play_gacha(gacha_type: str, db: Session = Depends(get_db), current_use
         if current_user.money < cost: raise HTTPException(status_code=400, detail="金幣不足")
         current_user.money -= cost
 
-    # 🔥 修正隨機邏輯：動態計算總權重，支援非100%總和 🔥
     total_rate = sum(p["rate"] for p in pool)
     r = random.randint(1, total_rate)
     acc = 0; prize_name = pool[0]["name"]
@@ -127,11 +225,11 @@ async def play_gacha(gacha_type: str, db: Session = Depends(get_db), current_use
         current_user.unlocked_monsters = ",".join(unlocked)
         
     db.commit()
-    return {"message": f"獲得 {prize_name} (IV: {new_mon['iv']})!", "prize": new_mon, "user": current_user}
+    
+    if gacha_type in ['golden', 'high'] or prize_name in ['快龍', '超夢', '夢幻', '拉普拉斯', '幸福蛋']:
+        await manager.broadcast(f"🎰 恭喜 [{current_user.username}] 獲得了稀有的 [{prize_name}]！")
 
-# (其餘所有 API：box/swap, box/action, heal, gamble, wild/encounter, wild/attack, pvp 等保持不變)
-# 為了節省篇幅，請保留您原本 shop.py 內其他的函式，它們不需要修改
-# ... (swap_active_pokemon, box_action, gamble, buy_heal, wild_encounter, wild_attack_api, pvp_attack 等) ...
+    return {"message": f"獲得 {prize_name} (IV: {new_mon['iv']})!", "prize": new_mon, "user": current_user}
 
 @router.post("/box/swap/{pokemon_uid}")
 async def swap_active_pokemon(pokemon_uid: str, db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
@@ -234,6 +332,17 @@ async def wild_attack_api(is_win: bool = Query(...), is_powerful: bool = Query(F
             inv["growth_candy"] = inv.get("growth_candy", 0) + 1
             current_user.inventory = json.dumps(inv)
             msg += " & 🍬 成長糖果 x1"
+        
+        # 🔥 更新任務進度 🔥
+        quests = json.loads(current_user.quests) if current_user.quests else []
+        quest_updated = False
+        for q in quests:
+            if q["status"] == "ACTIVE":
+                q["now"] += 1
+                if q["now"] >= q["req"]: q["status"] = "COMPLETED"
+                quest_updated = True
+        if quest_updated: current_user.quests = json.dumps(quests)
+
         box = json.loads(current_user.pokemon_storage)
         for p in box:
             if p["uid"] == current_user.active_pokemon_uid:

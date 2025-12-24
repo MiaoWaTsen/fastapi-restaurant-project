@@ -3,144 +3,206 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>⚡️ 寶可夢大亂鬥 V2.0 ⚡️</title>
+    <title>⚡️ 寶可夢大亂鬥 V2.1 (經典回歸) ⚡️</title>
     <script src="https://unpkg.com/vue@3/dist/vue.global.js"></script>
     <style>
         body { font-family: 'Segoe UI', sans-serif; background-color: #1a1a2e; color: #fff; padding: 20px; padding-bottom: 120px; user-select: none; }
         .container { max-width: 900px; margin: 0 auto; }
-        .btn-action { width: 100%; padding: 8px; margin-top: 5px; border: none; border-radius: 5px; cursor: pointer; font-weight: bold; background: #c0392b; color: white; }
-        .card { background: #0f3460; border-radius: 10px; padding: 10px; margin-bottom:10px; border: 1px solid #444; }
-        .tabs { display: flex; gap: 5px; margin-bottom: 15px; flex-wrap: wrap; }
-        .tab-btn { flex: 1; padding: 10px; background: #16213e; color: #aaa; border: 1px solid #333; cursor: pointer; }
-        .tab-btn.active { background: #e94560; color: white; border-color: #e94560; }
+        .navbar { display: flex; justify-content: space-between; align-items: center; background: #16213e; padding: 15px; border-radius: 10px; margin-bottom: 20px; border: 1px solid #0f3460; }
+        .user-info { display: flex; gap: 15px; width: 100%; }
+        .user-avatar { width: 70px; height: 70px; border-radius: 50%; border: 3px solid #f1c40f; object-fit: cover; }
+        .user-stats { flex: 1; display: flex; flex-direction: column; gap: 8px; }
+        .stat-block { background: rgba(0,0,0,0.2); padding: 5px 10px; border-radius: 5px; }
+        .stat-title { font-size: 0.9em; color: #aaa; margin-bottom: 2px; display: flex; justify-content: space-between; }
+        .bar-container { width: 100%; background: #333; height: 8px; border-radius: 4px; overflow: hidden; position: relative; }
+        .bar-fill { height: 100%; transition: width 0.3s; }
+        .hp-fill { background: linear-gradient(90deg, #e74c3c, #c0392b); } 
+        .pet-xp-fill { background: linear-gradient(90deg, #3498db, #2980b9); } 
+        .player-xp-fill { background: linear-gradient(90deg, #f1c40f, #d35400); }
+        .bar-text { font-size: 0.75em; color: #ccc; display: flex; justify-content: space-between; margin-top: 1px; }
+        .atk-val { color: #f1c40f; font-weight: bold; }
         
-        /* 戰鬥相關 */
+        .tabs { display: flex; gap: 10px; margin-bottom: 20px; flex-wrap: wrap; }
+        .tab-btn { flex: 1; padding: 12px; background: #0f3460; border: none; color: #aaa; cursor: pointer; border-radius: 8px; font-weight: bold; min-width: 80px; transition:0.2s; display:flex; flex-direction:column; align-items:center; justify-content: center; }
+        .tab-btn.active { background: #e94560; color: white; transform: translateY(-3px); }
+
+        .card-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); gap: 15px; }
+        .card { background: #0f3460; border-radius: 10px; padding: 10px; text-align: center; cursor: pointer; border: 1px solid transparent; transition:0.2s; position: relative; }
+        .card:hover { border-color: #f1c40f; transform: translateY(-5px); }
+        .card-img { width: 100%; height: 120px; object-fit: contain; background: #222; border-radius: 5px; }
+        
+        .btn-action { width: 100%; padding: 8px; margin-top: 5px; border: none; border-radius: 5px; cursor: pointer; font-weight: bold; background: #c0392b; color: white; }
+        .btn-small { width: 48%; padding: 5px; font-size: 0.9em; margin-top: 5px; border: none; border-radius: 5px; cursor: pointer; color: white; }
+        
+        /* Quest */
+        .quest-card { text-align: left; margin-bottom: 10px; border-left: 5px solid #aaa; }
+        .quest-active { border-left-color: #f1c40f; } .quest-completed { border-left-color: #2ecc71; }
+        .quest-golden { background: linear-gradient(45deg, #f1c40f, #f39c12); color: #000; border-left: 5px solid #fff; }
+
+        .box-item.active { border: 2px solid #f1c40f; }
+        .iv-tag { position: absolute; top: 5px; right: 5px; background: #f1c40f; color: black; padding: 2px 5px; border-radius: 3px; font-size: 0.7em; font-weight: bold; }
+        
         .battle-overlay { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(15, 15, 30, 0.98); z-index: 2000; padding: 20px; display: flex; flex-direction: column; align-items: center; }
-        .battle-arena { display: flex; justify-content: space-between; width: 100%; max-width: 900px; height: 300px; align-items: flex-end; }
-        .fighter { width: 45%; text-align: center; }
-        .fighter img { width: 100px; height: 100px; object-fit: contain; }
-        .bar-container { width: 100%; background: #333; height: 8px; border-radius: 4px; overflow: hidden; margin-top: 5px; }
-        .hp-fill { background: #e74c3c; height: 100%; transition: width 0.3s; }
+        .battle-arena { display: flex; justify-content: space-between; width: 100%; max-width: 800px; height: 350px; align-items: flex-end; }
+        .fighter { width: 45%; text-align: center; position: relative; transition: 0.3s; }
+        .fighter img { width: 100%; height: 200px; object-fit: contain; drop-shadow: 0 10px 10px rgba(0,0,0,0.5); }
         .shake-hit { animation: shake 0.4s; }
         @keyframes shake { 0% { transform: translateX(0); } 25% { transform: translateX(-10px); } 75% { transform: translateX(10px); } 100% { transform: translateX(0); } }
 
-        /* 聊天室 */
-        .chat-panel { position: fixed; bottom: 0; left: 0; width: 100%; height: 120px; background: rgba(0,0,0,0.9); z-index: 5000; padding: 10px; display: flex; flex-direction: column; }
-        .chat-msgs { flex: 1; overflow-y: auto; font-size: 0.9em; margin-bottom: 5px; }
-        .chat-input-area { display: flex; gap: 5px; }
+        .chat-panel { position: fixed; bottom: 0; left: 0; width: 100%; height: 100px; background: rgba(0,0,0,0.9); z-index: 5000; padding: 10px; display: flex; flex-direction: column; }
+        .chat-msgs { flex: 1; overflow-y: auto; font-size: 0.9em; margin-bottom: 5px; color: #ccc; }
         .chat-input { flex: 1; padding: 5px; border-radius: 5px; border: none; }
         
-        /* 盒子 */
-        .box-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(120px, 1fr)); gap: 10px; }
-        .box-item { background: #222; padding: 10px; border-radius: 5px; text-align: center; border: 2px solid transparent; cursor: pointer; }
-        .box-item.active { border-color: #f1c40f; }
-        .iv-tag { font-size: 0.8em; color: #f1c40f; font-weight: bold; }
-        
-        /* 團體戰 */
-        .raid-boss { text-align: center; border: 2px solid #e74c3c; padding: 20px; border-radius: 10px; background: #2c0b0e; }
-        .raid-hp { height: 20px; background: #555; border-radius: 10px; overflow: hidden; margin: 10px 0; }
-        .raid-hp-fill { height: 100%; background: #e74c3c; transition: width 0.5s; }
+        .lobby-bar { position: fixed; bottom: 100px; left: 0; width: 100%; background: rgba(22, 33, 62, 0.95); border-top: 3px solid #f1c40f; padding: 10px; z-index: 6000; display: flex; justify-content: center; align-items: center; }
     </style>
 </head>
 <body>
 
 <div id="app" class="container">
     <div v-if="!user" style="text-align:center; padding-top:100px;">
-        <h1 style="color:#e94560">寶可夢大亂鬥 V2.0</h1>
-        <p>請先登入 (V2.0 自動重置為 Lv.1)</p>
+        <h1 style="color:#e94560">寶可夢大亂鬥 V2.1</h1>
+        <p>經典介面回歸 + V2.0 核心</p>
         <button class="btn-action" @click="logout">前往登入頁面</button>
-        
         <br><br>
-        <button style="background:transparent; border:1px solid #aaa; color:#aaa; padding:5px 10px; cursor:pointer; border-radius:5px;" @click="initAdmin">
-            👑 初始化管理員 (僅需一次)
-        </button>
+        <button style="background:transparent; border:1px solid #aaa; color:#aaa; padding:5px;" @click="initAdmin">👑 初始化管理員</button>
     </div>
 
     <div v-else>
-        <div class="card" style="display:flex; gap:10px; align-items:center;">
-            <img :src="user.pokemon_image" style="width:60px; height:60px; border-radius:50%;">
-            <div style="flex:1;">
-                <div><b>{{ user.username }}</b> <span v-if="user.is_admin" style="color:red">[GM]</span></div>
-                <div>Lv.{{ user.level }} | 💰 {{ user.money }}</div>
-                <div>夥伴: {{ user.pokemon_name }} (IV: {{ currentPetIV }})</div>
-            </div>
-            <button style="background:#27ae60; color:white; border:none; padding:5px 10px; border-radius:5px;" @click="dailyCheckin">📅 簽到</button>
-            <button style="background:#555; color:white; border:none; padding:5px 10px; border-radius:5px;" @click="logout">登出</button>
+        <div v-if="inLobby" class="lobby-bar">
+            <span style="font-size:1.2em; margin-right:20px;">⚠️ 戰鬥準備中...</span>
+            <span style="font-size:1.5em; color:#f1c40f; font-family:monospace;">{{ lobbyTimer }}s</span>
         </div>
 
-        <div v-if="battle.active" class="battle-overlay">
+        <div class="navbar">
+            <div class="user-info">
+                <img :src="user.pokemon_image" class="user-avatar">
+                <div class="user-stats">
+                    <div class="stat-block">
+                        <div class="stat-title">
+                            <span>{{ user.username }} <span v-if="user.is_admin" style="color:red">[GM]</span> (Lv.{{ user.level }})</span>
+                            <span>💰 {{ user.money }}</span>
+                        </div>
+                        <div class="bar-container"><div class="bar-fill player-xp-fill" :style="{ width: playerXpPercent + '%' }"></div></div>
+                        <div class="bar-text"><span>Trainer XP</span><span>{{ user.exp }}/{{ user.next_level_exp }}</span></div>
+                    </div>
+
+                    <div class="stat-block">
+                        <div class="stat-title">
+                            <span>{{ user.pokemon_name }} (Lv.{{ user.pet_level }})</span>
+                            <span class="atk-val">ATK: {{ currentAtkMe }} (IV: {{ currentPetIV }})</span>
+                        </div>
+                        <div class="bar-container"><div class="bar-fill hp-fill" :style="{ width: hpPercent(user) + '%' }"></div></div>
+                        <div class="bar-text"><span>HP: {{ user.hp }}/{{ user.max_hp }}</span></div>
+                        <div class="bar-container" style="margin-top:4px;"><div class="bar-fill pet-xp-fill" :style="{ width: petXpPercent(user) + '%' }"></div></div>
+                    </div>
+                </div>
+            </div>
+            <div style="display:flex; flex-direction:column; gap:5px;">
+                <button class="btn-logout" @click="dailyCheckin">📅 簽到</button>
+                <button class="btn-logout" @click="logout">登出</button>
+            </div>
+        </div>
+
+        <div v-if="battle.active && !inLobby" class="battle-overlay">
             <h2 style="color:#f1c40f">{{ battle.mode === 'raid' ? '🔥 團體戰' : (battle.mode === 'wild' ? '🌲 野外遭遇' : '⚔️ PVP 對決') }}</h2>
             <div class="battle-arena">
                 <div class="fighter" :class="{'shake-hit': battle.shakeMe}">
                     <img :src="user.pokemon_image">
-                    <div>{{ user.pokemon_name }} (Lv.{{ user.pet_level }})</div>
-                    <div class="bar-container"><div class="hp-fill" :style="{width: (user.hp/user.max_hp)*100 + '%'}"></div></div>
+                    <div>{{ user.username }}</div>
+                    <div class="bar-container"><div class="bar-fill hp-fill" :style="{width: hpPercent(user) + '%'}"></div></div>
                     <small>{{ user.hp }}/{{ user.max_hp }}</small>
                 </div>
                 <div class="fighter" :class="{'shake-hit': battle.shakeTarget}">
                     <img :src="battle.target.image_url || battle.target.pokemon_image">
                     <div>{{ battle.target.name || battle.target.username }}</div>
-                    <div class="bar-container"><div class="hp-fill" :style="{width: (battle.target.hp/battle.target.max_hp)*100 + '%'}"></div></div>
+                    <div class="bar-container"><div class="bar-fill hp-fill" :style="{width: (battle.target.hp/battle.target.max_hp)*100 + '%'}"></div></div>
                     <small>HP: {{ battle.target.hp }}</small>
                 </div>
             </div>
             <div style="width:100%; max-width:600px; margin-top:20px; display:grid; grid-template-columns:1fr 1fr; gap:10px;">
-                <button class="btn-action" @click="doAttack(1.0)">普通攻擊</button>
-                <button class="btn-action" style="background:#3498db" @click="doAttack(1.2)">技能攻擊 (CD)</button>
+                <button class="btn-action" @click="doAttack(1.0)">👊 普通攻擊</button>
+                <button class="btn-action" style="background:#3498db" @click="doAttack(1.2)">⚡ 技能攻擊</button>
                 <button class="btn-action" style="background:#27ae60" @click="doHeal">💊 醫療包 (20%)</button>
-                <button class="btn-action" style="background:#7f8c8d" @click="battle.active=false">逃跑</button>
+                <button class="btn-action" style="background:#7f8c8d" @click="battle.active=false">🏳️ 逃跑</button>
             </div>
         </div>
 
         <div class="tabs" v-if="!battle.active">
             <button class="tab-btn" :class="{active: tab=='wild'}" @click="tab='wild'">🌲 野外</button>
-            <button class="tab-btn" :class="{active: tab=='raid'}" @click="tab='raid'">🔥 團體戰</button>
+            <button class="tab-btn" :class="{active: tab=='arena'}" @click="tab='arena'">🏟️ 競技</button>
             <button class="tab-btn" :class="{active: tab=='box'}" @click="tab='box'">📦 盒子</button>
+            <button class="tab-btn" :class="{active: tab=='raid'}" @click="tab='raid'">🔥 團體戰</button>
+            <button class="tab-btn" :class="{active: tab=='quest'}" @click="tab='quest'">📜 任務</button>
+            <button class="tab-btn" :class="{active: tab=='social'}" @click="tab='social'">💬 社交</button>
             <button class="tab-btn" :class="{active: tab=='shop'}" @click="tab='shop'">🛒 商店</button>
             <button class="tab-btn" :class="{active: tab=='gamble'}" @click="tab='gamble'">🎰 賭場</button>
-            <button class="tab-btn" :class="{active: tab=='social'}" @click="tab='social'">💬 社交</button>
         </div>
 
         <div v-if="!battle.active">
             <div v-if="tab=='wild'">
                 <h3>⚔️ 遭遇野怪</h3>
-                <button class="btn-action" @click="findWild">尋找野怪 (Lv.{{ user.level }})</button>
-                <div v-if="wildMon" class="card" style="margin-top:10px; text-align:center;">
-                    <h3 :style="{color: wildMon.is_powerful?'#e74c3c':'white'}">{{ wildMon.name }}</h3>
-                    <img :src="wildMon.image_url" style="height:150px;">
-                    <p>ATK: {{ wildMon.attack }} | HP: {{ wildMon.hp }}</p>
-                    <button class="btn-action" style="background:#e74c3c" @click="attackWild">攻擊！</button>
+                <button class="btn-action" style="height:50px; font-size:1.2em;" @click="findWild">🔍 尋找野怪 (Lv.{{ user.level }})</button>
+            </div>
+
+            <div v-if="tab=='arena'">
+                <h3>🏟️ 線上玩家</h3>
+                <div class="card-grid">
+                    <div v-for="p in players" :key="p.id" class="card">
+                        <img :src="p.pokemon_image" class="card-img">
+                        <div style="margin-top:5px;">
+                            <b>{{ p.username }}</b> (Lv.{{ p.level }})
+                            <div style="display:flex; gap:5px; margin-top:5px;">
+                                <button class="btn-small" style="background:#c0392b" @click="sendInvite(p)">決鬥</button>
+                                <button class="btn-small" style="background:#27ae60" @click="addFriend(p.id)">加好友</button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div v-if="tab=='box'">
+                <h3>📦 寶可夢盒子 ({{ box.length }}/25)</h3>
+                <div class="card-grid">
+                    <div v-for="p in box" :key="p.uid" class="card" :class="{active: p.uid === user.active_pokemon_uid}" @click="selectedMon=p" style="border:2px solid transparent;" :style="{borderColor: p.uid === user.active_pokemon_uid ? '#f1c40f' : 'transparent'}">
+                        <span class="iv-tag">IV: {{ p.iv }}</span>
+                        <b>{{ p.name }}</b>
+                        <div>Lv.{{ p.lv }}</div>
+                    </div>
+                </div>
+                <div v-if="selectedMon" class="card" style="border-color:#f1c40f; margin-top:10px;">
+                    <h4>已選擇: {{ selectedMon.name }} (IV: {{ selectedMon.iv }})</h4>
+                    <p>等級: {{ selectedMon.lv }} | 經驗: {{ selectedMon.exp }}</p>
+                    <div style="display:flex; gap:5px;">
+                        <button class="btn-small" style="background:#2ecc71" @click="swapMon(selectedMon.uid)">出戰</button>
+                        <button class="btn-small" style="background:#3498db" @click="useCandy(selectedMon.uid)">🍬 餵糖</button>
+                        <button class="btn-small" style="background:#e74c3c" @click="releaseMon(selectedMon.uid)">👋 放生</button>
+                    </div>
                 </div>
             </div>
 
             <div v-if="tab=='raid'">
                 <h3>🔥 傳說團體戰</h3>
-                <div v-if="raidState.active" class="raid-boss">
+                <div v-if="raidState.active" class="card" style="border:2px solid #e74c3c; background:#2c0b0e;">
                     <h2>Boss: {{ raidState.boss_name }}</h2>
-                    <div class="raid-hp"><div class="raid-hp-fill" :style="{width: (raidState.hp/raidState.max_hp)*100 + '%'}"></div></div>
+                    <div class="bar-container" style="height:20px;"><div class="hp-fill" :style="{width: (raidState.hp/raidState.max_hp)*100 + '%'}"></div></div>
                     <p>HP: {{ raidState.hp }} / {{ raidState.max_hp }}</p>
                     <button class="btn-action" @click="joinRaid">加入戰鬥 (1000G)</button>
                 </div>
                 <div v-else class="card">目前沒有團體戰 (08:00, 18:00, 22:00 開放)</div>
             </div>
 
-            <div v-if="tab=='box'">
-                <h3>📦 寶可夢盒子 ({{ box.length }}/25)</h3>
-                <div class="box-grid">
-                    <div v-for="p in box" :key="p.uid" class="box-item" :class="{active: p.uid === user.active_pokemon_uid}" @click="selectedMon=p">
-                        <div><b>{{ p.name }}</b></div>
-                        <div class="iv-tag">IV: {{ p.iv }}</div>
-                        <div>Lv.{{ p.lv }}</div>
-                    </div>
-                </div>
-                <div v-if="selectedMon" class="card" style="margin-top:15px; border-color:#f1c40f;">
-                    <h4>已選擇: {{ selectedMon.name }}</h4>
-                    <p>IV: {{ selectedMon.iv }} | 等級: {{ selectedMon.lv }}</p>
-                    <div style="display:flex; gap:10px;">
-                        <button class="btn-action" style="background:#2ecc71" @click="swapMon(selectedMon.uid)">出戰</button>
-                        <button class="btn-action" style="background:#3498db" @click="useCandy(selectedMon.uid)">🍬 餵糖</button>
-                        <button class="btn-action" style="background:#e74c3c" @click="releaseMon(selectedMon.uid)">👋 放生</button>
-                    </div>
+            <div v-if="tab=='quest'">
+                <h3>📜 冒險任務</h3>
+                <div v-if="quests.length === 0" class="card">暫無任務，系統會自動派發...</div>
+                <div v-for="q in quests" :key="q.id" class="card quest-card" :class="{'quest-active': q.status=='ACTIVE', 'quest-completed': q.status=='COMPLETED', 'quest-golden': q.type=='GOLDEN'}">
+                    <h4>{{ q.type=='GOLDEN' ? '✨ 黃金任務' : '⚔️ 狩獵任務' }}: 擊敗 {{ q.req }} 隻野怪</h4>
+                    <p>進度: {{ q.now }} / {{ q.req }}</p>
+                    <p v-if="q.type=='GOLDEN'">獎勵: 🍬 黃金糖果 x1</p>
+                    <p v-else>獎勵: {{ q.gold }}G, {{ q.xp }} XP</p>
+                    
+                    <button v-if="q.status=='WAITING'" class="btn-action" style="background:#3498db" @click="acceptQuest(q.id)">接受</button>
+                    <button v-if="q.status=='ACTIVE'" class="btn-action" style="background:#e74c3c" @click="abandonQuest(q.id)">放棄 (花費 1000G)</button>
+                    <button v-if="q.status=='COMPLETED'" class="btn-action" style="background:#2ecc71" @click="claimQuest(q.id)">領取獎勵</button>
                 </div>
             </div>
 
@@ -149,31 +211,36 @@
                 <button class="btn-action" @click="playGacha('normal')">🔮 初級 (1500G)</button>
                 <button class="btn-action" style="background:linear-gradient(45deg, #3498db, #2980b9)" @click="playGacha('medium')">🔵 中級 (3000G)</button>
                 <button class="btn-action" style="background:linear-gradient(45deg, #8e44ad, #9b59b6)" @click="playGacha('high')">🟣 高級 (10000G)</button>
+                <button class="btn-action" style="background:linear-gradient(45deg, #f1c40f, #d35400)" @click="playGacha('golden')">✨ 黃金 (3 Golden)</button>
+                <br><br>
                 <button class="btn-action" style="background:#27ae60" @click="buyHeal">💊 補血 (50G)</button>
             </div>
 
             <div v-if="tab=='gamble'">
                 <div class="card" style="text-align:center; border:2px solid #f39c12;">
                     <h3>🎰 幸運賭場</h3>
-                    <input type="number" v-model.number="gambleAmount" placeholder="輸入金額" style="padding:10px; width:100px;">
+                    <input type="number" v-model.number="gambleAmount" placeholder="輸入金額" style="padding:10px; width:100px; border-radius:5px; border:none;">
                     <button class="btn-action" style="margin-top:10px; background:#f39c12; color:black;" @click="doGamble">下注！</button>
                 </div>
             </div>
-            
+
             <div v-if="tab=='social'">
-                <h3>💬 社交與管理</h3>
-                <div v-if="user.is_admin" class="card" style="border-color:red;">
-                    <h4>🔴 管理員面板</h4>
-                    <input v-model="adminTargetId" placeholder="玩家ID" style="width:50px;">
-                    <button @click="adminAction('mute')">禁言</button>
-                    <button @click="adminAction('ban')">刪帳號</button>
-                    <br><input v-model="announceText" placeholder="公告內容">
-                    <button @click="adminAction('announce')">發公告</button>
+                <h3>💬 好友與管理</h3>
+                <div v-if="friends.length > 0">
+                    <h4>我的好友</h4>
+                    <div class="card-grid">
+                        <div v-for="f in friends" :key="f.id" class="card">
+                            <b>{{ f.username }}</b>
+                            <button class="btn-small" style="width:100%; margin-top:5px; background:#f39c12" v-if="f.can_gift" @click="sendGift(f.id)">🎁 送禮</button>
+                        </div>
+                    </div>
                 </div>
-                <div class="card">
+                <div v-else class="card">暫無好友</div>
+
+                <div class="card" style="margin-top:10px;">
                     <h4>🎁 兌換碼</h4>
-                    <input v-model="promoCode" placeholder="輸入序號">
-                    <button @click="redeemCode">兌換</button>
+                    <input v-model="promoCode" placeholder="輸入序號" style="padding:5px; width:70%;">
+                    <button @click="redeemCode" style="padding:5px;">兌換</button>
                 </div>
             </div>
         </div>
@@ -185,39 +252,49 @@
         </div>
         <div class="chat-input-area">
             <input v-model="chatInput" class="chat-input" placeholder="說點什麼..." @keyup.enter="sendChat">
-            <button @click="sendChat" style="padding:0 15px;">送出</button>
+            <button @click="sendChat" style="padding:0 15px; border-radius:5px; border:none;">送出</button>
         </div>
     </div>
 
 </div>
 
 <script>
-    const { createApp, ref, onMounted, computed } = Vue;
+    const { createApp, ref, onMounted, computed, watch } = Vue;
     const API_URL = `https://mwtpokemons.zeabur.app/api/v1`;
     const WS_URL = `wss://mwtpokemons.zeabur.app/ws`;
+
+    const MOVES_DB = { "default": [{name:"撞擊",dmg:24,desc:"24傷"}] }; 
 
     createApp({
         setup() {
             const user = ref(null);
             const token = localStorage.getItem('token');
-            const tab = ref('box');
+            const tab = ref('wild'); 
             const box = computed(() => user.value ? JSON.parse(user.value.pokemon_storage) : []);
+            const quests = computed(() => user.value ? JSON.parse(user.value.quests) : []);
+            const players = ref([]);
+            const friends = ref([]);
             const selectedMon = ref(null);
+            
             const currentPetIV = computed(() => {
                 if(!user.value) return 0;
                 const p = box.value.find(x => x.uid === user.value.active_pokemon_uid);
                 return p ? p.iv : 50;
             });
-            
-            // 戰鬥狀態
+            const playerXpPercent = computed(() => user.value ? Math.min(100, (user.value.exp / (user.value.next_level_exp || 9999)) * 100) : 0);
+            const hpPercent = (u) => (u.hp / u.max_hp) * 100;
+            const petXpPercent = (u) => Math.min(100, (u.pet_exp / (u.next_pet_level_exp || 9999)) * 100);
+            const currentAtkMe = computed(() => user.value ? user.value.attack : 0);
+
             const battle = ref({ active: false, mode: 'wild', target: null, shakeMe: false, shakeTarget: false });
             const raidState = ref({ active: false, hp: 0, max_hp: 0, boss_name: '' });
-            
+            const inLobby = ref(false);
+            const lobbyTimer = ref(15);
+            let lobbyInterval = null;
+
             const chatMsgs = ref([]);
             const chatInput = ref("");
             const gambleAmount = ref(100);
-            const adminTargetId = ref("");
-            const announceText = ref("");
             const promoCode = ref("");
             const wildMon = ref(null);
 
@@ -229,92 +306,85 @@
                 else window.location.href = 'login.html';
             };
 
-            const checkRaid = async () => {
-                const res = await fetch(`${API_URL.replace('/items','')}/shop/raid/status`);
-                raidState.value = await res.json();
-            };
+            const fetchPlayers = async () => { const res = await fetch(`${API_URL}/auth/all`); if(res.ok) players.value = await res.json(); };
+            const fetchFriends = async () => { const res = await fetch(`${API_URL}/social/list`, { headers: { 'Authorization': `Bearer ${token}` } }); if(res.ok) friends.value = await res.json(); };
+            const fetchQuests = async () => { await fetch(`${API_URL.replace('/items','')}/shop/quests/`, { headers: { 'Authorization': `Bearer ${token}` } }); updateInfo(); };
 
-            // 🔥 初始化管理員 API 🔥
-            const initAdmin = async () => {
-                try {
-                    const res = await fetch(`${API_URL}/social/admin/init`);
-                    const d = await res.json();
-                    alert(d.message);
-                } catch(e) {
-                    alert("連線失敗或管理員已存在");
-                }
-            };
+            const checkRaid = async () => { const res = await fetch(`${API_URL.replace('/items','')}/shop/raid/status`); raidState.value = await res.json(); };
+            const initAdmin = async () => { try { const res = await fetch(`${API_URL}/social/admin/init`); const d = await res.json(); alert(d.message); } catch(e) {} };
 
             onMounted(() => {
                 if(!token) return window.location.href = 'login.html';
                 updateInfo();
+                fetchPlayers();
                 checkRaid();
-                setInterval(checkRaid, 5000); 
-                
+                setInterval(checkRaid, 5000);
+                // 自動讀取任務
+                fetchQuests();
+
                 const ws = new WebSocket(`${WS_URL}?token=${token}`);
                 ws.onmessage = (e) => {
                     const msg = e.data;
                     if(msg.startsWith("CHAT|")) {
                         chatMsgs.value.push(msg.split("|")[1]);
-                        setTimeout(() => {
-                            const box = document.getElementById('chat-box');
-                            if(box) box.scrollTop = box.scrollHeight;
-                        }, 100);
+                        setTimeout(() => { const b = document.getElementById('chat-box'); if(b) b.scrollTop = b.scrollHeight; }, 100);
                     }
-                    if(msg.startsWith("RAID_UPDATE|")) {
+                    if(msg.startsWith("EVENT:DUEL_INVITE")) {
                         const parts = msg.split("|");
-                        raidState.value.hp = parseInt(parts[1]);
-                        raidState.value.max_hp = parseInt(parts[2]);
+                        if(parseInt(parts[3]) === user.value.id) { if(confirm(`${parts[2]} 邀請你決鬥！接受嗎？`)) acceptDuel(parts[1]); }
                     }
-                    if(msg.startsWith("RAID_WIN|")) alert(`🎉 團體戰勝利！由 ${msg.split("|")[1]} 給出最後一擊！`);
+                    if(msg.startsWith("EVENT:DUEL_START")) {
+                        const parts = msg.split("|");
+                        if(user.value.id == parts[1] || user.value.id == parts[3]) {
+                            const oppId = user.value.id == parts[1] ? parts[3] : parts[1];
+                            const oppName = user.value.id == parts[1] ? parts[4] : parts[2];
+                            startLobby({id: oppId, name: oppName, hp: 100, max_hp: 100, image_url: 'https://img.pokemondb.net/artwork/large/pikachu.jpg'}); 
+                        }
+                    }
+                    if(msg.startsWith("EVENT:PVP_SWAP") || msg.startsWith("EVENT:PVP_MOVE")) updateInfo();
                 };
             });
+            
+            watch(tab, (n) => {
+                if(n==='arena') fetchPlayers();
+                if(n==='social') fetchFriends();
+                if(n==='quest') fetchQuests();
+            });
 
-            // (其餘邏輯保持不變...)
             const findWild = async () => {
                 const res = await fetch(`${API_URL.replace('/items','')}/shop/wild/encounter?level=${user.value.level}`, { headers: { 'Authorization': `Bearer ${token}` } });
                 const data = await res.json();
                 wildMon.value = data;
-                // battle.value = { active: true, mode: 'wild', target: data, shakeMe: false, shakeTarget: false };
+                battle.value = { active: true, mode: 'wild', target: data, shakeMe: false, shakeTarget: false };
             };
             
-            const attackWild = async () => {
-                // 進入戰鬥介面
-                battle.value = { active: true, mode: 'wild', target: wildMon.value, shakeMe: false, shakeTarget: false };
-            };
-            
-            const joinRaid = async () => {
-                if(confirm("支付 1000G 加入團體戰？")) {
-                    const res = await fetch(`${API_URL.replace('/items','')}/shop/raid/join`, { method: 'POST', headers: { 'Authorization': `Bearer ${token}` } });
-                    if(res.ok) {
-                        battle.value = { active: true, mode: 'raid', target: { name: raidState.value.boss_name, hp: raidState.value.hp, max_hp: raidState.value.max_hp, image_url: '' }, shakeMe: false, shakeTarget: false };
-                    } else {
-                        const d = await res.json(); alert(d.detail);
-                    }
-                }
+            const startLobby = (target) => {
+                inLobby.value = true;
+                lobbyTimer.value = 15;
+                battle.value = { active: true, mode: 'pvp', target: target, shakeMe: false, shakeTarget: false };
+                lobbyInterval = setInterval(() => {
+                    lobbyTimer.value--;
+                    if(lobbyTimer.value <= 0) { clearInterval(lobbyInterval); inLobby.value = false; }
+                }, 1000);
             };
 
             const doAttack = async (mult) => {
                 const dmg = Math.floor(user.value.attack * mult);
-                
                 if(battle.value.mode === 'wild') {
                     battle.value.target.hp -= dmg;
                     battle.value.shakeTarget = true; setTimeout(()=>battle.value.shakeTarget=false, 500);
                     if(battle.value.target.hp <= 0) {
                         const res = await fetch(`${API_URL.replace('/items','')}/shop/wild/attack?is_win=true&is_powerful=${battle.value.target.is_powerful||false}`, { method: 'POST', headers: { 'Authorization': `Bearer ${token}` } });
                         const d = await res.json(); alert(d.message);
-                        battle.value.active = false; wildMon.value = null; updateInfo();
+                        battle.value.active = false; updateInfo(); fetchQuests();
                     } else {
                         setTimeout(() => {
                             user.value.hp -= Math.floor(battle.value.target.attack * 0.8);
                             battle.value.shakeMe = true; setTimeout(()=>battle.value.shakeMe=false, 500);
                         }, 500);
                     }
-                } else if(battle.value.mode === 'raid') {
-                    const res = await fetch(`${API_URL.replace('/items','')}/shop/raid/attack?damage=${dmg}`, { method: 'POST', headers: { 'Authorization': `Bearer ${token}` } });
-                    const d = await res.json();
-                    if(d.result === 'WIN') { alert("Boss 擊敗！獲得獎勵"); battle.value.active = false; updateInfo(); }
-                    else { battle.value.target.hp = d.boss_hp; }
+                } else if (battle.value.mode === 'pvp') {
+                    await fetch(`${API_URL.replace('/items','')}/shop/pvp/${battle.value.target.id}?damage=${dmg}`, { method: 'POST', headers: { 'Authorization': `Bearer ${token}` } });
                 }
             };
             
@@ -333,9 +403,19 @@
             const sendChat = async () => { if(!chatInput.value) return; await fetch(`${API_URL}/social/chat/send?content=${chatInput.value}`, { method: 'POST', headers: { 'Authorization': `Bearer ${token}` } }); chatInput.value = ""; };
             const buyHeal = async () => { const res = await fetch(`${API_URL.replace('/items','')}/shop/heal`, { method: 'POST', headers: { 'Authorization': `Bearer ${token}` } }); if(res.ok) { alert("補血成功"); updateInfo(); } else alert("金幣不足"); };
             const redeemCode = async () => { const res = await fetch(`${API_URL}/social/redeem?code=${promoCode.value}`, { method: 'POST', headers: { 'Authorization': `Bearer ${token}` } }); const d = await res.json(); alert(d.message || d.detail); updateInfo(); };
-            const adminAction = async (act) => { await fetch(`${API_URL}/social/admin/action?action=${act}&target_id=${adminTargetId.value}&content=${announceText.value}`, { method: 'POST', headers: { 'Authorization': `Bearer ${token}` } }); alert("執行成功"); };
+            
+            const sendInvite = async (p) => { await fetch(`${API_URL.replace('/items','')}/shop/duel/invite/${p.id}`, { method: 'POST', headers: { 'Authorization': `Bearer ${token}` } }); alert("已邀請"); };
+            const acceptDuel = async (targetId) => { await fetch(`${API_URL.replace('/items','')}/shop/duel/accept/${targetId}`, { method: 'POST', headers: { 'Authorization': `Bearer ${token}` } }); };
+            const addFriend = async (uid) => { const res = await fetch(`${API_URL}/social/add/${uid}`, { method: 'POST', headers: { 'Authorization': `Bearer ${token}` } }); const d = await res.json(); alert(d.message); };
+            const sendGift = async (fid) => { const res = await fetch(`${API_URL}/social/gift/send/${fid}`, { method: 'POST', headers: { 'Authorization': `Bearer ${token}` } }); if(res.ok) { alert("禮物已發送！"); fetchFriends(); } else { const d = await res.json(); alert(d.detail); } };
+            const joinRaid = async () => { if(confirm("支付 1000G 加入？")) { const res = await fetch(`${API_URL.replace('/items','')}/shop/raid/join`, { method: 'POST', headers: { 'Authorization': `Bearer ${token}` } }); if(res.ok) { battle.value = { active: true, mode: 'raid', target: { name: raidState.value.boss_name, hp: raidState.value.hp, max_hp: raidState.value.max_hp, image_url: '' }, shakeMe: false, shakeTarget: false }; } else { const d = await res.json(); alert(d.detail); } } };
 
-            return { user, tab, box, selectedMon, currentPetIV, battle, raidState, dailyCheckin, logout, playGacha, swapMon, releaseMon, useCandy, gambleAmount, doGamble, chatMsgs, chatInput, sendChat, findWild, joinRaid, doAttack, doHeal, buyHeal, adminTargetId, announceText, adminAction, promoCode, redeemCode, initAdmin, wildMon, attackWild };
+            // Quest Actions
+            const acceptQuest = async (qid) => { await fetch(`${API_URL.replace('/items','')}/shop/quests/accept/${qid}`, { method: 'POST', headers: { 'Authorization': `Bearer ${token}` } }); fetchQuests(); };
+            const abandonQuest = async (qid) => { if(confirm("放棄需消耗 1000G，確定嗎？")) { await fetch(`${API_URL.replace('/items','')}/shop/quests/abandon/${qid}`, { method: 'POST', headers: { 'Authorization': `Bearer ${token}` } }); fetchQuests(); } };
+            const claimQuest = async (qid) => { const res = await fetch(`${API_URL.replace('/items','')}/shop/quests/claim/${qid}`, { method: 'POST', headers: { 'Authorization': `Bearer ${token}` } }); const d = await res.json(); alert(d.message); fetchQuests(); };
+
+            return { user, tab, box, players, friends, selectedMon, currentPetIV, battle, raidState, inLobby, lobbyTimer, dailyCheckin, logout, playGacha, swapMon, releaseMon, useCandy, gambleAmount, doGamble, chatMsgs, chatInput, sendChat, findWild, doAttack, doHeal, buyHeal, promoCode, redeemCode, initAdmin, sendInvite, addFriend, sendGift, joinRaid, playerXpPercent, hpPercent, petXpPercent, currentAtkMe, quests, acceptQuest, abandonQuest, claimQuest };
         }
     }).mount('#app');
 </script>
