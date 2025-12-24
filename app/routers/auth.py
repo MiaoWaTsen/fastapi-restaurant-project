@@ -1,100 +1,126 @@
 # app/routers/auth.py
 
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
-from fastapi.security import OAuth2PasswordBearer, OAuth2PasswordRequestForm
-from typing import List
+from fastapi.security import OAuth2PasswordRequestForm
+from datetime import timedelta
 import json
+import uuid
+import random
 
 from app.db.session import get_db
 from app.models.user import User, UserCreate, UserRead
-from app.core.security import get_password_hash, verify_password, create_access_token
-from app.common.websocket import manager 
+from app.core.security import verify_password, get_password_hash, create_access_token, ACCESS_TOKEN_EXPIRE_MINUTES
 
 router = APIRouter()
-oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/api/v1/auth/token")
 
+# 簡單的御三家資料 (避免循環引用 shop.py)
 STARTERS = {
-    1: { "name": "妙蛙種子", "hp": 130, "atk": 112, "img": "https://img.pokemondb.net/artwork/large/bulbasaur.jpg" },
-    2: { "name": "小火龍", "hp": 112, "atk": 130, "img": "https://img.pokemondb.net/artwork/large/charmander.jpg" },
-    3: { "name": "傑尼龜", "hp": 121, "atk": 121, "img": "https://img.pokemondb.net/artwork/large/squirtle.jpg" }
+    1: {"name": "妙蛙種子", "img": "https://img.pokemondb.net/artwork/large/bulbasaur.jpg", "hp": 130, "atk": 112},
+    2: {"name": "小火龍", "img": "https://img.pokemondb.net/artwork/large/charmander.jpg", "hp": 112, "atk": 130},
+    3: {"name": "傑尼龜", "img": "https://img.pokemondb.net/artwork/large/squirtle.jpg", "hp": 121, "atk": 121}
 }
 
-# 🔥 同步最新的經驗值曲線 🔥
-LEVEL_XP = { 
-    1: 50, 2: 150, 3: 300, 4: 500, 5: 800, 
-    6: 1300, 7: 2000, 8: 3000, 9: 5000 
-}
-
-def get_req_xp(lv):
-    if lv >= 25: return 999999999
-    if lv < 10: return LEVEL_XP.get(lv, 5000)
-    return 5000 + (lv - 9) * 2000
-
-class UserReadWithExp(UserRead):
-    next_level_exp: int
-    next_pet_level_exp: int
-    is_online: bool = False
+# 天賦計算公式 (複製自 shop.py 以確保初始數值正確)
+def apply_iv_stats(base_val, iv):
+    iv_mult = 0.9 + (iv / 100) * 0.2
+    return int(base_val * iv_mult) # Lv.1 成長係數為 1
 
 @router.post("/register", response_model=UserRead)
 def register(user: UserCreate, db: Session = Depends(get_db)):
-    if db.query(User).filter(User.username == user.username).first():
-        raise HTTPException(status_code=400, detail="Username already registered")
+    # 1. 檢查帳號是否重複
+    db_user = db.query(User).filter(User.username == user.username).first()
+    if db_user:
+        raise HTTPException(status_code=400, detail="帳號已經存在")
     
-    starter = STARTERS.get(user.starter_id, STARTERS[1])
-    hashed_pw = get_password_hash(user.password)
-    initial_storage = { starter["name"]: {"lv": 1, "exp": 0} }
+    # 2. 密碼加密
+    hashed_password = get_password_hash(user.password)
     
+    # 3. 準備初始寶可夢 (V2.0 邏輯)
+    starter_id = user.starter_id if user.starter_id in [1, 2, 3] else 2 # 預設小火龍
+    starter_data = STARTERS[starter_id]
+    
+    # 生成唯一 ID 與 天賦 IV
+    p_uid = str(uuid.uuid4())
+    p_iv = random.randint(0, 100)
+    
+    # 建立第一隻寶可夢物件
+    starter_mon = {
+        "uid": p_uid,
+        "name": starter_data["name"],
+        "iv": p_iv,
+        "lv": 1,
+        "exp": 0
+    }
+    
+    # 計算初始能力值 (含 IV 加成)
+    init_hp = apply_iv_stats(starter_data["hp"], p_iv)
+    init_atk = apply_iv_stats(starter_data["atk"], p_iv)
+    
+    # 4. 建立玩家資料
     new_user = User(
-        username=user.username, hashed_password=hashed_pw,
-        pokemon_name=starter["name"], pokemon_image=starter["img"],
-        unlocked_monsters=starter["name"],
-        pokemon_storage=json.dumps(initial_storage),
-        inventory="{}",
-        defeated_bosses="",
-        quests="[]",
-        hp=starter["hp"], max_hp=starter["hp"], attack=starter["atk"], 
-        pet_level=1, pet_exp=0, level=1, exp=0, money=300
+        username=user.username,
+        hashed_password=hashed_password,
+        level=1,
+        exp=0,
+        money=1000, # 初始金幣
+        
+        # V2.0 核心欄位
+        pokemon_storage=json.dumps([starter_mon]), # 存為列表
+        active_pokemon_uid=p_uid,
+        
+        # 當前出戰狀態
+        pokemon_name=starter_data["name"],
+        pokemon_image=starter_data["img"],
+        pet_level=1,
+        pet_exp=0,
+        hp=init_hp,
+        max_hp=init_hp,
+        attack=init_atk,
+        
+        # 其他初始化
+        inventory=json.dumps({}),
+        unlocked_monsters=starter_data["name"],
+        is_admin=False
     )
+    
     db.add(new_user)
     db.commit()
     db.refresh(new_user)
     return new_user
 
 @router.post("/token")
-def login(form_data: OAuth2PasswordRequestForm = Depends(), db: Session = Depends(get_db)):
+def login_for_access_token(form_data: OAuth2PasswordRequestForm = Depends(), db: Session = Depends(get_db)):
     user = db.query(User).filter(User.username == form_data.username).first()
     if not user or not verify_password(form_data.password, user.hashed_password):
-        raise HTTPException(status_code=400, detail="Incorrect username or password")
-    return {"access_token": create_access_token(data={"sub": user.username}), "token_type": "bearer"}
-
-@router.get("/me", response_model=UserReadWithExp)
-def read_users_me(token: str = Depends(oauth2_scheme), db: Session = Depends(get_db)):
-    from jose import jwt, JWTError
-    from app.core.security import SECRET_KEY, ALGORITHM
-    try:
-        username = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM]).get("sub")
-        if username is None: raise HTTPException(status_code=401)
-    except JWTError: raise HTTPException(status_code=401)
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="帳號或密碼錯誤",
+            headers={"WWW-Authenticate": "Bearer"},
+        )
     
-    user = db.query(User).filter(User.username == username).first()
-    if not user: raise HTTPException(status_code=401)
-    
-    user_dict = UserRead.model_validate(user).model_dump()
-    user_dict['next_level_exp'] = get_req_xp(user.level)
-    user_dict['next_pet_level_exp'] = get_req_xp(user.pet_level)
-    return user_dict
+    access_token_expires = timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES)
+    access_token = create_access_token(
+        data={"sub": user.username}, expires_delta=access_token_expires
+    )
+    return {"access_token": access_token, "token_type": "bearer"}
 
-@router.get("/all", response_model=List[UserReadWithExp])
-def get_all_users(db: Session = Depends(get_db)):
+@router.get("/me", response_model=UserRead)
+def read_users_me(current_user: User = Depends(get_current_user)):
+    return current_user
+
+@router.get("/all")
+def read_all_users(db: Session = Depends(get_db)):
     users = db.query(User).all()
-    online_ids = manager.get_online_ids()
-    results = []
-    
-    for u in users:
-        u_dict = UserRead.model_validate(u).model_dump()
-        u_dict['is_online'] = (u.id in online_ids)
-        u_dict['next_level_exp'] = get_req_xp(u.level)
-        u_dict['next_pet_level_exp'] = get_req_xp(u.pet_level)
-        results.append(u_dict)
-    return results
+    # 為了安全和傳輸量，只回傳必要欄位
+    return [
+        {
+            "id": u.id, 
+            "username": u.username, 
+            "level": u.level, 
+            "pokemon_image": u.pokemon_image,
+            "pokemon_name": u.pokemon_name,
+            "is_online": False # 簡化處理，如果要即時在線需搭配 Redis 或 Memory
+        } 
+        for u in users
+    ]

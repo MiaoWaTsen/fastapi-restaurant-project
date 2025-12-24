@@ -49,14 +49,20 @@
         <h1 style="color:#e94560">寶可夢大亂鬥 V2.0</h1>
         <p>請先登入 (V2.0 自動重置為 Lv.1)</p>
         <button class="btn-action" @click="logout">前往登入頁面</button>
+        
+        <br><br>
+        <button style="background:transparent; border:1px solid #aaa; color:#aaa; padding:5px 10px; cursor:pointer; border-radius:5px;" @click="initAdmin">
+            👑 初始化管理員 (僅需一次)
+        </button>
     </div>
 
     <div v-else>
         <div class="card" style="display:flex; gap:10px; align-items:center;">
             <img :src="user.pokemon_image" style="width:60px; height:60px; border-radius:50%;">
             <div style="flex:1;">
-                <div><b>{{ user.username }}</b> Lv.{{ user.level }}</div>
-                <div>💰 {{ user.money }} | IV: {{ currentPetIV }}</div>
+                <div><b>{{ user.username }}</b> <span v-if="user.is_admin" style="color:red">[GM]</span></div>
+                <div>Lv.{{ user.level }} | 💰 {{ user.money }}</div>
+                <div>夥伴: {{ user.pokemon_name }} (IV: {{ currentPetIV }})</div>
             </div>
             <button style="background:#27ae60; color:white; border:none; padding:5px 10px; border-radius:5px;" @click="dailyCheckin">📅 簽到</button>
             <button style="background:#555; color:white; border:none; padding:5px 10px; border-radius:5px;" @click="logout">登出</button>
@@ -98,7 +104,13 @@
         <div v-if="!battle.active">
             <div v-if="tab=='wild'">
                 <h3>⚔️ 遭遇野怪</h3>
-                <button class="btn-action" @click="findWild">尋找野怪</button>
+                <button class="btn-action" @click="findWild">尋找野怪 (Lv.{{ user.level }})</button>
+                <div v-if="wildMon" class="card" style="margin-top:10px; text-align:center;">
+                    <h3 :style="{color: wildMon.is_powerful?'#e74c3c':'white'}">{{ wildMon.name }}</h3>
+                    <img :src="wildMon.image_url" style="height:150px;">
+                    <p>ATK: {{ wildMon.attack }} | HP: {{ wildMon.hp }}</p>
+                    <button class="btn-action" style="background:#e74c3c" @click="attackWild">攻擊！</button>
+                </div>
             </div>
 
             <div v-if="tab=='raid'">
@@ -207,6 +219,7 @@
             const adminTargetId = ref("");
             const announceText = ref("");
             const promoCode = ref("");
+            const wildMon = ref(null);
 
             const logout = () => { localStorage.clear(); window.location.href = 'login.html'; };
 
@@ -221,16 +234,33 @@
                 raidState.value = await res.json();
             };
 
+            // 🔥 初始化管理員 API 🔥
+            const initAdmin = async () => {
+                try {
+                    const res = await fetch(`${API_URL}/social/admin/init`);
+                    const d = await res.json();
+                    alert(d.message);
+                } catch(e) {
+                    alert("連線失敗或管理員已存在");
+                }
+            };
+
             onMounted(() => {
                 if(!token) return window.location.href = 'login.html';
                 updateInfo();
                 checkRaid();
-                setInterval(checkRaid, 5000); // 輪詢團體戰狀態
+                setInterval(checkRaid, 5000); 
                 
                 const ws = new WebSocket(`${WS_URL}?token=${token}`);
                 ws.onmessage = (e) => {
                     const msg = e.data;
-                    if(msg.startsWith("CHAT|")) chatMsgs.value.push(msg.split("|")[1]);
+                    if(msg.startsWith("CHAT|")) {
+                        chatMsgs.value.push(msg.split("|")[1]);
+                        setTimeout(() => {
+                            const box = document.getElementById('chat-box');
+                            if(box) box.scrollTop = box.scrollHeight;
+                        }, 100);
+                    }
                     if(msg.startsWith("RAID_UPDATE|")) {
                         const parts = msg.split("|");
                         raidState.value.hp = parseInt(parts[1]);
@@ -240,11 +270,17 @@
                 };
             });
 
-            // 戰鬥邏輯
+            // (其餘邏輯保持不變...)
             const findWild = async () => {
                 const res = await fetch(`${API_URL.replace('/items','')}/shop/wild/encounter?level=${user.value.level}`, { headers: { 'Authorization': `Bearer ${token}` } });
                 const data = await res.json();
-                battle.value = { active: true, mode: 'wild', target: data, shakeMe: false, shakeTarget: false };
+                wildMon.value = data;
+                // battle.value = { active: true, mode: 'wild', target: data, shakeMe: false, shakeTarget: false };
+            };
+            
+            const attackWild = async () => {
+                // 進入戰鬥介面
+                battle.value = { active: true, mode: 'wild', target: wildMon.value, shakeMe: false, shakeTarget: false };
             };
             
             const joinRaid = async () => {
@@ -267,9 +303,8 @@
                     if(battle.value.target.hp <= 0) {
                         const res = await fetch(`${API_URL.replace('/items','')}/shop/wild/attack?is_win=true&is_powerful=${battle.value.target.is_powerful||false}`, { method: 'POST', headers: { 'Authorization': `Bearer ${token}` } });
                         const d = await res.json(); alert(d.message);
-                        battle.value.active = false; updateInfo();
+                        battle.value.active = false; wildMon.value = null; updateInfo();
                     } else {
-                        // 敵人反擊
                         setTimeout(() => {
                             user.value.hp -= Math.floor(battle.value.target.attack * 0.8);
                             battle.value.shakeMe = true; setTimeout(()=>battle.value.shakeMe=false, 500);
@@ -284,13 +319,11 @@
             };
             
             const doHeal = async () => {
-                // V2.0 醫療包：回 20%
                 const heal = Math.floor(user.value.max_hp * 0.2);
                 user.value.hp = Math.min(user.value.max_hp, user.value.hp + heal);
                 alert(`回復了 ${heal} HP`);
             };
 
-            // (其餘 actions 保持不變: dailyCheckin, playGacha, swapMon...)
             const dailyCheckin = async () => { const res = await fetch(`${API_URL}/social/daily_checkin`, { method: 'POST', headers: { 'Authorization': `Bearer ${token}` } }); const d = await res.json(); alert(d.message || d.detail); updateInfo(); };
             const playGacha = async (type) => { const res = await fetch(`${API_URL.replace('/items','')}/shop/gacha/${type}`, { method: 'POST', headers: { 'Authorization': `Bearer ${token}` } }); const d = await res.json(); alert(d.message || d.detail); updateInfo(); };
             const swapMon = async (uid) => { await fetch(`${API_URL.replace('/items','')}/shop/box/swap/${uid}`, { method: 'POST', headers: { 'Authorization': `Bearer ${token}` } }); updateInfo(); };
@@ -302,7 +335,7 @@
             const redeemCode = async () => { const res = await fetch(`${API_URL}/social/redeem?code=${promoCode.value}`, { method: 'POST', headers: { 'Authorization': `Bearer ${token}` } }); const d = await res.json(); alert(d.message || d.detail); updateInfo(); };
             const adminAction = async (act) => { await fetch(`${API_URL}/social/admin/action?action=${act}&target_id=${adminTargetId.value}&content=${announceText.value}`, { method: 'POST', headers: { 'Authorization': `Bearer ${token}` } }); alert("執行成功"); };
 
-            return { user, tab, box, selectedMon, currentPetIV, battle, raidState, dailyCheckin, logout, playGacha, swapMon, releaseMon, useCandy, gambleAmount, doGamble, chatMsgs, chatInput, sendChat, findWild, joinRaid, doAttack, doHeal, buyHeal, adminTargetId, announceText, adminAction, promoCode, redeemCode };
+            return { user, tab, box, selectedMon, currentPetIV, battle, raidState, dailyCheckin, logout, playGacha, swapMon, releaseMon, useCandy, gambleAmount, doGamble, chatMsgs, chatInput, sendChat, findWild, joinRaid, doAttack, doHeal, buyHeal, adminTargetId, announceText, adminAction, promoCode, redeemCode, initAdmin, wildMon, attackWild };
         }
     }).mount('#app');
 </script>
