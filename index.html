@@ -3,7 +3,24 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>⚡️ 寶可夢大亂鬥 V2.6 (Loading修復版) ⚡️</title>
+    <title>⚡️ 寶可夢大亂鬥 V2.8 (穩定版) ⚡️</title>
+    
+    <script>
+        window.onerror = function(msg, source, lineno) {
+            // 顯示在畫面上，避免空白
+            const loader = document.getElementById('loading');
+            if(loader) {
+                loader.innerHTML = `<h3 style="color:red">⚠️ 程式發生錯誤</h3><p>${msg}</p><p>已自動回報給開發者，請稍後重整。</p>`;
+            }
+            // 傳送給 Zeabur 後端
+            fetch('https://mwtpokemons.zeabur.app/api/v1/social/log/frontend', {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({msg: msg, source: source, lineno: lineno})
+            });
+        };
+    </script>
+
     <script src="https://unpkg.com/vue@3/dist/vue.global.js"></script>
     <style>
         [v-cloak] { display: none; }
@@ -71,7 +88,7 @@
 
 <div id="app" class="container" v-cloak>
     <div v-if="!user" style="text-align:center; padding-top:100px;">
-        <h1 style="color:#e94560">寶可夢大亂鬥 V2.6</h1>
+        <h1 style="color:#e94560">寶可夢大亂鬥 V2.8</h1>
         <p>經典介面回歸 + V2.0 核心</p>
         <button class="btn-action" @click="logout">前往登入頁面</button>
         <br><br>
@@ -407,6 +424,7 @@
             
             const initAdmin = async () => { try { const res = await fetch(`${API_URL}/social/admin/init`); const d = await res.json(); alert(d.message); } catch(e) {} };
 
+            // 🔥 修正：正確定義 fetchWildList 🔥
             const fetchWildList = async () => {
                 const res = await fetch(`${API_URL.replace('/items','')}/shop/wild/list?level=${selectedWildLevel.value}`, { headers: { 'Authorization': `Bearer ${token}` } });
                 if(res.ok) wildList.value = await res.json();
@@ -457,6 +475,7 @@
                 if(n==='wild') fetchWildList();
             });
 
+            // 🔥 修正：正確定義 startWildBattle 🔥
             const startWildBattle = (target) => {
                 battle.value = { active: true, mode: 'wild', target: JSON.parse(JSON.stringify(target)), shakeMe: false, shakeTarget: false };
             };
@@ -517,8 +536,8 @@
             const abandonQuest = async (qid) => { if(confirm("放棄需消耗 1000G，確定嗎？")) { await fetch(`${API_URL.replace('/items','')}/shop/quests/abandon/${qid}`, { method: 'POST', headers: { 'Authorization': `Bearer ${token}` } }); fetchQuests(); } };
             const claimQuest = async (qid) => { const res = await fetch(`${API_URL.replace('/items','')}/shop/quests/claim/${qid}`, { method: 'POST', headers: { 'Authorization': `Bearer ${token}` } }); const d = await res.json(); alert(d.message); fetchQuests(); };
 
-            // 🔥 移除錯誤變數，正確匯出函式 🔥
-            return { user, tab, box, players, friends, selectedMon, currentPetIV, battle, raidState, inLobby, lobbyTimer, dailyCheckin, logout, playGacha, swapMon, releaseMon, useCandy, gambleAmount, doGamble, chatMsgs, chatInput, sendChat, findWild, doAttack, doHeal, buyHeal, promoCode, redeemCode, initAdmin, sendInvite, addFriend, sendGift, joinRaid, playerXpPercent, hpPercent, petXpPercent, currentAtkMe, quests, acceptQuest, abandonQuest, claimQuest, selectedWildLevel, wildList, fetchWildList, startWildBattle, showRates, gachaRates, newsState, closeNews };
+            // 🔥 確保 return 裡完全沒有 findWild 🔥
+            return { user, tab, box, players, friends, selectedMon, currentPetIV, battle, raidState, inLobby, lobbyTimer, dailyCheckin, logout, playGacha, swapMon, releaseMon, useCandy, gambleAmount, doGamble, chatMsgs, chatInput, sendChat, doAttack, doHeal, buyHeal, promoCode, redeemCode, initAdmin, sendInvite, addFriend, sendGift, joinRaid, playerXpPercent, hpPercent, petXpPercent, currentAtkMe, quests, acceptQuest, abandonQuest, claimQuest, selectedWildLevel, wildList, fetchWildList, startWildBattle, showRates, gachaRates, newsState, closeNews };
         }
     }).mount('#app');
 </script>
