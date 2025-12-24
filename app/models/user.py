@@ -6,10 +6,10 @@ from app.models.base import Base
 from datetime import datetime
 
 class User(Base):
-    __tablename__ = "users_v10"
+    # 🔥 關鍵修正：改名為 v11，強制建立正確的新表格 🔥
+    __tablename__ = "users_v11"
 
     id = Column(Integer, primary_key=True, index=True)
-    # 🔥 修正：加上長度限制，避免資料庫錯誤
     username = Column(String(50), unique=True, index=True, nullable=False)
     hashed_password = Column(String(255), nullable=False)
     
@@ -22,7 +22,7 @@ class User(Base):
     exp = Column(Integer, default=0)
     money = Column(Integer, default=0)
     
-    # 寵物狀態 (當前出戰)
+    # 寵物狀態 (Hybrid 模式：為了效能，這裡保留當前數值)
     pokemon_name = Column(String(50), default="未知圖騰")
     pokemon_image = Column(String(255), default="")
     pet_level = Column(Integer, default=1)
@@ -31,9 +31,9 @@ class User(Base):
     max_hp = Column(Integer, default=100)
     attack = Column(Integer, default=10)
     
-    # 🔥 V2.0 核心欄位
-    active_pokemon_uid = Column(String(100), default="") # 出戰寶可夢的 UUID
-    pokemon_storage = Column(Text, default="[]")         # 盒子 (JSON List)
+    # V2.0 核心欄位
+    active_pokemon_uid = Column(String(100), default="") 
+    pokemon_storage = Column(Text, default="[]") # 盒子
     
     # 遊戲資料
     inventory = Column(Text, default="{}") 

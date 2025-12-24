@@ -8,8 +8,8 @@ class Friend(Base):
 
     id = Column(Integer, primary_key=True, index=True)
     
-    # 🔥 修正：這裡必須指向 "users_v9.id"，否則會報錯說找不到表格 🔥
-    user_id = Column(Integer, ForeignKey("users_v9.id"), nullable=False)
-    friend_id = Column(Integer, ForeignKey("users_v9.id"), nullable=False)
+    # 🔥 修正：指向新的 users_v11 表格
+    user_id = Column(Integer, ForeignKey("users_v11.id"), nullable=False)
+    friend_id = Column(Integer, ForeignKey("users_v11.id"), nullable=False)
     
-    status = Column(String, default="PENDING")
+    status = Column(String(20), default="PENDING")
