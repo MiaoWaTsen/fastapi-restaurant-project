@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>⚡️ 寶可夢大亂鬥 V2.3 (修復版) ⚡️</title>
+    <title>⚡️ 寶可夢大亂鬥 V2.5 (介面修復版) ⚡️</title>
     <script src="https://unpkg.com/vue@3/dist/vue.global.js"></script>
     <style>
         [v-cloak] { display: none; }
@@ -52,6 +52,8 @@
 
         .modal-overlay { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.8); z-index: 4000; display: flex; justify-content: center; align-items: center; }
         .modal-box { background: #16213e; border: 3px solid #f1c40f; padding: 30px; border-radius: 20px; text-align: center; width: 300px; position: relative; }
+        .modal-title { font-size: 1.5em; color: #f1c40f; margin-bottom: 20px; }
+        .btn-yes { background: #27ae60; padding: 10px 20px; border:none; color:white; border-radius:5px; cursor:pointer; margin:5px; }
         
         .chat-panel { position: fixed; bottom: 0; left: 0; width: 100%; height: 100px; background: rgba(0,0,0,0.9); z-index: 5000; padding: 10px; display: flex; flex-direction: column; }
         .chat-msgs { flex: 1; overflow-y: auto; font-size: 0.9em; margin-bottom: 5px; color: #ccc; }
@@ -69,7 +71,7 @@
 
 <div id="app" class="container" v-cloak>
     <div v-if="!user" style="text-align:center; padding-top:100px;">
-        <h1 style="color:#e94560">寶可夢大亂鬥 V2.3</h1>
+        <h1 style="color:#e94560">寶可夢大亂鬥 V2.5</h1>
         <p>經典介面回歸 + V2.0 核心</p>
         <button class="btn-action" @click="logout">前往登入頁面</button>
         <br><br>
@@ -77,6 +79,21 @@
     </div>
 
     <div v-else>
+        <div v-if="newsState.show" class="modal-overlay">
+            <div class="modal-box" style="text-align:left;">
+                <div class="modal-title" style="text-align:center;">📢 V2.4 更新公告</div>
+                <ul>
+                    <li><b>🦄 神獸降臨</b>：三神鳥數值已修正，夢幻加入扭蛋池！</li>
+                    <li><b>🌲 野外探險</b>：經典的選怪列表回歸，狩獵更方便。</li>
+                    <li><b>📜 任務系統</b>：刪除任務功能優化，獎勵更豐富。</li>
+                    <li><b>🎁 補償領取</b>：請至 [社交] 頁面輸入 <code>compensation_gold</code> 等代碼領取補償！</li>
+                </ul>
+                <div style="text-align:center; margin-top:15px;">
+                    <button class="btn-yes" @click="closeNews">我知道了</button>
+                </div>
+            </div>
+        </div>
+
         <div v-if="inLobby" class="lobby-bar">
             <span style="font-size:1.2em; margin-right:20px;">⚠️ 戰鬥準備中...</span>
             <span style="font-size:1.5em; color:#f1c40f; font-family:monospace;">{{ lobbyTimer }}s</span>
@@ -313,9 +330,10 @@
             const tab = ref('wild'); 
             const box = computed(() => user.value ? JSON.parse(user.value.pokemon_storage) : []);
             
-            // 任務資料 (改為 Ref 以確保正確響應)
+            const newsState = ref({ show: false });
+            const closeNews = () => { newsState.value.show = false; sessionStorage.setItem('seenNews_v24', 'true'); };
+
             const quests = ref([]);
-            
             const players = ref([]);
             const friends = ref([]);
             const selectedMon = ref(null);
@@ -389,14 +407,20 @@
             
             const initAdmin = async () => { try { const res = await fetch(`${API_URL}/social/admin/init`); const d = await res.json(); alert(d.message); } catch(e) {} };
 
+            // 🔥 修正變數名稱：使用 fetchWildList 呼叫 API 🔥
             const fetchWildList = async () => {
                 const res = await fetch(`${API_URL.replace('/items','')}/shop/wild/list?level=${selectedWildLevel.value}`, { headers: { 'Authorization': `Bearer ${token}` } });
                 if(res.ok) wildList.value = await res.json();
             };
 
             onMounted(async () => {
-                document.getElementById('loading').style.display = 'none'; // Hide loading
+                document.getElementById('loading').style.display = 'none'; 
                 if(!token) return window.location.href = 'login.html';
+                
+                if (!sessionStorage.getItem('seenNews_v24')) {
+                    newsState.value.show = true;
+                }
+
                 await updateInfo();
                 fetchPlayers();
                 checkRaid();
@@ -494,7 +518,8 @@
             const abandonQuest = async (qid) => { if(confirm("放棄需消耗 1000G，確定嗎？")) { await fetch(`${API_URL.replace('/items','')}/shop/quests/abandon/${qid}`, { method: 'POST', headers: { 'Authorization': `Bearer ${token}` } }); fetchQuests(); } };
             const claimQuest = async (qid) => { const res = await fetch(`${API_URL.replace('/items','')}/shop/quests/claim/${qid}`, { method: 'POST', headers: { 'Authorization': `Bearer ${token}` } }); const d = await res.json(); alert(d.message); fetchQuests(); };
 
-            return { user, tab, box, players, friends, selectedMon, currentPetIV, battle, raidState, inLobby, lobbyTimer, dailyCheckin, logout, playGacha, swapMon, releaseMon, useCandy, gambleAmount, doGamble, chatMsgs, chatInput, sendChat, findWild, doAttack, doHeal, buyHeal, promoCode, redeemCode, initAdmin, sendInvite, addFriend, sendGift, joinRaid, playerXpPercent, hpPercent, petXpPercent, currentAtkMe, quests, acceptQuest, abandonQuest, claimQuest, selectedWildLevel, wildList, fetchWildList, startWildBattle, showRates, gachaRates };
+            // 🔥 移除錯誤變數，正確匯出函式 🔥
+            return { user, tab, box, players, friends, selectedMon, currentPetIV, battle, raidState, inLobby, lobbyTimer, dailyCheckin, logout, playGacha, swapMon, releaseMon, useCandy, gambleAmount, doGamble, chatMsgs, chatInput, sendChat, findWild, doAttack, doHeal, buyHeal, promoCode, redeemCode, initAdmin, sendInvite, addFriend, sendGift, joinRaid, playerXpPercent, hpPercent, petXpPercent, currentAtkMe, quests, acceptQuest, abandonQuest, claimQuest, selectedWildLevel, wildList, fetchWildList, startWildBattle, showRates, gachaRates, newsState, closeNews };
         }
     }).mount('#app');
 </script>
