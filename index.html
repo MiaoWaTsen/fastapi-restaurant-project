@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>⚡️ 寶可夢大亂鬥 V2.1 (經典回歸) ⚡️</title>
+    <title>⚡️ 寶可夢大亂鬥 V2.2 (介面優化版) ⚡️</title>
     <script src="https://unpkg.com/vue@3/dist/vue.global.js"></script>
     <style>
         body { font-family: 'Segoe UI', sans-serif; background-color: #1a1a2e; color: #fff; padding: 20px; padding-bottom: 120px; user-select: none; }
@@ -54,13 +54,16 @@
         .chat-input { flex: 1; padding: 5px; border-radius: 5px; border: none; }
         
         .lobby-bar { position: fixed; bottom: 100px; left: 0; width: 100%; background: rgba(22, 33, 62, 0.95); border-top: 3px solid #f1c40f; padding: 10px; z-index: 6000; display: flex; justify-content: center; align-items: center; }
+        
+        .rate-table { width: 100%; border-collapse: collapse; margin-top: 10px; }
+        .rate-table th, .rate-table td { border: 1px solid #444; padding: 5px; font-size: 0.9em; text-align:left; }
     </style>
 </head>
 <body>
 
 <div id="app" class="container">
     <div v-if="!user" style="text-align:center; padding-top:100px;">
-        <h1 style="color:#e94560">寶可夢大亂鬥 V2.1</h1>
+        <h1 style="color:#e94560">寶可夢大亂鬥 V2.2</h1>
         <p>經典介面回歸 + V2.0 核心</p>
         <button class="btn-action" @click="logout">前往登入頁面</button>
         <br><br>
@@ -139,9 +142,26 @@
         </div>
 
         <div v-if="!battle.active">
+            
             <div v-if="tab=='wild'">
-                <h3>⚔️ 遭遇野怪</h3>
-                <button class="btn-action" style="height:50px; font-size:1.2em;" @click="findWild">🔍 尋找野怪 (Lv.{{ user.level }})</button>
+                <h3>🌲 選擇探險區域</h3>
+                <div style="margin-bottom:15px; background:#2c3e50; padding:10px; border-radius:8px;">
+                    <label>選擇難度等級：</label>
+                    <select v-model="selectedWildLevel" @change="fetchWildList" style="padding:5px; background:#16213e; color:white; border:none;">
+                        <option v-for="n in 10" :value="n">Lv. {{ n }}</option>
+                    </select>
+                </div>
+                
+                <div class="card-grid">
+                    <div v-for="m in wildList" :key="m.name" class="card">
+                        <img :src="m.image_url" class="card-img">
+                        <div style="margin-top:5px;">
+                            <b :style="{color: m.is_powerful?'#e74c3c':'white'}">{{ m.name }}</b><br>
+                            <small>HP:{{m.hp}}</small><br>
+                            <button class="btn-small" style="background:#c0392b" @click="startWildBattle(m)">戰鬥</button>
+                        </div>
+                    </div>
+                </div>
             </div>
 
             <div v-if="tab=='arena'">
@@ -207,7 +227,7 @@
             </div>
 
             <div v-if="tab=='shop'">
-                <h3>🛒 扭蛋商店</h3>
+                <h3>🛒 扭蛋商店 <button style="font-size:0.6em; background:#555; border:none; color:white; padding:3px;" @click="showRates=true">📊 機率</button></h3>
                 <button class="btn-action" @click="playGacha('normal')">🔮 初級 (1500G)</button>
                 <button class="btn-action" style="background:linear-gradient(45deg, #3498db, #2980b9)" @click="playGacha('medium')">🔵 中級 (3000G)</button>
                 <button class="btn-action" style="background:linear-gradient(45deg, #8e44ad, #9b59b6)" @click="playGacha('high')">🟣 高級 (10000G)</button>
@@ -243,6 +263,22 @@
                     <button @click="redeemCode" style="padding:5px;">兌換</button>
                 </div>
             </div>
+        </div>
+    </div>
+
+    <div v-if="showRates" class="modal-overlay" @click.self="showRates=false">
+        <div class="modal-box" style="width: 400px; max-height: 80vh; overflow-y: auto;">
+            <div class="modal-title">📊 扭蛋機率表</div>
+            <div v-for="(pool, name) in gachaRates" :key="name" style="margin-bottom: 15px;">
+                <h4 style="color: #f1c40f; border-bottom: 1px solid #555;">{{ name }}</h4>
+                <table class="rate-table">
+                    <tr v-for="item in pool" :key="item.name">
+                        <td>{{ item.name }}</td>
+                        <td style="text-align: right;">{{ item.rate }}%</td>
+                    </tr>
+                </table>
+            </div>
+            <button class="btn-yes" style="width: 100%; margin-top: 10px;" @click="showRates=false">關閉</button>
         </div>
     </div>
 
@@ -296,7 +332,23 @@
             const chatInput = ref("");
             const gambleAmount = ref(100);
             const promoCode = ref("");
-            const wildMon = ref(null);
+            
+            // Wild List Logic
+            const selectedWildLevel = ref(1);
+            const wildList = ref([]);
+
+            // Gacha Rates Modal
+            const showRates = ref(false);
+            const gachaRates = {
+                "🟣 高級扭蛋 (10000G)": [
+                    {name: "卡比獸", rate: 20}, {name: "吉利蛋", rate: 24},
+                    {name: "幸福蛋/拉普拉斯/妙蛙/噴火/水箭", rate: 10}, {name: "快龍", rate: 6}
+                ],
+                "✨ 黃金扭蛋 (3 Golden)": [
+                    {name: "卡比獸", rate: 30}, {name: "吉利蛋", rate: 35}, {name: "幸福蛋", rate: 20}, 
+                    {name: "拉普拉斯", rate: 10}, {name: "快龍", rate: 5}
+                ]
+            };
 
             const logout = () => { localStorage.clear(); window.location.href = 'login.html'; };
 
@@ -313,14 +365,20 @@
             const checkRaid = async () => { const res = await fetch(`${API_URL.replace('/items','')}/shop/raid/status`); raidState.value = await res.json(); };
             const initAdmin = async () => { try { const res = await fetch(`${API_URL}/social/admin/init`); const d = await res.json(); alert(d.message); } catch(e) {} };
 
+            // 🔥 新增：取得野怪列表 🔥
+            const fetchWildList = async () => {
+                const res = await fetch(`${API_URL.replace('/items','')}/shop/wild/list?level=${selectedWildLevel.value}`, { headers: { 'Authorization': `Bearer ${token}` } });
+                if(res.ok) wildList.value = await res.json();
+            };
+
             onMounted(() => {
                 if(!token) return window.location.href = 'login.html';
                 updateInfo();
                 fetchPlayers();
                 checkRaid();
                 setInterval(checkRaid, 5000);
-                // 自動讀取任務
                 fetchQuests();
+                fetchWildList(); // init list
 
                 const ws = new WebSocket(`${WS_URL}?token=${token}`);
                 ws.onmessage = (e) => {
@@ -349,13 +407,12 @@
                 if(n==='arena') fetchPlayers();
                 if(n==='social') fetchFriends();
                 if(n==='quest') fetchQuests();
+                if(n==='wild') fetchWildList();
             });
 
-            const findWild = async () => {
-                const res = await fetch(`${API_URL.replace('/items','')}/shop/wild/encounter?level=${user.value.level}`, { headers: { 'Authorization': `Bearer ${token}` } });
-                const data = await res.json();
-                wildMon.value = data;
-                battle.value = { active: true, mode: 'wild', target: data, shakeMe: false, shakeTarget: false };
+            // 🔥 新增：啟動野怪戰鬥 🔥
+            const startWildBattle = (target) => {
+                battle.value = { active: true, mode: 'wild', target: JSON.parse(JSON.stringify(target)), shakeMe: false, shakeTarget: false };
             };
             
             const startLobby = (target) => {
@@ -410,12 +467,11 @@
             const sendGift = async (fid) => { const res = await fetch(`${API_URL}/social/gift/send/${fid}`, { method: 'POST', headers: { 'Authorization': `Bearer ${token}` } }); if(res.ok) { alert("禮物已發送！"); fetchFriends(); } else { const d = await res.json(); alert(d.detail); } };
             const joinRaid = async () => { if(confirm("支付 1000G 加入？")) { const res = await fetch(`${API_URL.replace('/items','')}/shop/raid/join`, { method: 'POST', headers: { 'Authorization': `Bearer ${token}` } }); if(res.ok) { battle.value = { active: true, mode: 'raid', target: { name: raidState.value.boss_name, hp: raidState.value.hp, max_hp: raidState.value.max_hp, image_url: '' }, shakeMe: false, shakeTarget: false }; } else { const d = await res.json(); alert(d.detail); } } };
 
-            // Quest Actions
             const acceptQuest = async (qid) => { await fetch(`${API_URL.replace('/items','')}/shop/quests/accept/${qid}`, { method: 'POST', headers: { 'Authorization': `Bearer ${token}` } }); fetchQuests(); };
             const abandonQuest = async (qid) => { if(confirm("放棄需消耗 1000G，確定嗎？")) { await fetch(`${API_URL.replace('/items','')}/shop/quests/abandon/${qid}`, { method: 'POST', headers: { 'Authorization': `Bearer ${token}` } }); fetchQuests(); } };
             const claimQuest = async (qid) => { const res = await fetch(`${API_URL.replace('/items','')}/shop/quests/claim/${qid}`, { method: 'POST', headers: { 'Authorization': `Bearer ${token}` } }); const d = await res.json(); alert(d.message); fetchQuests(); };
 
-            return { user, tab, box, players, friends, selectedMon, currentPetIV, battle, raidState, inLobby, lobbyTimer, dailyCheckin, logout, playGacha, swapMon, releaseMon, useCandy, gambleAmount, doGamble, chatMsgs, chatInput, sendChat, findWild, doAttack, doHeal, buyHeal, promoCode, redeemCode, initAdmin, sendInvite, addFriend, sendGift, joinRaid, playerXpPercent, hpPercent, petXpPercent, currentAtkMe, quests, acceptQuest, abandonQuest, claimQuest };
+            return { user, tab, box, players, friends, selectedMon, currentPetIV, battle, raidState, inLobby, lobbyTimer, dailyCheckin, logout, playGacha, swapMon, releaseMon, useCandy, gambleAmount, doGamble, chatMsgs, chatInput, sendChat, findWild, doAttack, doHeal, buyHeal, promoCode, redeemCode, initAdmin, sendInvite, addFriend, sendGift, joinRaid, playerXpPercent, hpPercent, petXpPercent, currentAtkMe, quests, acceptQuest, abandonQuest, claimQuest, selectedWildLevel, wildList, fetchWildList, startWildBattle, showRates, gachaRates };
         }
     }).mount('#app');
 </script>
