@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>⚡️ 寶可夢大亂鬥 V2.5 (介面修復版) ⚡️</title>
+    <title>⚡️ 寶可夢大亂鬥 V2.6 (Loading修復版) ⚡️</title>
     <script src="https://unpkg.com/vue@3/dist/vue.global.js"></script>
     <style>
         [v-cloak] { display: none; }
@@ -71,7 +71,7 @@
 
 <div id="app" class="container" v-cloak>
     <div v-if="!user" style="text-align:center; padding-top:100px;">
-        <h1 style="color:#e94560">寶可夢大亂鬥 V2.5</h1>
+        <h1 style="color:#e94560">寶可夢大亂鬥 V2.6</h1>
         <p>經典介面回歸 + V2.0 核心</p>
         <button class="btn-action" @click="logout">前往登入頁面</button>
         <br><br>
@@ -407,7 +407,6 @@
             
             const initAdmin = async () => { try { const res = await fetch(`${API_URL}/social/admin/init`); const d = await res.json(); alert(d.message); } catch(e) {} };
 
-            // 🔥 修正變數名稱：使用 fetchWildList 呼叫 API 🔥
             const fetchWildList = async () => {
                 const res = await fetch(`${API_URL.replace('/items','')}/shop/wild/list?level=${selectedWildLevel.value}`, { headers: { 'Authorization': `Bearer ${token}` } });
                 if(res.ok) wildList.value = await res.json();
