@@ -3,684 +3,308 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate" />
-    <meta http-equiv="Pragma" content="no-cache" />
-    <meta http-equiv="Expires" content="0" />
-    <title>⚡️ 寶可夢大亂鬥 V37 ⚡️</title>
+    <title>⚡️ 寶可夢大亂鬥 V2.0 ⚡️</title>
     <script src="https://unpkg.com/vue@3/dist/vue.global.js"></script>
-    
     <style>
-        body { font-family: 'Segoe UI', sans-serif; background-color: #1a1a2e; color: #fff; padding: 20px; user-select: none; padding-bottom: 100px; }
+        body { font-family: 'Segoe UI', sans-serif; background-color: #1a1a2e; color: #fff; padding: 20px; padding-bottom: 120px; user-select: none; }
         .container { max-width: 900px; margin: 0 auto; }
-        
-        /* Navbar */
-        .navbar { display: flex; justify-content: space-between; align-items: center; background: #16213e; padding: 15px; border-radius: 10px; margin-bottom: 20px; border: 1px solid #0f3460; }
-        .user-info { display: flex; gap: 15px; width: 100%; }
-        .user-avatar { width: 70px; height: 70px; border-radius: 50%; border: 3px solid #f1c40f; object-fit: cover; }
-        .user-stats { flex: 1; display: flex; flex-direction: column; gap: 8px; }
-        .stat-block { background: rgba(0,0,0,0.2); padding: 5px 10px; border-radius: 5px; }
-        .stat-title { font-size: 0.9em; color: #aaa; margin-bottom: 2px; display: flex; justify-content: space-between; }
-        .bar-container { width: 100%; background: #333; height: 8px; border-radius: 4px; overflow: hidden; position: relative; }
-        .bar-fill { height: 100%; transition: width 0.3s; }
-        .hp-fill { background: linear-gradient(90deg, #e74c3c, #c0392b); } 
-        .pet-xp-fill { background: linear-gradient(90deg, #3498db, #2980b9); } 
-        .player-xp-fill { background: linear-gradient(90deg, #f1c40f, #d35400); }
-        .bar-text { font-size: 0.75em; color: #ccc; display: flex; justify-content: space-between; margin-top: 1px; }
-        .atk-val { color: #f1c40f; font-weight: bold; }
-        .btn-logout { background: transparent; border: 1px solid #e74c3c; color: #e74c3c; padding: 5px 15px; border-radius: 5px; cursor: pointer; align-self: flex-start; }
-        
-        /* Tabs */
-        .tabs { display: flex; gap: 10px; margin-bottom: 20px; flex-wrap: wrap; }
-        .tab-btn { flex: 1; padding: 12px; background: #0f3460; border: none; color: #aaa; cursor: pointer; border-radius: 8px; font-weight: bold; min-width: 80px; transition:0.2s; display:flex; flex-direction:column; align-items:center; justify-content: center; }
-        .tab-btn.active { background: #e94560; color: white; transform: translateY(-3px); }
-        .tab-sub { font-size: 0.7em; margin-top: 2px; opacity: 0.8; }
-        
-        /* Game Area */
-        .game-area { display: flex; gap: 20px; }
-        .card-grid { flex: 2; display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 15px; }
-        .card { background: #0f3460; border-radius: 10px; padding: 10px; text-align: center; cursor: pointer; border: 1px solid transparent; transition:0.2s; position: relative; }
-        .card:hover { border-color: #f1c40f; transform: translateY(-5px); }
-        .card-img { width: 100%; height: 150px; object-fit: contain; background: #222; border-radius: 5px; }
         .btn-action { width: 100%; padding: 8px; margin-top: 5px; border: none; border-radius: 5px; cursor: pointer; font-weight: bold; background: #c0392b; color: white; }
-        .btn-small { width: 48%; padding: 5px; font-size: 0.9em; margin-top: 5px; border: none; border-radius: 5px; cursor: pointer; color: white; }
-        .level-selector { margin-bottom: 15px; text-align: center; background: #2c3e50; padding: 10px; border-radius: 8px; border: 1px solid #444; }
-        .level-selector select { padding: 5px 10px; border-radius: 5px; border: none; background: #16213e; color: white; font-weight: bold; cursor: pointer; font-size: 1em; }
-        .quest-card, .social-card { border-left: 5px solid #aaa; background: #2c3e50; padding: 15px; margin-bottom: 10px; text-align: left; border-radius: 5px; }
-        .quest-active { border-left-color: #f1c40f; } .quest-completed { border-left-color: #2ecc71; }
-        .quest-golden { background: linear-gradient(45deg, #f1c40f, #f39c12); color: #000; border-left: 5px solid #fff; border: 2px solid #fff; box-shadow: 0 0 15px rgba(241, 196, 15, 0.5); }
-        .inv-item { background: #2c3e50; padding: 15px; border-radius: 10px; display: flex; justify-content: space-between; align-items: center; margin-bottom: 5px; }
-        .gacha-box { text-align: center; padding: 40px; background: #16213e; border-radius: 15px; position: relative; }
-        .gacha-btn { width: 80%; margin: 10px auto; padding: 15px; border-radius: 50px; border: none; cursor: pointer; font-size: 1.2em; background: linear-gradient(45deg, #f1c40f, #d35400); color: white; transition: 0.3s; }
-        .gacha-btn:hover { transform: scale(1.05); }
+        .card { background: #0f3460; border-radius: 10px; padding: 10px; margin-bottom:10px; border: 1px solid #444; }
+        .tabs { display: flex; gap: 5px; margin-bottom: 15px; flex-wrap: wrap; }
+        .tab-btn { flex: 1; padding: 10px; background: #16213e; color: #aaa; border: 1px solid #333; cursor: pointer; }
+        .tab-btn.active { background: #e94560; color: white; border-color: #e94560; }
         
-        /* Battle */
+        /* 戰鬥相關 */
         .battle-overlay { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(15, 15, 30, 0.98); z-index: 2000; padding: 20px; display: flex; flex-direction: column; align-items: center; }
-        .battle-header { width: 100%; max-width: 800px; display: flex; justify-content: space-between; margin-bottom: 20px; font-size: 1.5em; font-weight: bold; color: #f1c40f; }
-        .battle-timer { font-family: monospace; font-size: 1.5em; color: #e74c3c; border: 2px solid #e74c3c; padding: 5px 15px; border-radius: 10px; background: rgba(0,0,0,0.5); }
-        .battle-arena { display: flex; justify-content: space-between; width: 100%; max-width: 900px; height: 350px; align-items: flex-end; }
-        .fighter { width: 45%; text-align: center; position: relative; transition: 0.3s; }
-        .fighter img { width: 100%; height: 200px; object-fit: contain; drop-shadow: 0 10px 10px rgba(0,0,0,0.5); }
-        .fighter-stats { background: rgba(0,0,0,0.7); padding: 10px; border-radius: 10px; margin-bottom: 10px; border: 1px solid #666; }
-        .fighter-name { font-weight: bold; font-size: 1.2em; color: #fff; margin-bottom: 5px; }
-        .battle-menu { width: 100%; max-width: 800px; display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-top: 20px; }
-        .move-btn { padding: 15px; background: #34495e; border: 1px solid #555; color: white; border-radius: 8px; text-align: left; cursor: pointer; transition: 0.2s; }
-        .move-btn:hover:not(.cooldown) { background: #3d566e; transform: translateY(-2px); }
-        .move-btn.cooldown { opacity: 0.6; cursor: not-allowed; filter: grayscale(1); }
-        .move-info { font-size: 0.8em; color: #aaa; margin-top: 4px; }
-        .modal-overlay { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.8); z-index: 4000; display: flex; justify-content: center; align-items: center; }
-        .modal-box { background: #16213e; border: 3px solid #f1c40f; padding: 30px; border-radius: 20px; text-align: center; width: 300px; animation: popIn 0.3s; position: relative; }
-        .modal-title { font-size: 1.5em; color: #f1c40f; margin-bottom: 20px; }
-        .modal-img { max-width: 100%; max-height: 200px; object-fit: contain; margin-bottom: 15px; display: block; margin: 0 auto 15px auto; }
-        .modal-btns { display: flex; gap: 10px; justify-content: center; margin-top: 20px; }
-        .btn-yes { background: #27ae60; padding: 10px 20px; border:none; color:white; border-radius:5px; cursor:pointer; margin:5px; }
-        .btn-no { background: #7f8c8d; padding: 10px 20px; border:none; color:white; border-radius:5px; cursor:pointer; margin:5px; }
-        .floating-damage { position: absolute; color: #ffeb3b; font-weight: bold; font-size: 32px; animation: floatUp 2.0s forwards; z-index: 3000; text-shadow: 2px 2px 0 #000; pointer-events: none; }
-        .levelup-overlay { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(241, 196, 15, 0.95); z-index: 6000; display: flex; justify-content: center; align-items: center; flex-direction: column; animation: popIn 0.5s; pointer-events: none; }
-        .levelup-text { font-size: 4em; font-weight: bold; color: #fff; text-shadow: 0 0 20px #000; margin-bottom: 20px; }
-        .levelup-sub { font-size: 2em; color: #000; font-weight: bold; }
-        .gacha-anim-overlay { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.95); z-index: 5000; display: flex; flex-direction: column; justify-content: center; align-items: center; }
-        .pokeball-anim { width: 150px; height: 150px; background: white; border: 8px solid #333; border-radius: 50%; position: relative; overflow: hidden; animation: shakeBall 1s infinite; }
-        .pokeball-anim::before { content: ''; position: absolute; top: 0; width: 100%; height: 50%; background: #e74c3c; border-bottom: 8px solid #333; }
-        .pokeball-anim::after { content: ''; position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); width: 40px; height: 40px; background: white; border: 6px solid #333; border-radius: 50%; z-index: 2; animation: blink 0.5s infinite alternate; }
-        .gacha-text { color: white; margin-top: 20px; font-size: 1.5em; animation: pulse 1s infinite; }
-        .battle-log-panel { flex: 1; background: #16213e; border: 2px solid #0f3460; border-radius: 10px; height: 500px; padding: 10px; overflow-y: auto; position: sticky; top: 20px; }
-        .log-entry { font-size: 0.9em; border-bottom: 1px solid #333; padding: 4px 0; }
-        .dex-card { text-align: center; cursor: pointer; border: 2px solid transparent; } .dex-card:hover { border: 2px solid #f1c40f; }
-        .dex-img { width: 100%; height: 120px; object-fit: contain; background: #222; border-radius: 5px; transition: 0.3s; }
-        .dex-locked { filter: brightness(0); opacity: 0.3; }
-        .dex-unlocked-name { color: #f1c40f; }
-        .rate-table { width: 100%; border-collapse: collapse; margin-top: 10px; }
-        .rate-table th, .rate-table td { border: 1px solid #444; padding: 8px; text-align: left; }
-        .rate-table th { background: #34495e; }
-        .rank-table { width: 100%; border-collapse: collapse; }
-        .rank-table th, .rank-table td { padding: 10px; text-align: left; border-bottom: 1px solid #444; }
-        .rank-table tr:nth-child(1) { color: #f1c40f; font-weight: bold; }
-        .rank-table tr:nth-child(2) { color: #bdc3c7; }
-        .rank-table tr:nth-child(3) { color: #d35400; }
-        
-        .lobby-bar {
-            position: fixed; bottom: 0; left: 0; width: 100%;
-            background: rgba(22, 33, 62, 0.95);
-            border-top: 3px solid #f1c40f;
-            padding: 15px; z-index: 6000;
-            display: flex; justify-content: center; align-items: center;
-            box-shadow: 0 -5px 15px rgba(0,0,0,0.5);
-            animation: slideUp 0.3s;
-        }
-        .lobby-info { font-size: 1.2em; font-weight: bold; color: #fff; margin-right: 20px; }
-        .lobby-timer { font-size: 2em; color: #f1c40f; font-family: monospace; border: 2px solid #f1c40f; padding: 5px 15px; border-radius: 10px; }
-        
-        @keyframes slideUp { from { transform: translateY(100%); } to { transform: translateY(0); } }
-        @keyframes floatUp { 0% { transform: translateY(0); opacity: 1; } 100% { transform: translateY(-80px); opacity: 0; } }
-        @keyframes shake { 0% { transform: translateX(0); } 25% { transform: translateX(-10px); } 75% { transform: translateX(10px); } 100% { transform: translateX(0); } }
-        @keyframes popIn { 0% { transform: scale(0); } 100% { transform: scale(1); } }
-        @keyframes shakeBall { 0% { transform: rotate(0deg); } 20% { transform: rotate(-15deg); } 40% { transform: rotate(15deg); } 60% { transform: rotate(-15deg); } 80% { transform: rotate(0deg); } 100% { transform: rotate(0deg); } }
-        @keyframes blink { from { background: #fff; } to { background: #f1c40f; } }
-        @keyframes pulse { 0% { transform: scale(1); } 50% { transform: scale(1.1); } 100% { transform: scale(1); } }
+        .battle-arena { display: flex; justify-content: space-between; width: 100%; max-width: 900px; height: 300px; align-items: flex-end; }
+        .fighter { width: 45%; text-align: center; }
+        .fighter img { width: 100px; height: 100px; object-fit: contain; }
+        .bar-container { width: 100%; background: #333; height: 8px; border-radius: 4px; overflow: hidden; margin-top: 5px; }
+        .hp-fill { background: #e74c3c; height: 100%; transition: width 0.3s; }
         .shake-hit { animation: shake 0.4s; }
-        @media (max-width: 768px) { .battle-arena { height: 300px; } .fighter { width: 140px; } .fighter img { height: 140px; } .battle-menu { grid-template-columns: 1fr; } .game-area { flex-direction: column; } .battle-log-panel { height: 200px; } }
+        @keyframes shake { 0% { transform: translateX(0); } 25% { transform: translateX(-10px); } 75% { transform: translateX(10px); } 100% { transform: translateX(0); } }
+
+        /* 聊天室 */
+        .chat-panel { position: fixed; bottom: 0; left: 0; width: 100%; height: 120px; background: rgba(0,0,0,0.9); z-index: 5000; padding: 10px; display: flex; flex-direction: column; }
+        .chat-msgs { flex: 1; overflow-y: auto; font-size: 0.9em; margin-bottom: 5px; }
+        .chat-input-area { display: flex; gap: 5px; }
+        .chat-input { flex: 1; padding: 5px; border-radius: 5px; border: none; }
+        
+        /* 盒子 */
+        .box-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(120px, 1fr)); gap: 10px; }
+        .box-item { background: #222; padding: 10px; border-radius: 5px; text-align: center; border: 2px solid transparent; cursor: pointer; }
+        .box-item.active { border-color: #f1c40f; }
+        .iv-tag { font-size: 0.8em; color: #f1c40f; font-weight: bold; }
+        
+        /* 團體戰 */
+        .raid-boss { text-align: center; border: 2px solid #e74c3c; padding: 20px; border-radius: 10px; background: #2c0b0e; }
+        .raid-hp { height: 20px; background: #555; border-radius: 10px; overflow: hidden; margin: 10px 0; }
+        .raid-hp-fill { height: 100%; background: #e74c3c; transition: width 0.5s; }
     </style>
 </head>
 <body>
 
 <div id="app" class="container">
-    
     <div v-if="!user" style="text-align:center; padding-top:100px;">
-        <h2 style="color:#f1c40f">正在連線伺服器...</h2>
-        <p style="color:#aaa">(如果超過 5 秒沒反應，請點下方按鈕重新登入)</p>
-        <button class="btn-logout" @click="logout">前往登入頁面</button>
+        <h1 style="color:#e94560">寶可夢大亂鬥 V2.0</h1>
+        <p>請先登入 (V2.0 自動重置為 Lv.1)</p>
+        <button class="btn-action" @click="logout">前往登入頁面</button>
     </div>
 
     <div v-else>
-        <div v-if="inLobby" class="lobby-bar">
-            <div class="lobby-info">
-                ⚠️ 戰鬥準備中...
-                <span style="font-size:0.8em; color:#aaa; display:block;">請盡快更換出戰寶可夢</span>
+        <div class="card" style="display:flex; gap:10px; align-items:center;">
+            <img :src="user.pokemon_image" style="width:60px; height:60px; border-radius:50%;">
+            <div style="flex:1;">
+                <div><b>{{ user.username }}</b> Lv.{{ user.level }}</div>
+                <div>💰 {{ user.money }} | IV: {{ currentPetIV }}</div>
             </div>
-            <div class="lobby-timer">⏱️ {{ lobbyTimer }}s</div>
+            <button style="background:#27ae60; color:white; border:none; padding:5px 10px; border-radius:5px;" @click="dailyCheckin">📅 簽到</button>
+            <button style="background:#555; color:white; border:none; padding:5px 10px; border-radius:5px;" @click="logout">登出</button>
         </div>
 
-        <div class="navbar">
-            <div class="user-info">
-                <img :src="user.pokemon_image" class="user-avatar">
-                <div class="user-stats">
-                    <div class="stat-block">
-                        <div class="stat-title">
-                            <span>{{ user.username }} (Lv.{{ user.level }})</span>
-                            <span>💰 {{ user.money }}</span>
-                        </div>
-                        <div class="bar-container"><div class="bar-fill player-xp-fill" :style="{ width: playerXpPercent + '%' }"></div></div>
-                        <div class="bar-text"><span>Trainer XP</span><span>{{ user.exp }}/{{ user.next_level_exp }}</span></div>
-                    </div>
-
-                    <div class="stat-block">
-                        <div class="stat-title">
-                            <span>{{ user.pokemon_name }} (Lv.{{ user.pet_level }})</span>
-                            <span class="atk-val">ATK: {{ currentAtkMe }}</span>
-                        </div>
-                        <div class="bar-container"><div class="bar-fill hp-fill" :style="{ width: hpPercent(user) + '%' }"></div></div>
-                        <div class="bar-text"><span>HP: {{ user.hp }}/{{ user.max_hp }}</span></div>
-                        <div class="bar-container" style="margin-top:4px;"><div class="bar-fill pet-xp-fill" :style="{ width: petXpPercent(user) + '%' }"></div></div>
-                        <div class="bar-text"><span>Pet XP</span><span>{{ user.pet_exp }}/{{ user.next_pet_level_exp }}</span></div>
-                    </div>
-                </div>
-            </div>
-            <button class="btn-logout" @click="logout">登出</button>
-        </div>
-
-        <div v-if="showLevelUp" class="levelup-overlay">
-            <div class="levelup-text">訓練師升級！</div>
-            <div class="levelup-sub">恭喜 {{ user.username }}<br>升到了 Lv.{{ user.level }}！</div>
-        </div>
-        
-        <div v-if="newsState.show" class="modal-overlay">
-            <div class="modal-box" style="text-align:left;">
-                <div class="modal-title" style="text-align:center;">📢 V37 更新公告</div>
-                <ul>
-                    <li><b>👹 野怪結算修復</b>：打贏野怪後現在會正確顯示勝利視窗與獎勵！</li>
-                    <li><b>⏳ 備戰介面優化</b>：倒數計時現在位於底部，您可以在備戰期間自由操作圖鑑與背包！</li>
-                    <li><b>⚔️ 戰鬥優化</b>：PVP 勝利與失敗皆有經驗值獎勵。</li>
-                </ul>
-                <button class="btn-yes" style="width:100%; margin-top:15px;" @click="closeNews">我知道了</button>
-            </div>
-        </div>
-
-        <div v-if="rateState.show" class="modal-overlay" @click.self="rateState.show = false">
-            <div class="modal-box" style="width: 400px; max-height: 80vh; overflow-y: auto;">
-                <div class="modal-title">📊 扭蛋機率表</div>
-                <div v-for="(pool, name) in gachaRates" :key="name" style="margin-bottom: 15px;">
-                    <h4 style="color: #f1c40f; border-bottom: 1px solid #555;">{{ name }}</h4>
-                    <table class="rate-table">
-                        <tr v-for="item in pool" :key="item.name">
-                            <td>{{ item.name }}</td>
-                            <td style="text-align: right;">{{ item.rate }}%</td>
-                        </tr>
-                    </table>
-                </div>
-                <button class="btn-yes" style="width: 100%; margin-top: 10px;" @click="rateState.show = false">關閉</button>
-            </div>
-        </div>
-        <div v-if="inviteState.show" class="modal-overlay"><div class="modal-box"><h3>💌 決鬥邀請</h3><p>{{ inviteState.senderName }} 向你發起挑戰！</p><div class="modal-btns"><button class="btn-yes" @click="respondInvite(true)">接受</button><button class="btn-no" @click="respondInvite(false)">拒絕</button></div></div></div>
-        
-        <div v-if="gachaResult.show" class="modal-overlay">
-            <div class="modal-box">
-                <div class="modal-title">{{ gachaResult.isNew ? '🎉 獲得新夥伴！' : '🔁 獲得重複夥伴' }}</div>
-                <img :src="gachaResult.prize.img" class="modal-img">
-                <p v-if="gachaResult.isNew">獲得 <b>{{ gachaResult.prize.name }}</b>！</p>
-                <p v-else>獲得 <b>{{ gachaResult.prize.name }}</b> (重複)<br><span style="color:#f1c40f; font-weight:bold;">經驗值 +500</span></p>
-                <div class="modal-btns">
-                    <button class="btn-yes" @click="confirmSwap(true)" v-if="gachaResult.isNew">變身</button>
-                    <button class="btn-no" @click="confirmSwap(false)">收下</button>
-                </div>
-            </div>
-        </div>
-        
-        <div v-if="battleState.winner === 'win_modal'" class="modal-overlay">
-            <div class="modal-box">
-                <h3 style="color:#2ecc71">🏆 勝利！</h3>
-                <p>擊敗對手，獲得獎勵：</p>
-                <p style="font-size:1.5em; font-weight:bold; color:#f1c40f">{{ battleState.rewardMsg }}</p>
-                <button class="btn-yes" @click="endBattle">離開</button>
-            </div>
-        </div>
-
-        <div v-if="isGachaAnimating" class="gacha-anim-overlay"><div class="pokeball-anim"></div><div class="gacha-text">捕捉中...</div></div>
-
-        <h1 style="text-align: center; color: #e94560;" v-if="!battleState.isActive">⚔️ 妙蛙宸的熱血戰場 ⚔️</h1>
-
-        <div v-if="battleState.isActive && !inLobby" class="battle-overlay">
-            <div class="battle-header"><h3>{{ battleState.mode==='wild'?'🌲 野生遭遇':'🏟️ PVP對決' }}</h3><div class="battle-timer" v-if="battleState.winner !== 'win_modal' && !battleState.winner">⏱️ {{ battleState.timer }}</div></div>
+        <div v-if="battle.active" class="battle-overlay">
+            <h2 style="color:#f1c40f">{{ battle.mode === 'raid' ? '🔥 團體戰' : (battle.mode === 'wild' ? '🌲 野外遭遇' : '⚔️ PVP 對決') }}</h2>
             <div class="battle-arena">
-                <div class="fighter" :class="{'shake-hit': battleState.shakeMe}">
-                    <img :src="user.pokemon_image" id="fighter-me">
-                    <div>{{ user.username }} (Lv.{{ user.pet_level }})</div>
-                    <div class="bar-container"><div class="bar-fill hp-fill" :style="{ width: hpPercent(user) + '%' }"></div></div>
-                    <small>{{ user.hp }} / {{ user.max_hp }}</small>
-                    <div style="color:#f1c40f; font-weight:bold; font-size:0.9em;">ATK: {{ currentAtkMe }}</div>
+                <div class="fighter" :class="{'shake-hit': battle.shakeMe}">
+                    <img :src="user.pokemon_image">
+                    <div>{{ user.pokemon_name }} (Lv.{{ user.pet_level }})</div>
+                    <div class="bar-container"><div class="hp-fill" :style="{width: (user.hp/user.max_hp)*100 + '%'}"></div></div>
+                    <small>{{ user.hp }}/{{ user.max_hp }}</small>
                 </div>
-                <div class="fighter" :class="{'shake-hit': battleState.shakeTarget}">
-                    <img :src="battleState.target.image_url || battleState.target.pokemon_image" id="fighter-target">
-                    <div>{{ battleState.target.name || battleState.target.username }}</div>
-                    <div class="bar-container"><div class="bar-fill hp-fill" :style="{ width: hpPercent(battleState.target) + '%' }"></div></div>
-                    <small>{{ battleState.target.hp }} / {{ battleState.target.max_hp }}</small>
-                    <div style="color:#f1c40f; font-weight:bold; font-size:0.9em;">ATK: {{ currentAtkTarget }}</div>
+                <div class="fighter" :class="{'shake-hit': battle.shakeTarget}">
+                    <img :src="battle.target.image_url || battle.target.pokemon_image">
+                    <div>{{ battle.target.name || battle.target.username }}</div>
+                    <div class="bar-container"><div class="hp-fill" :style="{width: (battle.target.hp/battle.target.max_hp)*100 + '%'}"></div></div>
+                    <small>HP: {{ battle.target.hp }}</small>
                 </div>
             </div>
-            
-            <div v-if="battleState.winner !== 'win_modal' && !battleState.winner" class="battle-menu">
-                <button v-for="(move, idx) in myMoves" :key="idx" class="move-btn" 
-                    :class="{'cooldown': !isMyTurn || battleState.isActionProcessing}"
-                    @click="executePlayerMove(move)">
-                    <div>{{ move.name }} <span style="float:right; color:#f1c40f">威力: {{ calculateDisplayDmg(currentAtkMe, move.dmg) }}</span></div>
-                    <div class="move-info">{{ move.desc }}</div>
-                </button>
-                <button class="move-btn" style="background:#2980b9" 
-                    :class="{'cooldown': !isMyTurn || battleState.isActionProcessing || battleState.defenseCount <= 0}"
-                    @click="executeDefense">
-                    <div>🛡️ 防禦</div><div class="move-info">本回合無傷 + 30%反傷</div>
-                </button>
-            </div>
-            <div v-else-if="battleState.winner === 'enemy'" class="modal-overlay">
-                <div class="modal-box"><h3>💀 失敗...</h3><button class="btn-yes" @click="endBattle">離開</button></div>
+            <div style="width:100%; max-width:600px; margin-top:20px; display:grid; grid-template-columns:1fr 1fr; gap:10px;">
+                <button class="btn-action" @click="doAttack(1.0)">普通攻擊</button>
+                <button class="btn-action" style="background:#3498db" @click="doAttack(1.2)">技能攻擊 (CD)</button>
+                <button class="btn-action" style="background:#27ae60" @click="doHeal">💊 醫療包 (20%)</button>
+                <button class="btn-action" style="background:#7f8c8d" @click="battle.active=false">逃跑</button>
             </div>
         </div>
 
-        <div class="tabs" v-if="!battleState.isActive">
-            <button class="tab-btn" @click="currentTab='wild'" :class="{active: currentTab=='wild'}">🌲 野外</button>
-            <button class="tab-btn" @click="currentTab='arena'" :class="{active: currentTab=='arena'}">🏟️ 競技</button>
-            <button class="tab-btn" @click="currentTab='rank'" :class="{active: currentTab=='rank'}">🏆 排行</button>
-            <button class="tab-btn" @click="currentTab='social'" :class="{active: currentTab=='social'}">🤝 好友</button>
-            <button class="tab-btn" @click="currentTab='quest'" :class="{active: currentTab=='quest'}">📜 任務</button>
-            <button class="tab-btn" @click="currentTab='shop'" :class="{active: currentTab=='shop'}">🛒 商店</button>
-            <button class="tab-btn" @click="currentTab='bag'" :class="{active: currentTab=='bag'}">🎒 背包</button>
-            <button class="tab-btn" @click="currentTab='dex'" :class="{active: currentTab=='dex'}">
-                📖 圖鑑
-                <span class="tab-sub">({{ collectionPercent }}%)</span>
-            </button>
+        <div class="tabs" v-if="!battle.active">
+            <button class="tab-btn" :class="{active: tab=='wild'}" @click="tab='wild'">🌲 野外</button>
+            <button class="tab-btn" :class="{active: tab=='raid'}" @click="tab='raid'">🔥 團體戰</button>
+            <button class="tab-btn" :class="{active: tab=='box'}" @click="tab='box'">📦 盒子</button>
+            <button class="tab-btn" :class="{active: tab=='shop'}" @click="tab='shop'">🛒 商店</button>
+            <button class="tab-btn" :class="{active: tab=='gamble'}" @click="tab='gamble'">🎰 賭場</button>
+            <button class="tab-btn" :class="{active: tab=='social'}" @click="tab='social'">💬 社交</button>
         </div>
 
-        <div class="game-area" v-if="!battleState.isActive">
-            <div v-if="currentTab === 'wild'" style="width:100%">
-                <div class="level-selector"><label>⚔️ 選擇難度：</label><select v-model="selectedWildLevel" @change="fetchMonsters" style="margin-bottom:10px; padding:5px;"><option v-for="n in user.level" :value="n">Lv. {{ n }}</option></select></div>
-                <div class="card-grid"><div v-for="m in monsters" :key="m.id" class="card"><img :src="m.image_url" class="card-img"><div class="card-body"><b>{{ m.name }}</b><br><small>XP:{{m.xp}} G:{{m.gold}}</small><br><button class="btn-action" @click="initBattle(m, 'wild')">戰鬥</button></div></div></div>
+        <div v-if="!battle.active">
+            <div v-if="tab=='wild'">
+                <h3>⚔️ 遭遇野怪</h3>
+                <button class="btn-action" @click="findWild">尋找野怪</button>
+            </div>
+
+            <div v-if="tab=='raid'">
+                <h3>🔥 傳說團體戰</h3>
+                <div v-if="raidState.active" class="raid-boss">
+                    <h2>Boss: {{ raidState.boss_name }}</h2>
+                    <div class="raid-hp"><div class="raid-hp-fill" :style="{width: (raidState.hp/raidState.max_hp)*100 + '%'}"></div></div>
+                    <p>HP: {{ raidState.hp }} / {{ raidState.max_hp }}</p>
+                    <button class="btn-action" @click="joinRaid">加入戰鬥 (1000G)</button>
+                </div>
+                <div v-else class="card">目前沒有團體戰 (08:00, 18:00, 22:00 開放)</div>
+            </div>
+
+            <div v-if="tab=='box'">
+                <h3>📦 寶可夢盒子 ({{ box.length }}/25)</h3>
+                <div class="box-grid">
+                    <div v-for="p in box" :key="p.uid" class="box-item" :class="{active: p.uid === user.active_pokemon_uid}" @click="selectedMon=p">
+                        <div><b>{{ p.name }}</b></div>
+                        <div class="iv-tag">IV: {{ p.iv }}</div>
+                        <div>Lv.{{ p.lv }}</div>
+                    </div>
+                </div>
+                <div v-if="selectedMon" class="card" style="margin-top:15px; border-color:#f1c40f;">
+                    <h4>已選擇: {{ selectedMon.name }}</h4>
+                    <p>IV: {{ selectedMon.iv }} | 等級: {{ selectedMon.lv }}</p>
+                    <div style="display:flex; gap:10px;">
+                        <button class="btn-action" style="background:#2ecc71" @click="swapMon(selectedMon.uid)">出戰</button>
+                        <button class="btn-action" style="background:#3498db" @click="useCandy(selectedMon.uid)">🍬 餵糖</button>
+                        <button class="btn-action" style="background:#e74c3c" @click="releaseMon(selectedMon.uid)">👋 放生</button>
+                    </div>
+                </div>
+            </div>
+
+            <div v-if="tab=='shop'">
+                <h3>🛒 扭蛋商店</h3>
+                <button class="btn-action" @click="playGacha('normal')">🔮 初級 (1500G)</button>
+                <button class="btn-action" style="background:linear-gradient(45deg, #3498db, #2980b9)" @click="playGacha('medium')">🔵 中級 (3000G)</button>
+                <button class="btn-action" style="background:linear-gradient(45deg, #8e44ad, #9b59b6)" @click="playGacha('high')">🟣 高級 (10000G)</button>
+                <button class="btn-action" style="background:#27ae60" @click="buyHeal">💊 補血 (50G)</button>
+            </div>
+
+            <div v-if="tab=='gamble'">
+                <div class="card" style="text-align:center; border:2px solid #f39c12;">
+                    <h3>🎰 幸運賭場</h3>
+                    <input type="number" v-model.number="gambleAmount" placeholder="輸入金額" style="padding:10px; width:100px;">
+                    <button class="btn-action" style="margin-top:10px; background:#f39c12; color:black;" @click="doGamble">下注！</button>
+                </div>
             </div>
             
-            <div v-if="currentTab === 'arena'" class="card-grid">
-                <div v-for="p in players" :key="p.id" class="card">
-                    <img :src="p.pokemon_image" class="card-img">
-                    <div class="card-body">
-                        <b>{{ p.username }}</b> (Lv.{{ p.level }})
-                        <div style="margin-top:5px; display:flex; gap:5px;">
-                            <button class="btn-small" style="background:#c0392b" v-if="p.is_online" @click="sendInvite(p)">決鬥</button>
-                            <button class="btn-small" style="background:#27ae60" @click="addFriend(p.id)">➕ 加好友</button>
-                        </div>
-                    </div>
+            <div v-if="tab=='social'">
+                <h3>💬 社交與管理</h3>
+                <div v-if="user.is_admin" class="card" style="border-color:red;">
+                    <h4>🔴 管理員面板</h4>
+                    <input v-model="adminTargetId" placeholder="玩家ID" style="width:50px;">
+                    <button @click="adminAction('mute')">禁言</button>
+                    <button @click="adminAction('ban')">刪帳號</button>
+                    <br><input v-model="announceText" placeholder="公告內容">
+                    <button @click="adminAction('announce')">發公告</button>
+                </div>
+                <div class="card">
+                    <h4>🎁 兌換碼</h4>
+                    <input v-model="promoCode" placeholder="輸入序號">
+                    <button @click="redeemCode">兌換</button>
                 </div>
             </div>
-
-            <div v-if="currentTab === 'rank'" style="width:100%">
-                <h3>🏆 全服排行榜 (Top 10)</h3>
-                <div class="card" style="padding:0; overflow:hidden;">
-                    <table class="rank-table">
-                        <thead><tr><th>排名</th><th>玩家</th><th>等級</th><th>金幣</th><th>圖鑑</th></tr></thead>
-                        <tbody>
-                            <tr v-for="r in leaderboard" :key="r.rank">
-                                <td style="font-size:1.2em;">{{ r.rank }}</td>
-                                <td><img :src="r.img" style="width:30px; vertical-align:middle; border-radius:50%;"> {{ r.username }}</td>
-                                <td>Lv.{{ r.level }}</td>
-                                <td>💰 {{ r.money }}</td>
-                                <td>{{ r.collection }}%</td>
-                            </tr>
-                        </tbody>
-                    </table>
-                </div>
-            </div>
-
-            <div v-if="currentTab === 'social'" style="width:100%">
-                <div v-if="myGifts.length > 0" style="margin-bottom:20px;">
-                    <h3 style="color:#f1c40f">📭 未領禮物 ({{ myGifts.length }})</h3>
-                    <div v-for="g in myGifts" :key="g.id" class="social-card" style="border-left-color:#3498db; display:flex; justify-content:space-between; align-items:center;">
-                        <span>🎁 來自 <b>{{ g.sender }}</b> 的禮物</span>
-                        <button class="btn-small" style="width:auto; background:#f1c40f" @click="openGift(g.id)">拆開</button>
-                    </div>
-                </div>
-
-                <div v-if="friendRequests.length > 0">
-                    <h3 style="color:#e91e63">📩 好友邀請</h3>
-                    <div v-for="req in friendRequests" :key="req.req_id" class="social-card" style="border-left-color:#e91e63">
-                        <div style="display:flex; justify-content:space-between; align-items:center;">
-                            <span><b>{{ req.sender_name }}</b> (Lv.{{ req.sender_lv }}) 想加你為好友</span>
-                            <div>
-                                <button class="btn-small" style="background:#27ae60" @click="respondFriendRequest(req.req_id, true)">接受</button>
-                                <button class="btn-small" style="background:#e74c3c" @click="respondFriendRequest(req.req_id, false)">拒絕</button>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-
-                <h3>🤝 我的好友 ({{ friends.length }})</h3>
-                <div v-if="friends.length === 0" style="color:#aaa">還沒有好友，去競技場加人吧！</div>
-                <div class="card-grid">
-                    <div v-for="f in friends" :key="f.id" class="card">
-                        <img :src="f.img" class="card-img">
-                        <div class="card-body">
-                            <b>{{ f.username }}</b> (Lv.{{ f.level }})<br>
-                            <button v-if="f.can_gift" class="btn-small" style="width:100%; background:#f39c12" @click="sendGift(f.id)">🎁 送禮</button>
-                            <button v-else class="btn-small" style="width:100%; background:#555" disabled>已送過</button>
-                        </div>
-                    </div>
-                </div>
-            </div>
-
-            <div v-if="currentTab === 'quest'" style="width:100%">
-                <div v-if="quests.length === 0" style="text-align:center; padding:20px;"><p v-if="isQuestLoading">正在讀取任務...</p><p v-else>暫無任務，請稍後重試。</p></div>
-                <div v-for="q in quests" :key="q.id" class="card quest-card" :class="{'quest-active': q.status=='ACTIVE', 'quest-completed': q.status=='COMPLETED', 'quest-golden': q.type=='GOLDEN'}">
-                    <h4><span v-if="q.type=='GOLDEN'">✨ 黃金任務: </span>擊敗 {{ q.req }} 隻 Lv.{{ q.target_lv }} {{ q.target }}</h4>
-                    <p v-if="q.type=='GOLDEN'">獎勵: 🍬 黃金糖果</p><p v-else>獎勵: {{ q.gold }}G, {{ q.xp }}XP</p>
-                    <button v-if="q.status=='WAITING'" class="btn-action" style="background:#3498db" @click="acceptQuest(q.id)">接受任務</button>
-                    <div v-if="q.status=='ACTIVE'"><button class="btn-action" disabled style="background:#555; margin-bottom:5px;">進行中 ({{ q.now }}/{{ q.req }})</button><button class="btn-action" style="background:#e74c3c" @click="abandonQuest(q.id)">放棄</button></div>
-                    <button v-if="q.status=='COMPLETED'" class="btn-action" style="background:#2ecc71" @click="claimQuest(q.id)">領取獎勵</button>
-                </div>
-            </div>
-            <div v-if="currentTab === 'shop'" style="width:100%; text-align:center">
-                <div class="gacha-box">
-                    <h3>扭蛋機 <button style="font-size:0.6em; background:#555; color:white; border:none; border-radius:5px; padding:2px 5px; cursor:pointer;" @click="rateState.show=true">📊 查看機率</button></h3>
-                    <button class="gacha-btn" @click="playGacha('normal')">🔮 初級 (1500G)</button>
-                    <button class="gacha-btn" style="background:linear-gradient(45deg, #3498db, #2980b9)" @click="playGacha('medium')">🔵 中級 (3000G)</button>
-                    <button class="gacha-btn" style="background:linear-gradient(45deg, #e91e63, #9c27b0)" @click="playGacha('candy')">🍬 糖果 (12 糖果)</button>
-                    <br><br>
-                    <button class="gacha-btn" style="background:linear-gradient(45deg, #f1c40f, #d35400); margin-top:10px;" @click="playGacha('golden')">✨ 黃金 (3 黃金糖果)</button>
-                    <br><br>
-                    <button class="btn-action" style="width:200px; background:#27ae60" @click="buyHeal">💊 補血 (50G)</button>
-                </div>
-            </div>
-            <div v-if="currentTab === 'bag'" style="width:100%"><div class="inv-item"><span>🍬 神奇糖果</span> <span style="float:right; font-weight:bold; color:#f1c40f">x {{ inventory.candy || 0 }}</span></div><div class="inv-item" v-if="inventory.golden_candy > 0"><span>✨ 黃金糖果</span> <span style="float:right; font-weight:bold; color:#ffd700">x {{ inventory.golden_candy || 0 }}</span></div></div>
-            <div v-if="currentTab === 'dex'" class="card-grid"><div v-for="(p, name) in ALL_POKEMON" :key="name" class="card" @click="swapFromDex(name)"><img :src="p.img" class="card-img" :style="{filter: isUnlocked(name)?'none':'brightness(0)'}"><div class="card-body"><b :class="{'dex-unlocked-name': isUnlocked(name)}">{{ isUnlocked(name) ? name : '???' }}</b></div></div></div>
-            <div class="battle-log-panel"><h3 class="log-title">📜 戰鬥紀錄</h3><div v-for="(log, index) in logs" :key="index" class="log-entry" v-html="log"></div></div>
         </div>
     </div>
+
+    <div v-if="user" class="chat-panel">
+        <div class="chat-msgs" id="chat-box">
+            <div v-for="m in chatMsgs" style="margin-bottom:2px;">{{ m }}</div>
+        </div>
+        <div class="chat-input-area">
+            <input v-model="chatInput" class="chat-input" placeholder="說點什麼..." @keyup.enter="sendChat">
+            <button @click="sendChat" style="padding:0 15px;">送出</button>
+        </div>
+    </div>
+
 </div>
 
 <script>
-    const { createApp, ref, onMounted, computed, watch } = Vue;
+    const { createApp, ref, onMounted, computed } = Vue;
     const API_URL = `https://mwtpokemons.zeabur.app/api/v1`;
     const WS_URL = `wss://mwtpokemons.zeabur.app/ws`;
 
-    // (省略 MOVES_DB, WILD_MOVES, ALL_POKEMON 保持不變)
-    const MOVES_DB = { "妙蛙種子": [{name:"藤鞭",dmg:16,chance:0.35,buff:0.2,desc:"16傷,35%攻+20%"}, {name:"種子炸彈",dmg:26,desc:"26傷"}, {name:"污泥炸彈",dmg:18,chance:0.3,buff:0.2,desc:"18傷,30%攻+20%"}], "小火龍": [{name:"火花",dmg:16,chance:0.35,buff:0.2,desc:"16傷,35%攻+20%"}, {name:"噴射火焰",dmg:18,chance:0.3,buff:0.2,desc:"18傷,30%攻+20%"}, {name:"火焰輪",dmg:26,desc:"26傷"}], "傑尼龜": [{name:"水槍",dmg:14,chance:0.5,heal:0.15,desc:"14傷,50%回15%血"}, {name:"水流噴射",dmg:18,chance:0.3,buff:0.2,desc:"18傷,30%攻+20%"}, {name:"水流尾",dmg:26,desc:"26傷"}], "妙蛙花": [{name:"藤鞭",dmg:16,chance:0.35,buff:0.2,desc:"16傷,35%攻+20%"}, {name:"種子炸彈",dmg:26,desc:"26傷"}, {name:"污泥炸彈",dmg:18,chance:0.3,buff:0.2,desc:"18傷,30%攻+20%"}], "噴火龍": [{name:"火花",dmg:16,chance:0.35,buff:0.2,desc:"16傷,35%攻+20%"}, {name:"噴射火焰",dmg:18,chance:0.3,buff:0.2,desc:"18傷,30%攻+20%"}, {name:"火焰輪",dmg:26,desc:"26傷"}], "水箭龜": [{name:"水槍",dmg:14,chance:0.5,heal:0.15,desc:"14傷,50%回15%血"}, {name:"水流噴射",dmg:18,chance:0.3,buff:0.2,desc:"18傷,30%攻+20%"}, {name:"水流尾",dmg:26,desc:"26傷"}], "毛辮羊": [{name:"撞擊",dmg:24,desc:"24傷"}, {name:"撒嬌",dmg:14,chance:0.5,heal:0.15,desc:"14傷,50%回15%血"}, {name:"電擊",dmg:18,chance:0.3,buff:0.2,desc:"18傷,30%攻+20%"}], "皮卡丘": [{name:"電光",dmg:16,chance:0.35,buff:0.2,desc:"16傷,35%攻+20%"}, {name:"放電",dmg:26,desc:"26傷"}, {name:"電擊",dmg:18,chance:0.3,buff:0.2,desc:"18傷,30%攻+20%"}], "伊布": [{name:"撞擊",dmg:24,desc:"24傷"}, {name:"挖洞",dmg:16,chance:0.35,buff:0.2,desc:"16傷,35%攻+20%"}, {name:"高速星星",dmg:26,desc:"26傷"}], "胖丁": [{name:"撞擊",dmg:24,desc:"24傷"}, {name:"撒嬌",dmg:14,chance:0.5,heal:0.15,desc:"14傷,50%回15%血"}, {name:"精神強念",dmg:18,chance:0.3,buff:0.2,desc:"18傷,30%攻+20%"}], "皮皮": [{name:"撞擊",dmg:24,desc:"24傷"}, {name:"撒嬌",dmg:14,chance:0.5,heal:0.15,desc:"14傷,50%回15%血"}, {name:"精神強念",dmg:18,chance:0.3,buff:0.2,desc:"18傷,30%攻+20%"}], "大蔥鴨": [{name:"啄",dmg:24,desc:"24傷"}, {name:"葉刃",dmg:24,desc:"24傷"}, {name:"勇鳥猛攻",dmg:36,selfDmg:0.15,desc:"36傷,自損15%"}], "呆呆獸": [{name:"水槍",dmg:14,chance:0.5,heal:0.15,desc:"14傷,50%回15%血"}, {name:"幻象光線",dmg:26,desc:"26傷"}, {name:"水流噴射",dmg:18,chance:0.3,buff:0.2,desc:"18傷,30%攻+20%"}], "可達鴨": [{name:"水槍",dmg:14,chance:0.5,heal:0.15,desc:"14傷,50%回15%血"}, {name:"幻象光線",dmg:26,desc:"26傷"}, {name:"水流噴射",dmg:18,chance:0.3,buff:0.2,desc:"18傷,30%攻+20%"}], "卡比獸": [{name:"泰山壓頂",dmg:26,desc:"26傷"}, {name:"地震",dmg:16,chance:0.35,heal:0.15,desc:"16傷,35%回15%血"}, {name:"撞擊",dmg:24,desc:"24傷"}], "吉利蛋": [{name:"抓",dmg:26,desc:"26傷"}, {name:"精神強念",dmg:18,chance:0.3,buff:0.2,desc:"18傷,30%攻+20%"}, {name:"撞擊",dmg:24,desc:"24傷"}], "幸福蛋": [{name:"抓",dmg:26,desc:"26傷"}, {name:"精神強念",dmg:18,chance:0.3,buff:0.2,desc:"18傷,30%攻+20%"}, {name:"撞擊",dmg:24,desc:"24傷"}], "拉普拉斯": [{name:"水槍",dmg:14,chance:0.5,heal:0.15,desc:"14傷,50%回15%血"}, {name:"水流噴射",dmg:18,chance:0.3,buff:0.2,desc:"18傷,30%攻+20%"}, {name:"冰凍光束",dmg:26,desc:"26傷"}], "快龍": [{name:"抓",dmg:26,desc:"26傷"}, {name:"逆鱗",dmg:28,desc:"28傷"}, {name:"勇鳥猛攻",dmg:36,selfDmg:0.15,desc:"36傷,自損15%"}], "超夢": [{name:"念力",dmg:14,chance:0.5,heal:0.15,desc:"14傷,50%回15%血"}, {name:"精神強念",dmg:18,chance:0.3,buff:0.2,desc:"18傷,30%攻+20%"}, {name:"精神擊破",dmg:28,desc:"28傷"}], "default": [{name:"撞擊",dmg:24,desc:"24傷"}] };
-    const WILD_MOVES = { "小拉達": [{name:"抓",dmg:26},{name:"出奇一擊",dmg:26},{name:"撞擊",dmg:24}], "波波": [{name:"抓",dmg:26},{name:"啄",dmg:24},{name:"燕返",dmg:26}], "烈雀": [{name:"抓",dmg:26},{name:"啄",dmg:24},{name:"燕返",dmg:26}], "阿柏蛇": [{name:"毒針",dmg:14,chance:0.5,buff:0.2},{name:"毒擊",dmg:26},{name:"緊束",dmg:24}], "瓦斯彈": [{name:"毒針",dmg:14,chance:0.5,buff:0.2},{name:"撞擊",dmg:24}], "海星星": [{name:"水槍",dmg:14,chance:0.5,heal:0.15},{name:"幻象光線",dmg:26},{name:"撞擊",dmg:24}], "角金魚": [{name:"水槍",dmg:14,chance:0.5,heal:0.15},{name:"幻象光線",dmg:26},{name:"泥巴射擊",dmg:18,chance:0.3,buff:0.2}], "走路草": [{name:"種子炸彈",dmg:26},{name:"撞擊",dmg:24},{name:"毒擊",dmg:26}], "穿山鼠": [{name:"抓",dmg:26},{name:"泥巴射擊",dmg:18,chance:0.3,buff:0.2},{name:"泥巴炸彈",dmg:26}], "蚊香勇士": [{name:"雙倍奉還",dmg:28},{name:"冰凍光束",dmg:26},{name:"水槍",dmg:14}], "小磁怪": [{name:"電擊",dmg:18},{name:"放電",dmg:26},{name:"撞擊",dmg:24}], "卡拉卡拉": [{name:"泥巴射擊",dmg:18},{name:"泥巴炸彈",dmg:26},{name:"挖洞",dmg:16}], "喵喵": [{name:"抓",dmg:26},{name:"出奇一擊",dmg:26},{name:"撞擊",dmg:24}], "瑪瑙水母": [{name:"水槍",dmg:14},{name:"水流尾",dmg:26},{name:"緊束",dmg:24}], "暴鯉龍": [{name:"水槍",dmg:14},{name:"水流尾",dmg:26},{name:"逆鱗",dmg:28}] };
-    const ALL_POKEMON = { "妙蛙種子":{img:"https://img.pokemondb.net/artwork/large/bulbasaur.jpg"}, "小火龍":{img:"https://img.pokemondb.net/artwork/large/charmander.jpg"}, "傑尼龜":{img:"https://img.pokemondb.net/artwork/large/squirtle.jpg"}, "妙蛙花":{img:"https://img.pokemondb.net/artwork/large/venusaur.jpg"}, "噴火龍":{img:"https://img.pokemondb.net/artwork/large/charizard.jpg"}, "水箭龜":{img:"https://img.pokemondb.net/artwork/large/blastoise.jpg"}, "毛辮羊":{img:"https://img.pokemondb.net/artwork/large/wooloo.jpg"}, "皮卡丘":{img:"https://img.pokemondb.net/artwork/large/pikachu.jpg"}, "伊布":{img:"https://img.pokemondb.net/artwork/large/eevee.jpg"}, "胖丁":{img:"https://img.pokemondb.net/artwork/large/jigglypuff.jpg"}, "皮皮":{img:"https://img.pokemondb.net/artwork/large/clefairy.jpg"}, "波波":{img:"https://img.pokemondb.net/artwork/large/pidgey.jpg"}, "海星星":{img:"https://img.pokemondb.net/artwork/large/staryu.jpg"}, "大蔥鴨":{img:"https://img.pokemondb.net/artwork/large/farfetchd.jpg"}, "呆呆獸":{img:"https://img.pokemondb.net/artwork/large/slowpoke.jpg"}, "可達鴨":{img:"https://img.pokemondb.net/artwork/large/psyduck.jpg"}, "卡比獸":{img:"https://img.pokemondb.net/artwork/large/snorlax.jpg"}, "吉利蛋":{img:"https://img.pokemondb.net/artwork/large/chansey.jpg"}, "幸福蛋":{img:"https://img.pokemondb.net/artwork/large/blissey.jpg"}, "拉普拉斯":{img:"https://img.pokemondb.net/artwork/large/lapras.jpg"}, "快龍":{img:"https://img.pokemondb.net/artwork/large/dragonite.jpg"}, "超夢":{img:"https://img.pokemondb.net/artwork/large/mewtwo.jpg"} };
-
     createApp({
         setup() {
-            // ... (Helper Functions 保持不變)
-            const showFloatingDamage = (id, val, crit, heal) => { const el = document.createElement('div'); el.className = 'floating-damage'; el.innerText = heal ? `+${val}` : (crit ? `💥 ${val}` : `-${val}`); const targetEl = document.getElementById(id); if (targetEl) { const rect = targetEl.getBoundingClientRect(); el.style.left = rect.left + 50 + 'px'; el.style.top = rect.top + 'px'; if(crit) el.style.color='red'; if(heal) el.style.color='green'; document.body.appendChild(el); setTimeout(() => el.remove(), 2000); } };
-            const calculateRealDamage = (attackerAtk, moveDmg) => { const dmg = moveDmg || 0; const base = (attackerAtk / 100) * dmg; return Math.floor(base * (0.95 + Math.random() * 0.1)); };
-            const calculateDisplayDmg = (atk, moveDmg) => Math.floor((atk / 100) * (moveDmg || 0));
-
-            const user = ref(null); const token = localStorage.getItem('token');
-            const monsters = ref([]); const players = ref([]); const quests = ref([]);
-            const friends = ref([]); const friendRequests = ref([]); const myGifts = ref([]); const leaderboard = ref([]); 
-            const currentTab = ref('wild');
-            const battleState = ref({ isActive: false, isActionProcessing: false, mode: 'wild', target: null, turn: 'player', timer: 10, defenseCount: 2, isDefending: false, winner: null, shakeMe: false, shakeTarget: false, buffs: { me: 0, target: 0 }, leechSeed: { onMe: false, onTarget: false }, turnCount: 0, rewardMsg: "", loseMsg: "" });
-            const inviteState = ref({ show: false, senderId: null, senderName: '' });
-            const gachaResult = ref({ show: false, prize: null, isNew: false });
-            const rateState = ref({ show: false });
-            const newsState = ref({ show: false });
-            const isGachaAnimating = ref(false); const selectedWildLevel = ref(1); const showLevelUp = ref(false);
-            const isQuestLoading = ref(false);
-            const inventory = computed(() => user.value && user.value.inventory ? JSON.parse(user.value.inventory) : {});
-            const logs = ref([]);
-            let socket = null; let timerInterval = null;
-            
-            // 🔥 新增：備戰大廳倒數變數 🔥
-            const inLobby = ref(false);
-            const lobbyTimer = ref(15);
-            let lobbyInterval = null;
-
-            const gachaRates = {
-                "🔮 初級扭蛋 (1500G)": [
-                    {name: "大蔥鴨/呆呆獸/可達鴨", rate: 12}, {name: "皮皮/胖丁", rate: 10}, 
-                    {name: "伊布/皮卡丘/毛辮羊", rate: 8}, {name: "妙蛙/小火龍/傑尼龜", rate: 5},
-                    {name: "卡比獸/吉利蛋", rate: 2}
-                ],
-                "🔵 中級扭蛋 (3000G)": [
-                    {name: "御三家/伊布/皮卡/呆呆/可達/毛辮羊", rate: 10}, 
-                    {name: "卡比獸", rate: 5},
-                    {name: "吉利蛋/拉普拉斯/御三家進化", rate: 3}
-                ],
-                "🍬 糖果扭蛋 (12 Candy)": [
-                    {name: "伊布/皮卡丘", rate: 20}, {name: "御三家進化/卡比/吉利", rate: 10},
-                    {name: "幸福蛋", rate: 4}, {name: "拉普拉斯/快龍", rate: 3}
-                ],
-                "✨ 黃金扭蛋 (3 Golden)": [
-                    {name: "卡比獸", rate: 30}, {name: "吉利蛋", rate: 40}, {name: "幸福蛋", rate: 15},
-                    {name: "拉普拉斯", rate: 7}, {name: "快龍", rate: 5}, {name: "超夢", rate: 3}
-                ]
-            };
-
-            const myMoves = computed(() => user.value ? (MOVES_DB[user.value.pokemon_name] || MOVES_DB['default']) : []);
-            const isMyTurn = computed(() => battleState.value.turn === 'player' && !battleState.value.winner);
-            const petXpPercent = (u) => Math.min(100, (u.pet_exp / (u.next_pet_level_exp || 9999)) * 100);
-            const playerXpPercent = computed(() => user.value ? Math.min(100, (user.value.exp / (user.value.next_level_exp || 9999)) * 100) : 0);
-            
-            const currentAtkMe = computed(() => user.value ? Math.floor(user.value.attack * (1 + battleState.value.buffs.me)) : 0);
-            const currentAtkTarget = computed(() => battleState.value.target ? Math.floor(battleState.value.target.attack * (1 + battleState.value.buffs.target)) : 0);
-            const hpPercent = (u) => (u.hp / u.max_hp) * 100;
-            const getMoveClass = (move) => { if (move.type === 'buff') return 'move-buff'; if (move.type === 'heal') return 'move-heal'; return 'move-damage'; };
-            const isUnlocked = (name) => user.value && user.value.unlocked_monsters && user.value.unlocked_monsters.includes(name);
-            
-            const collectionPercent = computed(() => {
-                if (!user.value || !user.value.unlocked_monsters) return 0;
-                const unlockedCount = user.value.unlocked_monsters.split(',').length;
-                const totalCount = Object.keys(ALL_POKEMON).length;
-                return Math.floor((unlockedCount / totalCount) * 100);
-            });
-
-            const addLog = (msg) => { logs.value.unshift(msg); if(logs.value.length > 50) logs.value.pop(); };
-
-            if (!token) window.location.href = 'login.html';
-            onMounted(async () => { 
-                await updateUserInfo(); 
-                await Promise.all([fetchMonsters(), fetchPlayers(), fetchQuests()]); 
-                connectWebSocket(); 
-                if (!sessionStorage.getItem('seenNews_v30')) {
-                    newsState.value.show = true;
-                }
+            const user = ref(null);
+            const token = localStorage.getItem('token');
+            const tab = ref('box');
+            const box = computed(() => user.value ? JSON.parse(user.value.pokemon_storage) : []);
+            const selectedMon = ref(null);
+            const currentPetIV = computed(() => {
+                if(!user.value) return 0;
+                const p = box.value.find(x => x.uid === user.value.active_pokemon_uid);
+                return p ? p.iv : 50;
             });
             
-            watch(() => user.value?.level, (newLv, oldLv) => { if(oldLv && newLv > oldLv) { showLevelUp.value = true; setTimeout(() => showLevelUp.value = false, 3000); } });
+            // 戰鬥狀態
+            const battle = ref({ active: false, mode: 'wild', target: null, shakeMe: false, shakeTarget: false });
+            const raidState = ref({ active: false, hp: 0, max_hp: 0, boss_name: '' });
             
-            watch(currentTab, async (n) => { if(n=='wild') await fetchMonsters(); if(n=='arena') await fetchPlayers(); if(n=='quest') await fetchQuests(); if(n=='social') await fetchSocialData(); if(n=='rank') await fetchLeaderboard(); });
+            const chatMsgs = ref([]);
+            const chatInput = ref("");
+            const gambleAmount = ref(100);
+            const adminTargetId = ref("");
+            const announceText = ref("");
+            const promoCode = ref("");
 
-            const closeNews = () => { newsState.value.show = false; sessionStorage.setItem('seenNews_v30', 'true'); };
-
-            const updateUserInfo = async () => { try { const res = await fetch(`${API_URL}/auth/me`, { headers: { 'Authorization': `Bearer ${token}` } }); if(res.ok) { user.value = await res.json(); if(!selectedWildLevel.value) selectedWildLevel.value = user.value.level; } else if (res.status === 401) { window.location.href = 'login.html'; } } catch(e) { console.error(e); } };
-            
-            const fetchLeaderboard = async () => { const res = await fetch(`${API_URL}/social/leaderboard`, { headers: { 'Authorization': `Bearer ${token}` } }); if(res.ok) leaderboard.value = await res.json(); };
-
-            const fetchSocialData = async () => {
-                try {
-                    const res1 = await fetch(`${API_URL}/social/list`, { headers: { 'Authorization': `Bearer ${token}` } });
-                    if(res1.ok) friends.value = await res1.json();
-                    const res2 = await fetch(`${API_URL}/social/requests`, { headers: { 'Authorization': `Bearer ${token}` } });
-                    if(res2.ok) friendRequests.value = await res2.json();
-                    const res3 = await fetch(`${API_URL}/social/gifts`, { headers: { 'Authorization': `Bearer ${token}` } });
-                    if(res3.ok) myGifts.value = await res3.json();
-                } catch(e) { console.error(e); }
-            };
-            const addFriend = async (uid) => { const res = await fetch(`${API_URL}/social/add/${uid}`, { method: 'POST', headers: { 'Authorization': `Bearer ${token}` } }); const d = await res.json(); alert(d.message); };
-            const respondFriendRequest = async (reqId, accept) => { const action = accept ? 'accept' : 'reject'; const res = await fetch(`${API_URL}/social/${action}/${reqId}`, { method: 'POST', headers: { 'Authorization': `Bearer ${token}` } }); if(res.ok) { fetchSocialData(); alert(accept ? "已接受" : "已拒絕"); } };
-            const sendGift = async (fid) => { const res = await fetch(`${API_URL}/social/gift/send/${fid}`, { method: 'POST', headers: { 'Authorization': `Bearer ${token}` } }); if(res.ok) { alert("禮物已發送！"); fetchSocialData(); } else { const d = await res.json(); alert(d.detail); } };
-            const openGift = async (gid) => { const res = await fetch(`${API_URL}/social/gift/open/${gid}`, { method: 'POST', headers: { 'Authorization': `Bearer ${token}` } }); const d = await res.json(); if(res.ok) { alert(d.message); updateUserInfo(); fetchSocialData(); } else { alert(d.detail); } };
-
-            const fetchMonsters = async () => { try { const lv = selectedWildLevel.value || 1; const res = await fetch(`${API_URL}/items/wild?level=${lv}`, { headers: { 'Authorization': `Bearer ${token}` } }); if(res.ok) monsters.value = await res.json(); } catch(e) { console.error(e); } };
-            const fetchPlayers = async () => { try { const res = await fetch(`${API_URL}/auth/all`); if(res.ok) { const data = await res.json(); players.value = data.filter(u => u.id !== user.value?.id).sort((a,b) => b.is_online - a.is_online); } } catch(e) { console.error(e); } };
-            const fetchQuests = async () => { isQuestLoading.value = true; try { const res = await fetch(`${API_URL}/quests/`, { headers: { 'Authorization': `Bearer ${token}` } }); if(res.ok) quests.value = await res.json(); } catch(e) { console.error(e); } finally { isQuestLoading.value = false; } };
-            const acceptQuest = async (qid) => { const res = await fetch(`${API_URL}/quests/accept/${qid}`, { method: 'POST', headers: { 'Authorization': `Bearer ${token}` } }); if(res.ok) { alert("任務已接受"); fetchQuests(); } else { const d = await res.json(); alert(d.detail); } };
-            const abandonQuest = async (qid) => { if(confirm("確定放棄此任務？將會重新抽取任務。")) { const res = await fetch(`${API_URL}/quests/abandon/${qid}`, { method: 'POST', headers: { 'Authorization': `Bearer ${token}` } }); if(res.ok) { alert("任務已更換"); fetchQuests(); } } };
-            const claimQuest = async (qid) => { const res = await fetch(`${API_URL}/quests/claim/${qid}`, { method: 'POST', headers: { 'Authorization': `Bearer ${token}` } }); const d = await res.json(); if(res.ok) { alert(d.message); updateUserInfo(); fetchQuests(); } else alert(d.detail); };
-            const confirmSwap = async (s) => { if(s) await fetch(`${API_URL.replace('/items', '')}/shop/swap/${gachaResult.value.prize.name}`, { method: 'POST', headers: { 'Authorization': `Bearer ${token}` } }); gachaResult.value.show = false; updateUserInfo(); };
-            const swapFromDex = async (name) => { if (!isUnlocked(name)) return alert("未解鎖"); if(confirm(`變身 ${name}?`)) await fetch(`${API_URL.replace('/items', '')}/shop/swap/${name}`, { method: 'POST', headers: { 'Authorization': `Bearer ${token}` } }); updateUserInfo(); };
-            const buyHeal = async () => { const res = await fetch(`${API_URL.replace('/items', '')}/shop/heal`, { method: 'POST', headers: { 'Authorization': `Bearer ${token}` } }); if(res.ok) { alert("補血成功"); updateUserInfo(); } else alert("金幣不足"); };
             const logout = () => { localStorage.clear(); window.location.href = 'login.html'; };
-            const sendInvite = async (p) => { await fetch(`${API_URL.replace('/items', '')}/shop/duel/invite/${p.id}`, { method: 'POST', headers: { 'Authorization': `Bearer ${token}` } }); alert("已邀請"); };
-            const respondInvite = async (acc) => { inviteState.value.show = false; await fetch(`${API_URL.replace('/items', '')}/shop/duel/${acc?'accept':'reject'}/${inviteState.value.senderId}`, { method: 'POST', headers: { 'Authorization': `Bearer ${token}` } }); };
-            const playGacha = async (type) => { try { isGachaAnimating.value = true; const res = await fetch(`${API_URL.replace('/items', '')}/shop/gacha/${type}`, { method: 'POST', headers: { 'Authorization': `Bearer ${token}` } }); const data = await res.json(); setTimeout(() => { isGachaAnimating.value = false; if(res.ok) { gachaResult.value = { show: true, prize: data.prize, isNew: data.is_new }; updateUserInfo(); } else alert(data.detail); }, 2500); } catch(e) { isGachaAnimating.value = false; } };
 
-            const initBattle = (target, mode) => { 
-                clearInterval(timerInterval); 
-                if (!target || target.hp <= 0) return alert("目標無效"); 
-                battleState.value = { isActive: true, isActionProcessing: false, mode: mode, target: JSON.parse(JSON.stringify(target)), turn: 'player', timer: 10, defenseCount: 2, isDefending: false, winner: null, shakeMe: false, shakeTarget: false, buffs: { me: 0, target: 0 }, leechSeed: { onMe: false, onTarget: false }, turnCount: 1, rewardMsg: "", loseMsg: "" }; 
-                addLog(`⚔️ 遭遇 ${target.name}！`); 
-                if (mode === 'wild') startTimer(); 
+            const updateInfo = async () => {
+                const res = await fetch(`${API_URL}/auth/me`, { headers: { 'Authorization': `Bearer ${token}` } });
+                if(res.ok) user.value = await res.json();
+                else window.location.href = 'login.html';
             };
 
-            const skipLobby = () => {
-                clearInterval(lobbyInterval);
-                inLobby.value = false;
-                battleState.value.isActive = true;
-                if(battleState.value.turn==='player') startTimer();
+            const checkRaid = async () => {
+                const res = await fetch(`${API_URL.replace('/items','')}/shop/raid/status`);
+                raidState.value = await res.json();
             };
 
-            const executePlayerMove = async (move) => {
-                if (!isMyTurn.value || battleState.value.isActionProcessing) return;
-                try {
-                    battleState.value.isActionProcessing = true; clearInterval(timerInterval);
-                    addLog(`👊 使用 ${move.name}！`);
-                    let atkBonus = 1 + (battleState.value.buffs.me);
-                    let finalDmg = calculateRealDamage((user.value.attack || 0) * atkBonus, move.dmg);
-                    let selfHeal = 0; 
-                    
-                    const roll = Math.random();
-                    if(move.chance === undefined || roll < move.chance) {
-                        if(move.buff) { battleState.value.buffs.me += move.buff; showFloatingDamage('fighter-me', "ATK UP!", false, true); }
-                        if(move.heal) { 
-                            selfHeal = Math.floor(user.value.max_hp * move.heal); 
-                            user.value.hp = Math.min(user.value.max_hp, user.value.hp + selfHeal); 
-                            showFloatingDamage('fighter-me', selfHeal, false, true); 
-                        }
-                    }
-                    if(move.selfDmg) { const s = Math.floor(user.value.max_hp * move.selfDmg); user.value.hp = Math.max(0, user.value.hp - s); showFloatingDamage('fighter-me', s, false); }
-                    if(move.dmg > 0) { 
-                        battleState.value.shakeTarget = true; setTimeout(() => battleState.value.shakeTarget = false, 500); 
-                        showFloatingDamage('fighter-target', finalDmg, false); 
-                        battleState.value.target.hp = Math.max(0, battleState.value.target.hp - finalDmg); 
-                    }
-    
-                    if (battleState.value.mode === 'wild') {
-                        if (battleState.value.target.hp <= 0) {
-                            let targetLv = 1; const match = battleState.value.target.name.match(/Lv\.(\d+)/); if(match) targetLv = parseInt(match[1]);
-                            const res = await fetch(`${API_URL}/items/wild/attack`, { method: 'POST', headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' }, body: JSON.stringify({ monster_name: battleState.value.target.name, is_dead: true, level: targetLv }) });
-                            
-                            // 🔥 修正野怪勝利結算 🔥
-                            const d = await res.json();
-                            if(res.ok) { 
-                                battleState.value.winner = 'win_modal';
-                                battleState.value.rewardMsg = d.message; 
-                                await fetchQuests(); 
-                                await updateUserInfo();
-                                return;
-                            }
-                        }
-                        if(!checkWinCondition()) { battleState.value.turn = 'enemy'; setTimeout(executeEnemyTurn, 1000); }
-                    } else { 
-                        const res = await fetch(`${API_URL.replace('/items', '')}/shop/pvp/${battleState.value.target.id}?damage=${finalDmg}&heal=${selfHeal}&display_atk=${currentAtkMe.value}`, { method: 'POST', headers: { 'Authorization': `Bearer ${token}` } }); 
-                        const d = await res.json();
-                        
-                        if(d.result === 'WIN') {
-                            battleState.value.winner = 'win_modal';
-                            battleState.value.rewardMsg = d.reward;
-                            updateUserInfo();
-                        } else {
-                            battleState.value.turn = 'enemy'; 
-                        }
-                    }
-                } catch(e) { console.error(e); } finally { battleState.value.isActionProcessing = false; }
-            };
-
-            const executeDefense = () => { if (battleState.value.defenseCount <= 0 || battleState.value.isActionProcessing) return; clearInterval(timerInterval); battleState.value.defenseCount--; battleState.value.isDefending = true; addLog(`🛡️ 防禦！`); battleState.value.turn = 'enemy'; if(battleState.value.mode === 'wild') setTimeout(executeEnemyTurn, 1500); else fetch(`${API_URL.replace('/items', '')}/shop/pvp/${battleState.value.target.id}`, { method: 'POST', headers: { 'Authorization': `Bearer ${token}` } }); };
-            
-            const executeEnemyTurn = () => {
-                if (battleState.value.winner) return;
-                let enemyName = battleState.value.target.name.split('(')[0].trim().replace('👑','').trim();
-                const moves = WILD_MOVES[enemyName] || MOVES_DB['default'];
-                const move = moves[Math.floor(Math.random() * moves.length)];
-                addLog(`⚠️ 對手使用 ${move.name}！`);
-                let enemyAtk = battleState.value.target.attack || 50; 
-                let dmg = calculateRealDamage(enemyAtk * (1 + battleState.value.buffs.target), move.dmg);
-                if (battleState.value.isDefending) { const reflect = Math.floor(dmg * 0.3); dmg = 0; battleState.value.target.hp = Math.max(0, battleState.value.target.hp - reflect); showFloatingDamage('fighter-target', reflect, false); addLog(`🛡️ 反彈 ${reflect} 傷！`); battleState.value.isDefending = false; }
-                if(dmg > 0) { battleState.value.shakeMe = true; setTimeout(() => battleState.value.shakeMe = false, 500); showFloatingDamage('fighter-me', dmg, true); user.value.hp = Math.max(0, user.value.hp - dmg); }
+            onMounted(() => {
+                if(!token) return window.location.href = 'login.html';
+                updateInfo();
+                checkRaid();
+                setInterval(checkRaid, 5000); // 輪詢團體戰狀態
                 
-                // 🔥 修正：野怪反傷致死結算 🔥
-                if (battleState.value.mode === 'wild' && battleState.value.target.hp <= 0) { 
-                    let targetLv = 1; const match = battleState.value.target.name.match(/Lv\.(\d+)/); if(match) targetLv = parseInt(match[1]); 
-                    fetch(`${API_URL}/items/wild/attack`, { method: 'POST', headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' }, body: JSON.stringify({ monster_name: battleState.value.target.name, is_dead: true, level: targetLv }) })
-                    .then(res => res.json())
-                    .then(d => {
-                        battleState.value.winner = 'win_modal';
-                        battleState.value.rewardMsg = d.message;
-                        fetchQuests(); updateUserInfo();
-                    });
-                    return;
-                }
+                const ws = new WebSocket(`${WS_URL}?token=${token}`);
+                ws.onmessage = (e) => {
+                    const msg = e.data;
+                    if(msg.startsWith("CHAT|")) chatMsgs.value.push(msg.split("|")[1]);
+                    if(msg.startsWith("RAID_UPDATE|")) {
+                        const parts = msg.split("|");
+                        raidState.value.hp = parseInt(parts[1]);
+                        raidState.value.max_hp = parseInt(parts[2]);
+                    }
+                    if(msg.startsWith("RAID_WIN|")) alert(`🎉 團體戰勝利！由 ${msg.split("|")[1]} 給出最後一擊！`);
+                };
+            });
 
-                if(!checkWinCondition()) { battleState.value.turn = 'player'; startTimer(); }
+            // 戰鬥邏輯
+            const findWild = async () => {
+                const res = await fetch(`${API_URL.replace('/items','')}/shop/wild/encounter?level=${user.value.level}`, { headers: { 'Authorization': `Bearer ${token}` } });
+                const data = await res.json();
+                battle.value = { active: true, mode: 'wild', target: data, shakeMe: false, shakeTarget: false };
             };
-
-            const endBattle = async () => { clearInterval(timerInterval); if (battleState.value.mode === 'pvp') await fetch(`${API_URL.replace('/items', '')}/shop/duel/end/${battleState.value.target.id}`, { method: 'POST', headers: { 'Authorization': `Bearer ${token}` } }); battleState.value.isActive = false; battleState.value.winner = null; updateUserInfo(); fetchQuests(); };
-            const startTimer = () => { clearInterval(timerInterval); battleState.value.timer = 10; timerInterval = setInterval(() => { if (!battleState.value.isActive) { clearInterval(timerInterval); return; } battleState.value.timer--; if (battleState.value.timer <= 0) { clearInterval(timerInterval); if(battleState.value.mode === 'wild') { battleState.value.turn = 'enemy'; setTimeout(executeEnemyTurn, 1000); } else { fetch(`${API_URL.replace('/items', '')}/shop/pvp/${battleState.value.target.id}`, { method: 'POST', headers: { 'Authorization': `Bearer ${token}` } }); battleState.value.turn = 'enemy'; } } }, 1000); };
-            const checkWinCondition = () => { if (battleState.value.target.hp <= 0) { battleState.value.winner = 'player'; return true; } if (user.value.hp <= 0) { battleState.value.winner = 'enemy'; return true; } return false; };
             
-            const connectWebSocket = () => { socket = new WebSocket(`${WS_URL}?token=${token}`); socket.onopen = () => setInterval(() => socket.readyState===1 && socket.send("ping"), 30000); socket.onmessage = (e) => { const msg = e.data; const parts = msg.split("|"); 
-                if (msg.startsWith("📢")) addLog(msg); 
-                if (msg.startsWith("EVENT:DUEL_INVITE") && parseInt(parts[3]) === user.value.id) inviteState.value = { show: true, senderId: parts[1], senderName: parts[2] }; 
-                if (msg.startsWith("EVENT:DUEL_START")) { 
-                    const p1=parseInt(parts[1]), p2=parseInt(parts[3]), first=parseInt(parts[5]); 
-                    if(user.value.id===p1 || user.value.id===p2) { 
-                        inviteState.value.show = false; 
-                        const oppId = user.value.id===p1 ? p2 : p1; 
-                        fetchPlayers().then(() => { 
-                            const opp = players.value.find(p=>p.id===oppId); 
-                            if(opp) { 
-                                initBattle(opp, 'pvp'); 
-                                battleState.value.isActive = false; 
-                                inLobby.value = true; 
-                                lobbyTimer.value = 15;
-                                lobbyInterval = setInterval(() => {
-                                    lobbyTimer.value--;
-                                    if(lobbyTimer.value <= 0) {
-                                        clearInterval(lobbyInterval);
-                                        inLobby.value = false;
-                                        battleState.value.isActive = true; 
-                                        battleState.value.turn = user.value.id===first?'player':'enemy'; 
-                                        if(battleState.value.turn==='player') startTimer();
-                                    }
-                                }, 1000);
-                            } 
-                        }); 
-                    } 
-                }
-                if (msg.startsWith("EVENT:PVP_SWAP")) {
-                    const uid = parseInt(parts[1]);
-                    const pName = parts[2];
-                    const pImg = parts[3];
-                    const pHp = parseInt(parts[4]);
-                    const pMaxHp = parseInt(parts[5]);
-                    const pAtk = parseInt(parts[6]);
-
-                    if ((battleState.value.isActive || inLobby.value) && battleState.value.target && battleState.value.target.id === uid) {
-                        battleState.value.target.pokemon_name = pName;
-                        battleState.value.target.pokemon_image = pImg; 
-                        battleState.value.target.image_url = pImg;
-                        battleState.value.target.hp = pHp;
-                        battleState.value.target.max_hp = pMaxHp;
-                        battleState.value.target.attack = pAtk;
-                        addLog(`⚠️ 對手更換為 ${pName}！`);
+            const joinRaid = async () => {
+                if(confirm("支付 1000G 加入團體戰？")) {
+                    const res = await fetch(`${API_URL.replace('/items','')}/shop/raid/join`, { method: 'POST', headers: { 'Authorization': `Bearer ${token}` } });
+                    if(res.ok) {
+                        battle.value = { active: true, mode: 'raid', target: { name: raidState.value.boss_name, hp: raidState.value.hp, max_hp: raidState.value.max_hp, image_url: '' }, shakeMe: false, shakeTarget: false };
+                    } else {
+                        const d = await res.json(); alert(d.detail);
                     }
                 }
+            };
 
-                if (msg.startsWith("EVENT:PVP_MOVE")) { 
-                    const targetId = parseInt(parts[2]);
-                    const dmg = parseInt(parts[3]) || 0; 
-                    const enemyAtk = parseInt(parts[4]) || 0; 
-                    if (battleState.value.isActive && user.value.id === targetId) { 
-                        user.value.hp = Math.max(0, user.value.hp - dmg);
-                        if(enemyAtk > 0) { battleState.value.target.attack = enemyAtk; battleState.value.buffs.target = 0; }
-                        battleState.value.shakeMe = true; setTimeout(() => battleState.value.shakeMe = false, 500); 
-                        showFloatingDamage('fighter-me', dmg, true); 
-                        if(!checkWinCondition()) { battleState.value.turn = 'player'; startTimer(); } 
-                    } 
-                } 
-                fetchMonsters(); fetchPlayers(); updateUserInfo(); fetchQuests(); 
-            }; };
+            const doAttack = async (mult) => {
+                const dmg = Math.floor(user.value.attack * mult);
+                
+                if(battle.value.mode === 'wild') {
+                    battle.value.target.hp -= dmg;
+                    battle.value.shakeTarget = true; setTimeout(()=>battle.value.shakeTarget=false, 500);
+                    if(battle.value.target.hp <= 0) {
+                        const res = await fetch(`${API_URL.replace('/items','')}/shop/wild/attack?is_win=true&is_powerful=${battle.value.target.is_powerful||false}`, { method: 'POST', headers: { 'Authorization': `Bearer ${token}` } });
+                        const d = await res.json(); alert(d.message);
+                        battle.value.active = false; updateInfo();
+                    } else {
+                        // 敵人反擊
+                        setTimeout(() => {
+                            user.value.hp -= Math.floor(battle.value.target.attack * 0.8);
+                            battle.value.shakeMe = true; setTimeout(()=>battle.value.shakeMe=false, 500);
+                        }, 500);
+                    }
+                } else if(battle.value.mode === 'raid') {
+                    const res = await fetch(`${API_URL.replace('/items','')}/shop/raid/attack?damage=${dmg}`, { method: 'POST', headers: { 'Authorization': `Bearer ${token}` } });
+                    const d = await res.json();
+                    if(d.result === 'WIN') { alert("Boss 擊敗！獲得獎勵"); battle.value.active = false; updateInfo(); }
+                    else { battle.value.target.hp = d.boss_hp; }
+                }
+            };
             
-            watch(currentTab, async (n) => { if(n=='wild') await fetchMonsters(); if(n=='arena') await fetchPlayers(); if(n=='quest') await fetchQuests(); if(n=='social') await fetchSocialData(); if(n=='rank') await fetchLeaderboard(); });
+            const doHeal = async () => {
+                // V2.0 醫療包：回 20%
+                const heal = Math.floor(user.value.max_hp * 0.2);
+                user.value.hp = Math.min(user.value.max_hp, user.value.hp + heal);
+                alert(`回復了 ${heal} HP`);
+            };
 
-            return { user, monsters, players, quests, friends, friendRequests, inventory, currentTab, battleState, myMoves, isMyTurn, inviteState, gachaResult, ALL_POKEMON, hpPercent, petXpPercent, playerXpPercent, logout, initBattle, executePlayerMove, executeDefense, endBattle, playGacha, buyHeal, sendInvite, respondInvite, confirmSwap, swapFromDex, isUnlocked, isGachaAnimating, acceptQuest, claimQuest, abandonQuest, addFriend, respondFriendRequest, sendGift, openGift, myGifts, selectedWildLevel, fetchMonsters, currentAtkMe, currentAtkTarget, calculateDisplayDmg, showLevelUp, getMoveClass, logs, isQuestLoading, rateState, gachaRates, collectionPercent, newsState, closeNews, leaderboard, inLobby, lobbyTimer, skipLobby };
+            // (其餘 actions 保持不變: dailyCheckin, playGacha, swapMon...)
+            const dailyCheckin = async () => { const res = await fetch(`${API_URL}/social/daily_checkin`, { method: 'POST', headers: { 'Authorization': `Bearer ${token}` } }); const d = await res.json(); alert(d.message || d.detail); updateInfo(); };
+            const playGacha = async (type) => { const res = await fetch(`${API_URL.replace('/items','')}/shop/gacha/${type}`, { method: 'POST', headers: { 'Authorization': `Bearer ${token}` } }); const d = await res.json(); alert(d.message || d.detail); updateInfo(); };
+            const swapMon = async (uid) => { await fetch(`${API_URL.replace('/items','')}/shop/box/swap/${uid}`, { method: 'POST', headers: { 'Authorization': `Bearer ${token}` } }); updateInfo(); };
+            const releaseMon = async (uid) => { if(!confirm("確定放生？")) return; await fetch(`${API_URL.replace('/items','')}/shop/box/action/release/${uid}`, { method: 'POST', headers: { 'Authorization': `Bearer ${token}` } }); selectedMon.value = null; updateInfo(); };
+            const useCandy = async (uid) => { const res = await fetch(`${API_URL.replace('/items','')}/shop/box/action/candy/${uid}`, { method: 'POST', headers: { 'Authorization': `Bearer ${token}` } }); const d = await res.json(); alert(d.message || d.detail); updateInfo(); };
+            const doGamble = async () => { const res = await fetch(`${API_URL.replace('/items','')}/shop/gamble?amount=${gambleAmount.value}`, { method: 'POST', headers: { 'Authorization': `Bearer ${token}` } }); const d = await res.json(); alert(d.message || d.detail); updateInfo(); };
+            const sendChat = async () => { if(!chatInput.value) return; await fetch(`${API_URL}/social/chat/send?content=${chatInput.value}`, { method: 'POST', headers: { 'Authorization': `Bearer ${token}` } }); chatInput.value = ""; };
+            const buyHeal = async () => { const res = await fetch(`${API_URL.replace('/items','')}/shop/heal`, { method: 'POST', headers: { 'Authorization': `Bearer ${token}` } }); if(res.ok) { alert("補血成功"); updateInfo(); } else alert("金幣不足"); };
+            const redeemCode = async () => { const res = await fetch(`${API_URL}/social/redeem?code=${promoCode.value}`, { method: 'POST', headers: { 'Authorization': `Bearer ${token}` } }); const d = await res.json(); alert(d.message || d.detail); updateInfo(); };
+            const adminAction = async (act) => { await fetch(`${API_URL}/social/admin/action?action=${act}&target_id=${adminTargetId.value}&content=${announceText.value}`, { method: 'POST', headers: { 'Authorization': `Bearer ${token}` } }); alert("執行成功"); };
+
+            return { user, tab, box, selectedMon, currentPetIV, battle, raidState, dailyCheckin, logout, playGacha, swapMon, releaseMon, useCandy, gambleAmount, doGamble, chatMsgs, chatInput, sendChat, findWild, joinRaid, doAttack, doHeal, buyHeal, adminTargetId, announceText, adminAction, promoCode, redeemCode };
         }
     }).mount('#app');
 </script>
-
 </body>
 </html>
