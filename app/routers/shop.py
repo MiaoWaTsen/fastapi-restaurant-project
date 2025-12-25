@@ -14,7 +14,7 @@ from app.common.websocket import manager
 
 router = APIRouter()
 
-# 完整圖鑑
+# 完整圖鑑 (保持不變)
 POKEDEX_DATA = {
     "小拉達": {"hp": 90, "atk": 80, "img": "https://img.pokemondb.net/artwork/large/rattata.jpg", "skills": ["抓", "出奇一擊", "撞擊"]},
     "波波":   {"hp": 95, "atk": 85, "img": "https://img.pokemondb.net/artwork/large/pidgey.jpg", "skills": ["抓", "啄", "燕返"]},
@@ -119,27 +119,11 @@ GACHA_CANDY = [{"name": "伊布", "rate": 20}, {"name": "皮卡丘", "rate": 20}
 
 ACTIVE_BATTLES = {}
 RAID_STATE = {"boss_name": None, "hp": 0, "max_hp": 0, "active": False, "players": {}}
+LEVEL_XP = { 1: 50, 2: 150, 3: 300, 4: 500, 5: 800, 6: 1300, 7: 2000, 8: 3000, 9: 5000 }
 
-# 🔥 修正 XP 表 🔥
-LEVEL_XP = { 
-    1: 50, 
-    2: 150, 
-    3: 300, 
-    4: 500, 
-    5: 800, 
-    6: 1300, 
-    7: 2000, 
-    8: 3000, 
-    9: 5000 
-}
-
-# 🔥 修正 get_req_xp 邏輯 🔥
 def get_req_xp(lv):
     if lv >= 25: return 999999999
-    # Lv1-9 查表
     if lv < 10: return LEVEL_XP.get(lv, 5000)
-    # Lv10 開始: 5000 + (lv-9)*2000
-    # Lv10: 5000+2000=7000, Lv11: 9000...
     return 5000 + (lv - 9) * 2000
 
 def apply_iv_stats(base_val, iv, level, is_player=True):
@@ -239,25 +223,49 @@ def abandon_quest(qid: str, db: Session = Depends(get_db), current_user: User = 
     current_user.quests = json.dumps(new_quests); db.commit()
     return {"message": "任務已刪除並刷新 (-1000G)"}
 
+# 🔥 關鍵修正：任務領取邏輯 🔥
 @router.post("/quests/claim/{qid}")
 def claim_quest(qid: str, db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
     quests = json.loads(current_user.quests)
     inv = json.loads(current_user.inventory)
+    
+    # 找到對應的任務
     target_q = None
-    for q in quests:
-        if q["id"] == qid and q["status"] == "COMPLETED": target_q = q; break
-    if not target_q: raise HTTPException(status_code=400, detail="無法領取")
+    target_index = -1
+    for i, q in enumerate(quests):
+        if q["id"] == qid and q["status"] == "COMPLETED":
+            target_q = q
+            target_index = i
+            break
+            
+    if not target_q:
+        raise HTTPException(status_code=400, detail="無法領取：任務不存在或未完成")
+    
+    # 發放獎勵
     msg = ""
-    if target_q["type"] == "GOLDEN": inv["golden_candy"] = inv.get("golden_candy", 0) + 1; msg = "獲得 ✨ 黃金糖果 x1"
-    else: current_user.money += target_q["gold"]; current_user.exp += target_q["xp"]; current_user.pet_exp += target_q["xp"]; msg = f"獲得 {target_q['gold']}G, {target_q['xp']} XP"
-    quests = [q for q in quests if q["id"] != qid]
+    if target_q["type"] == "GOLDEN":
+        inv["golden_candy"] = inv.get("golden_candy", 0) + 1
+        msg = "獲得 ✨ 黃金糖果 x1"
+    else:
+        current_user.money += target_q["gold"]
+        current_user.exp += target_q["xp"]
+        current_user.pet_exp += target_q["xp"]
+        msg = f"獲得 {target_q['gold']}G, {target_q['xp']} XP"
+    
+    # 移除舊任務，補一個新任務
+    del quests[target_index]
     new_q = generate_quests(current_user.level, count=1)[0]
     quests.append(new_q)
-    current_user.quests = json.dumps(quests); current_user.inventory = json.dumps(inv); db.commit()
+    
+    current_user.quests = json.dumps(quests)
+    current_user.inventory = json.dumps(inv)
+    db.commit()
+    
     return {"message": msg}
 
 @router.post("/wild/attack")
 async def wild_attack_api(is_win: bool = Query(...), is_powerful: bool = Query(False), target_name: str = Query("野怪"), db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
+    # 無論輸贏，都補滿血
     current_user.hp = current_user.max_hp
     
     if is_win:
@@ -267,6 +275,7 @@ async def wild_attack_api(is_win: bool = Query(...), is_powerful: bool = Query(F
         if is_powerful:
             inv = json.loads(current_user.inventory); inv["growth_candy"] = inv.get("growth_candy", 0) + 1; current_user.inventory = json.dumps(inv); msg += " & 🍬 成長糖果 x1"
         
+        # 任務進度
         quests = json.loads(current_user.quests) if current_user.quests else []
         quest_updated = False
         for q in quests:
