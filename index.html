@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>⚡️ 寶可夢大亂鬥 V2.0.5 (完整體驗版) ⚡️</title>
+    <title>⚡️ 寶可夢大亂鬥 V2.0.6 (修復版) ⚡️</title>
     <script>
         window.onerror = function(msg, source, lineno) {
             const loader = document.getElementById('loading');
@@ -19,19 +19,20 @@
         [v-cloak] { display: none; }
         body { font-family: 'Segoe UI', sans-serif; background-color: #1a1a2e; color: #fff; padding: 20px; padding-bottom: 120px; user-select: none; }
         .container { max-width: 900px; margin: 0 auto; position: relative; }
-        .navbar { display: flex; justify-content: space-between; align-items: center; background: #16213e; padding: 15px; border-radius: 10px; margin-bottom: 20px; border: 1px solid #0f3460; }
-        .user-info { display: flex; gap: 15px; width: 100%; }
-        .user-avatar { width: 70px; height: 70px; border-radius: 50%; border: 3px solid #f1c40f; object-fit: cover; }
-        .user-stats { flex: 1; display: flex; flex-direction: column; gap: 8px; }
-        .stat-block { background: rgba(0,0,0,0.2); padding: 5px 10px; border-radius: 5px; }
-        .stat-title { font-size: 0.9em; color: #aaa; margin-bottom: 2px; display: flex; justify-content: space-between; }
-        .bar-container { width: 100%; background: #333; height: 8px; border-radius: 4px; overflow: hidden; position: relative; }
+        
+        /* Navbar 重構 */
+        .navbar { background: #16213e; padding: 15px; border-radius: 10px; margin-bottom: 20px; border: 1px solid #0f3460; display:flex; flex-direction:column; gap:10px; }
+        .user-header { display: flex; gap: 15px; align-items: center; border-bottom: 1px solid #333; padding-bottom: 10px; }
+        .user-avatar { width: 60px; height: 60px; border-radius: 50%; border: 3px solid #f1c40f; object-fit: cover; }
+        .user-details { flex: 1; }
+        .xp-row { display: flex; flex-direction: column; gap: 5px; margin-top: 5px; }
+        .xp-label { font-size: 0.8em; color: #aaa; display: flex; justify-content: space-between; }
+        
+        .bar-container { width: 100%; background: #333; height: 10px; border-radius: 5px; overflow: hidden; position: relative; }
         .bar-fill { height: 100%; transition: width 0.3s; }
         .hp-fill { background: linear-gradient(90deg, #e74c3c, #c0392b); } 
         .pet-xp-fill { background: linear-gradient(90deg, #3498db, #2980b9); } 
         .player-xp-fill { background: linear-gradient(90deg, #f1c40f, #d35400); }
-        .bar-text { font-size: 0.75em; color: #ccc; display: flex; justify-content: space-between; margin-top: 1px; }
-        .atk-val { color: #f1c40f; font-weight: bold; }
         
         .tabs { display: flex; gap: 10px; margin-bottom: 20px; flex-wrap: wrap; }
         .tab-btn { flex: 1; padding: 12px; background: #0f3460; border: none; color: #aaa; cursor: pointer; border-radius: 8px; font-weight: bold; min-width: 80px; transition:0.2s; display:flex; flex-direction:column; align-items:center; justify-content: center; }
@@ -59,7 +60,7 @@
         .fighter { width: 45%; text-align: center; position: relative; transition: 0.1s; }
         .fighter img { width: 100%; height: 200px; object-fit: contain; drop-shadow: 0 10px 10px rgba(0,0,0,0.5); }
         
-        /* 戰鬥特效 */
+        /* 戰鬥特效 (1.5s 快速版) */
         .shake-hit { animation: shake 0.4s; }
         .flash-red { animation: flashRed 0.3s; }
         .flash-heal { animation: flashGreen 0.5s; }
@@ -67,7 +68,7 @@
         @keyframes flashRed { 0% { filter: sepia(1) hue-rotate(-50deg) saturate(5); } 100% { filter: none; } }
         @keyframes flashGreen { 0% { filter: sepia(1) hue-rotate(90deg) saturate(3); } 100% { filter: none; } }
         
-        .floating-text { position: absolute; font-size: 2em; font-weight: bold; animation: floatUp 2.5s forwards; pointer-events: none; text-shadow: 2px 2px 0 #000; z-index: 3000; }
+        .floating-text { position: absolute; font-size: 2em; font-weight: bold; animation: floatUp 1.5s forwards; pointer-events: none; text-shadow: 2px 2px 0 #000; z-index: 3000; }
         @keyframes floatUp { 0% { transform: translateY(0) scale(1); opacity: 1; } 80% { opacity: 1; } 100% { transform: translateY(-80px) scale(1.1); opacity: 0; } }
         
         .timer-bar { width: 100%; height: 5px; background: #333; margin-top: 5px; border-radius: 2px; overflow: hidden; }
@@ -111,8 +112,8 @@
 
 <div id="app" class="container" v-cloak>
     <div v-if="!user" style="text-align:center; padding-top:100px;">
-        <h1 style="color:#e94560">寶可夢大亂鬥 V2.0.5</h1>
-        <p>戰鬥體驗優化版</p>
+        <h1 style="color:#e94560">寶可夢大亂鬥 V2.0.6</h1>
+        <p>升級系統修復與介面優化</p>
         <button class="btn-action" @click="logout">前往登入頁面</button>
         <br><br>
         <button style="background:transparent; border:1px solid #aaa; color:#aaa; padding:5px;" @click="initAdmin">👑 初始化管理員</button>
@@ -156,11 +157,11 @@
 
         <div v-if="newsState.show" class="modal-overlay">
             <div class="modal-box" style="text-align:left;">
-                <div class="modal-title" style="text-align:center;">📢 V2.0.5 更新公告</div>
+                <div class="modal-title" style="text-align:center;">📢 V2.0.6 更新公告</div>
                 <ul>
-                    <li><b>⏳ 戰鬥節奏</b>：野怪攻擊後會停頓 2 秒，讓您看清戰況。</li>
-                    <li><b>⚔️ 攻擊顯示</b>：即時顯示雙方攻擊力數值。</li>
-                    <li><b>✨ 華麗特效</b>：新增 Buff 與回血的專屬動畫！</li>
+                    <li><b>🆙 升級修復</b>：現在經驗值足夠時會正確升級了。</li>
+                    <li><b>📊 介面優化</b>：訓練師與寶可夢的經驗條已分開顯示。</li>
+                    <li><b>⚡ 戰鬥調整</b>：傷害顯示速度變快，血量不會變負數。</li>
                 </ul>
                 <div style="text-align:center; margin-top:15px;">
                     <button class="btn-yes" @click="closeNews">我知道了</button>
@@ -174,32 +175,38 @@
         </div>
 
         <div class="navbar">
-            <div class="user-info">
+            <div class="user-header">
                 <img :src="user.pokemon_image" class="user-avatar">
-                <div class="user-stats">
-                    <div class="stat-block">
-                        <div class="stat-title">
-                            <span>{{ user.username }} <span v-if="user.is_admin" style="color:red">[GM]</span> (Lv.{{ user.level }})</span>
-                            <span>💰 {{ user.money }}</span>
-                        </div>
-                        <div class="bar-container"><div class="bar-fill player-xp-fill" :style="{ width: playerXpPercent + '%' }"></div></div>
-                        <div class="bar-text"><span>Trainer XP</span><span>{{ user.exp }}/{{ getReqXp(user.level) }}</span></div>
-                    </div>
-
-                    <div class="stat-block">
-                        <div class="stat-title">
-                            <span>{{ user.pokemon_name }} (Lv.{{ user.pet_level }})</span>
-                            <span class="atk-val">ATK: {{ currentAtkMe }} (IV: {{ currentPetIV }})</span>
-                        </div>
-                        <div class="bar-container"><div class="bar-fill hp-fill" :style="{ width: hpPercent(user) + '%' }"></div></div>
-                        <div class="bar-text"><span>HP: {{ user.hp }}/{{ user.max_hp }}</span></div>
-                        <div class="bar-container" style="margin-top:4px;"><div class="bar-fill pet-xp-fill" :style="{ width: petXpPercent(user) + '%' }"></div></div>
-                    </div>
+                <div class="user-details">
+                    <div style="font-weight:bold; font-size:1.1em;">{{ user.username }} <span style="font-size:0.8em; color:#aaa;">(Lv.{{ user.level }})</span></div>
+                    <div style="color:#f1c40f; font-weight:bold;">💰 {{ user.money }}</div>
+                </div>
+                <div style="display:flex; gap:5px;">
+                    <button class="btn-small" style="width:auto; padding:5px 10px; background:#34495e;" @click="dailyCheckin">📅</button>
+                    <button class="btn-small" style="width:auto; padding:5px 10px; background:#c0392b;" @click="logout">🚪</button>
                 </div>
             </div>
-            <div style="display:flex; flex-direction:column; gap:5px;">
-                <button class="btn-logout" @click="dailyCheckin">📅 簽到</button>
-                <button class="btn-logout" @click="logout">登出</button>
+
+            <div class="xp-row">
+                <div class="xp-label"><span>訓練師 XP</span><span>{{ user.exp }} / {{ getReqXp(user.level) }}</span></div>
+                <div class="bar-container"><div class="bar-fill player-xp-fill" :style="{ width: playerXpPercent + '%' }"></div></div>
+            </div>
+
+            <div class="user-header" style="border:none; padding-top:10px;">
+                <div class="user-details">
+                    <div style="font-weight:bold;">{{ user.pokemon_name }} <span style="font-size:0.8em; color:#aaa;">(Lv.{{ user.pet_level }})</span></div>
+                    <div style="font-size:0.8em; color:#f1c40f;">ATK: {{ currentAtkMe }} (IV: {{ currentPetIV }})</div>
+                </div>
+            </div>
+
+            <div class="xp-row">
+                <div class="xp-label"><span>HP</span><span>{{ user.hp }} / {{ user.max_hp }}</span></div>
+                <div class="bar-container"><div class="bar-fill hp-fill" :style="{ width: hpPercent(user) + '%' }"></div></div>
+            </div>
+            
+            <div class="xp-row">
+                <div class="xp-label"><span>寶可夢 XP</span><span>{{ user.pet_exp }} / {{ getReqXp(user.pet_level) }}</span></div>
+                <div class="bar-container"><div class="bar-fill pet-xp-fill" :style="{ width: petXpPercent(user) + '%' }"></div></div>
             </div>
         </div>
 
@@ -216,15 +223,13 @@
             <div class="battle-arena">
                 <div class="fighter" id="player-fighter">
                     <img :src="user.pokemon_image">
-                    <div>{{ user.username }}</div>
-                    <small style="color:#f1c40f">ATK: {{ Math.floor(user.attack * battle.atkBuff) }}</small>
+                    <div>{{ user.username }} <span v-if="battle.atkBuff > 1" style="color:#f1c40f">▲</span></div>
                     <div class="bar-container"><div class="bar-fill hp-fill" :style="{width: hpPercent(user) + '%'}"></div></div>
                     <small>{{ user.hp }}/{{ user.max_hp }}</small>
                 </div>
                 <div class="fighter" id="enemy-fighter">
                     <img :src="battle.target.image_url || battle.target.pokemon_image">
                     <div>{{ battle.target.name || battle.target.username }}</div>
-                    <small style="color:#f1c40f">ATK: {{ battle.target.attack }}</small>
                     <div class="bar-container"><div class="bar-fill hp-fill" :style="{width: (battle.target.hp/battle.target.max_hp)*100 + '%'}"></div></div>
                     <small>HP: {{ battle.target.hp }}</small>
                 </div>
@@ -327,8 +332,10 @@
                     <h4>{{ q.type=='GOLDEN' ? '✨ 黃金任務' : '⚔️ 狩獵任務' }}: 擊敗 {{ q.target_display || q.target }}</h4>
                     <p v-if="q.status === 'COMPLETED'">進度: <b style="color:#2ecc71">完成!</b></p>
                     <p v-else>進度: {{ q.now }} / {{ q.req }}</p>
+                    
                     <p v-if="q.type=='GOLDEN'">獎勵: 🍬 黃金糖果 x1</p>
                     <p v-else>獎勵: {{ q.gold }}G, {{ q.xp }} XP</p>
+                    
                     <button v-if="q.status=='WAITING'" class="btn-action" style="background:#3498db" @click="acceptQuest(q.id)">接受</button>
                     <button v-if="q.status=='ACTIVE'" class="btn-action" style="background:#e74c3c" @click="abandonQuest(q.id)">放棄 (-1000G)</button>
                     <button v-if="q.status=='COMPLETED'" class="btn-action" style="background:#2ecc71" @click="claimQuest(q.id)">領取獎勵</button>
@@ -461,7 +468,7 @@
             const tab = ref('wild'); 
             const box = computed(() => user.value ? JSON.parse(user.value.pokemon_storage) : []);
             const newsState = ref({ show: false });
-            const closeNews = () => { newsState.value.show = false; sessionStorage.setItem('seenNews_v205', 'true'); };
+            const closeNews = () => { newsState.value.show = false; sessionStorage.setItem('seenNews_v206', 'true'); };
             const quests = ref([]);
             const players = ref([]);
             const friends = ref([]);
@@ -576,7 +583,7 @@
             onMounted(async () => {
                 document.getElementById('loading').style.display = 'none'; 
                 if(!token) return window.location.href = 'login.html';
-                if (!sessionStorage.getItem('seenNews_v205')) newsState.value.show = true;
+                if (!sessionStorage.getItem('seenNews_v206')) newsState.value.show = true;
                 await updateInfo(); await fetchSkillData(); updateMySkills();
                 fetchPlayers(); checkRaid(); setInterval(checkRaid, 5000); fetchQuests(); fetchWildList();
                 const ws = new WebSocket(`${WS_URL}?token=${token}`);
@@ -671,10 +678,11 @@
                     }
                 }
 
-                showFloatingText(`-${dmg}`, 'red', true); // 敵人受傷
+                showFloatingText(`-${dmg}`, 'red', true); 
 
                 if(battle.value.mode === 'wild') {
-                    battle.value.target.hp -= dmg;
+                    // 🔥 修復：血量不為負 🔥
+                    battle.value.target.hp = Math.max(0, battle.value.target.hp - dmg);
                     battle.value.shakeTarget = true; setTimeout(()=>battle.value.shakeTarget=false, 500);
                     
                     const enemyEl = document.getElementById('enemy-fighter');
@@ -687,7 +695,7 @@
                     } else {
                         setTimeout(() => {
                             enemyAttackPhase();
-                        }, 2000); // 停頓 2 秒
+                        }, 2000); 
                     }
                 }
             };
@@ -698,7 +706,8 @@
                     const enemyBaseDmg = (skillData.value[enemySkill] || {dmg:20}).dmg;
                     const enemyDmg = Math.floor(((battle.value.target.attack / 100) * enemyBaseDmg));
                     const reflect = Math.floor(enemyDmg * 0.2);
-                    battle.value.target.hp -= reflect;
+                    // 🔥 修復：血量不為負 🔥
+                    battle.value.target.hp = Math.max(0, battle.value.target.hp - reflect);
                     alert(`🛡️ 擋下 ${enemyDmg} 傷害，反彈 ${reflect}！`);
                     battle.value.shieldActive = false; 
                     if(battle.value.target.hp <= 0) {
@@ -711,10 +720,11 @@
                     const enemySkill = battle.value.target.skills[Math.floor(Math.random()*3)];
                     const enemyBaseDmg = (skillData.value[enemySkill] || {dmg:20}).dmg;
                     const enemyDmg = Math.floor(((battle.value.target.attack / 100) * enemyBaseDmg));
-                    user.value.hp -= enemyDmg;
+                    // 🔥 修復：血量不為負 🔥
+                    user.value.hp = Math.max(0, user.value.hp - enemyDmg);
                     battle.value.shakeMe = true; setTimeout(()=>battle.value.shakeMe=false, 500);
                     
-                    showFloatingText(`-${enemyDmg}`, 'red'); // 玩家受傷
+                    showFloatingText(`-${enemyDmg}`, 'red'); 
                     
                     const playerEl = document.getElementById('player-fighter');
                     if(playerEl) { playerEl.classList.add('flash-red'); setTimeout(()=>playerEl.classList.remove('flash-red'), 300); }
@@ -740,7 +750,7 @@
                 el.style.left = isEnemy ? '60%' : '20%'; 
                 el.style.top = '30%';
                 arena.appendChild(el);
-                setTimeout(() => el.remove(), 2500);
+                setTimeout(() => el.remove(), 1500);
             };
 
             const useShield = () => { if(shieldUses.value <= 0) return; shieldUses.value--; battle.value.shieldActive = true; doSkillAttack('wait'); };
