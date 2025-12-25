@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>⚡️ 寶可夢大亂鬥 V2.0.1 ⚡️</title>
+    <title>⚡️ 寶可夢大亂鬥 V2.0.2 ⚡️</title>
     <script>
         window.onerror = function(msg, source, lineno) {
             const loader = document.getElementById('loading');
@@ -99,8 +99,8 @@
 
 <div id="app" class="container" v-cloak>
     <div v-if="!user" style="text-align:center; padding-top:100px;">
-        <h1 style="color:#e94560">寶可夢大亂鬥 V2.0.1</h1>
-        <p>圖鑑與排行榜功能上線！</p>
+        <h1 style="color:#e94560">寶可夢大亂鬥 V2.0.2</h1>
+        <p>平衡性調整：收益提升、任務減負</p>
         <button class="btn-action" @click="logout">前往登入頁面</button>
         <br><br>
         <button style="background:transparent; border:1px solid #aaa; color:#aaa; padding:5px;" @click="initAdmin">👑 初始化管理員</button>
@@ -144,11 +144,10 @@
 
         <div v-if="newsState.show" class="modal-overlay">
             <div class="modal-box" style="text-align:left;">
-                <div class="modal-title" style="text-align:center;">📢 V2.0.1 更新公告</div>
+                <div class="modal-title" style="text-align:center;">📢 V2.0.2 更新公告</div>
                 <ul>
-                    <li><b>🏆 排行榜</b>：新增等級、財富、圖鑑排行榜！</li>
-                    <li><b>📖 寶可夢圖鑑</b>：查看收集進度，未獲得的會顯示黑影。</li>
-                    <li><b>⚙️ 優化</b>：戰鬥邏輯與野怪生成已修正。</li>
+                    <li><b>💰 收益提升</b>：大幅提升野怪掉落的金幣與經驗！</li>
+                    <li><b>📜 任務減負</b>：降低了任務的金幣與經驗獎勵，鼓勵多去野外探險。</li>
                 </ul>
                 <div style="text-align:center; margin-top:15px;">
                     <button class="btn-yes" @click="closeNews">我知道了</button>
@@ -438,7 +437,7 @@
             const tab = ref('wild'); 
             const box = computed(() => user.value ? JSON.parse(user.value.pokemon_storage) : []);
             const newsState = ref({ show: false });
-            const closeNews = () => { newsState.value.show = false; sessionStorage.setItem('seenNews_v41', 'true'); };
+            const closeNews = () => { newsState.value.show = false; sessionStorage.setItem('seenNews_v202', 'true'); };
             const quests = ref([]);
             const players = ref([]);
             const friends = ref([]);
@@ -534,7 +533,6 @@
                 if(active) mySkills.value = SKILL_MAP[active.name] || ["撞擊", "撞擊", "撞擊"];
             };
             
-            // 計算能力值 (給 Modal 使用)
             const calcStats = (mon) => {
                 if(mon.uid === user.value.active_pokemon_uid) return { hp: user.value.max_hp, atk: user.value.attack };
                 return { hp: "???", atk: "???" };
@@ -545,7 +543,7 @@
             onMounted(async () => {
                 document.getElementById('loading').style.display = 'none'; 
                 if(!token) return window.location.href = 'login.html';
-                if (!sessionStorage.getItem('seenNews_v41')) newsState.value.show = true;
+                if (!sessionStorage.getItem('seenNews_v202')) newsState.value.show = true;
                 await updateInfo(); await fetchSkillData(); updateMySkills();
                 fetchPlayers(); checkRaid(); setInterval(checkRaid, 5000); fetchQuests(); fetchWildList();
                 const ws = new WebSocket(`${WS_URL}?token=${token}`);

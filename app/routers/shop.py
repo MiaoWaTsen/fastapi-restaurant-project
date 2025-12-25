@@ -139,17 +139,13 @@ def apply_iv_stats(base_val, iv, level, is_player=True):
 def get_skill_data():
     return SKILL_DB
 
-# 🔥 新增：圖鑑資料 API 🔥
 @router.get("/pokedex/all")
 def get_all_pokedex():
-    """回傳所有可收集的寶可夢清單"""
-    # 這裡只回傳基本資料，不回傳詳細數值，減少傳輸量
     return [{"name": name, "img": data["img"]} for name, data in POKEDEX_DATA.items()]
 
 @router.get("/wild/list")
 def get_wild_list(level: int, current_user: User = Depends(get_current_user)):
     wild_list = []
-    
     available_species = []
     for unlock_lv, species_list in WILD_UNLOCK_LEVELS.items():
         if unlock_lv <= level:
@@ -160,7 +156,6 @@ def get_wild_list(level: int, current_user: User = Depends(get_current_user)):
     for name in available_species:
         if name not in POKEDEX_DATA: continue
         base = POKEDEX_DATA[name]
-        is_powerful = False 
         
         mult = 1.0
         wild_hp = int(base["hp"] * 1.3 * mult * (1.09 ** (level - 1)))
@@ -179,7 +174,7 @@ def get_wild_list(level: int, current_user: User = Depends(get_current_user)):
         
     return wild_list
 
-# 任務生成邏輯
+# 🔥 2. 任務邏輯修正：降低獎勵係數 🔥
 def generate_quests(user_level, count=3):
     new_quests = []
     targets_pool = []
@@ -195,7 +190,9 @@ def generate_quests(user_level, count=3):
         if is_golden:
             q = { "id": str(uuid.uuid4()), "type": "GOLDEN", "target": "野怪", "target_display": "Lv.? 野怪", "target_lv": user_level, "req": 5, "now": 0, "gold": 0, "xp": 0, "status": "WAITING" }
         else:
-            q = { "id": str(uuid.uuid4()), "type": "NORMAL", "target": target, "target_display": f"Lv.{user_level} {target}", "target_lv": user_level, "req": req_count, "now": 0, "gold": req_count * 150, "xp": req_count * 80, "status": "WAITING" }
+            # Gold 係數：150 -> 50
+            # XP 係數：80 -> 30
+            q = { "id": str(uuid.uuid4()), "type": "NORMAL", "target": target, "target_display": f"Lv.{user_level} {target}", "target_lv": user_level, "req": req_count, "now": 0, "gold": req_count * 50, "xp": req_count * 30, "status": "WAITING" }
         new_quests.append(q)
     return new_quests
 
@@ -204,18 +201,14 @@ def get_quests(db: Session = Depends(get_db), current_user: User = Depends(get_c
     quests = json.loads(current_user.quests) if current_user.quests else []
     
     need_reset = False
-    if not quests:
-        need_reset = True
+    if not quests: need_reset = True
     else:
         for q in quests:
-            if "target_display" not in q:
-                need_reset = True
-                break
+            if "target_display" not in q: need_reset = True; break
     
     if need_reset:
         quests = generate_quests(current_user.level, count=3)
-        current_user.quests = json.dumps(quests)
-        db.commit()
+        current_user.quests = json.dumps(quests); db.commit()
         return quests
 
     active_or_waiting = [q for q in quests if q["status"] in ["ACTIVE", "WAITING"]]
@@ -265,10 +258,15 @@ def claim_quest(qid: str, db: Session = Depends(get_db), current_user: User = De
     current_user.quests = json.dumps(quests); current_user.inventory = json.dumps(inv); db.commit()
     return {"message": msg}
 
+# 🔥 1. 野怪戰鬥收益修正：提升獎勵 🔥
 @router.post("/wild/attack")
 async def wild_attack_api(is_win: bool = Query(...), is_powerful: bool = Query(False), target_name: str = Query("野怪"), db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
     if is_win:
-        xp = current_user.level * 20; money = current_user.level * 10
+        # XP: Lv*20 -> Lv*50
+        # Money: Lv*10 -> Lv*30
+        xp = current_user.level * 50
+        money = current_user.level * 30
+        
         current_user.exp += xp; current_user.pet_exp += xp; current_user.money += money
         msg = f"獲得 {xp} XP, {money} G"
         if is_powerful:
