@@ -2,6 +2,7 @@
 
 from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.orm import Session
+from datetime import datetime, time
 import random
 import json
 import uuid
@@ -13,67 +14,9 @@ from app.common.websocket import manager
 
 router = APIRouter()
 
-[cite_start]# [cite: 167-186] 完整技能資料庫 (含特效)
-# effect: "heal"(回血), "buff_atk"(加攻), "recoil"(反傷/自傷)
-SKILL_DB = {
-    # 傷害 14, 50% 機率特效
-    "水槍": {"dmg": 14, "effect": "heal", "prob": 0.5, "val": 0.15, "desc": "50%回血15%"},
-    "撒嬌": {"dmg": 14, "effect": "heal", "prob": 0.5, "val": 0.15, "desc": "50%回血15%"},
-    "念力": {"dmg": 14, "effect": "heal", "prob": 0.5, "val": 0.15, "desc": "50%回血15%"},
-    "毒針": {"dmg": 14, "effect": "buff_atk", "prob": 0.5, "val": 0.2, "desc": "50%加攻20%"},
-    
-    # 傷害 16, 35% 機率特效
-    "藤鞭": {"dmg": 16, "effect": "buff_atk", "prob": 0.35, "val": 0.2, "desc": "35%加攻20%"},
-    "火花": {"dmg": 16, "effect": "buff_atk", "prob": 0.35, "val": 0.2, "desc": "35%加攻20%"},
-    "電光": {"dmg": 16, "effect": "buff_atk", "prob": 0.35, "val": 0.2, "desc": "35%加攻20%"},
-    "挖洞": {"dmg": 16, "effect": "buff_atk", "prob": 0.35, "val": 0.2, "desc": "35%加攻20%"},
-    "地震": {"dmg": 16, "effect": "heal", "prob": 0.35, "val": 0.2, "desc": "35%回血20%"},
-    "冰礫": {"dmg": 16, "effect": "heal", "prob": 0.35, "val": 0.2, "desc": "35%回血20%"},
-    
-    # 傷害 18, 30% 機率特效
-    "泥巴射擊": {"dmg": 18, "effect": "buff_atk", "prob": 0.3, "val": 0.2, "desc": "30%加攻20%"},
-    "污泥炸彈": {"dmg": 18, "effect": "buff_atk", "prob": 0.3, "val": 0.2, "desc": "30%加攻20%"},
-    "噴射火焰": {"dmg": 18, "effect": "buff_atk", "prob": 0.3, "val": 0.2, "desc": "30%加攻20%"},
-    "水流噴射": {"dmg": 18, "effect": "buff_atk", "prob": 0.3, "val": 0.2, "desc": "30%加攻20%"},
-    "精神強念": {"dmg": 18, "effect": "buff_atk", "prob": 0.3, "val": 0.2, "desc": "30%加攻20%"},
-    "電擊":     {"dmg": 18, "effect": "buff_atk", "prob": 0.3, "val": 0.2, "desc": "30%加攻20%"},
-    
-    # 傷害 24 (無特效)
-    "撞擊": {"dmg": 24, "effect": None, "prob": 0, "val": 0, "desc": "無特效"},
-    "啄":   {"dmg": 24, "effect": None, "prob": 0, "val": 0, "desc": "無特效"},
-    "緊束": {"dmg": 24, "effect": None, "prob": 0, "val": 0, "desc": "無特效"},
-    "葉刃": {"dmg": 24, "effect": None, "prob": 0, "val": 0, "desc": "無特效"},
-    "咬碎": {"dmg": 24, "effect": None, "prob": 0, "val": 0, "desc": "無特效"}, # 補暴鯉龍
-    
-    # 傷害 26 (無特效)
-    "抓":       {"dmg": 26, "effect": None, "prob": 0, "val": 0, "desc": "無特效"},
-    "放電":     {"dmg": 26, "effect": None, "prob": 0, "val": 0, "desc": "無特效"},
-    "出奇一擊": {"dmg": 26, "effect": None, "prob": 0, "val": 0, "desc": "無特效"},
-    "毒擊":     {"dmg": 26, "effect": None, "prob": 0, "val": 0, "desc": "無特效"},
-    "幻象光線": {"dmg": 26, "effect": None, "prob": 0, "val": 0, "desc": "無特效"},
-    "水流尾":   {"dmg": 26, "effect": None, "prob": 0, "val": 0, "desc": "無特效"},
-    "燕返":     {"dmg": 26, "effect": None, "prob": 0, "val": 0, "desc": "無特效"},
-    "種子炸彈": {"dmg": 26, "effect": None, "prob": 0, "val": 0, "desc": "無特效"},
-    "高速星星": {"dmg": 26, "effect": None, "prob": 0, "val": 0, "desc": "無特效"},
-    "泰山壓頂": {"dmg": 26, "effect": None, "prob": 0, "val": 0, "desc": "無特效"},
-    "大字爆炎": {"dmg": 26, "effect": None, "prob": 0, "val": 0, "desc": "無特效"},
-    "泥巴炸彈": {"dmg": 26, "effect": None, "prob": 0, "val": 0, "desc": "無特效"},
-    "冰凍光束": {"dmg": 26, "effect": None, "prob": 0, "val": 0, "desc": "無特效"},
-    "瘋狂伏特": {"dmg": 26, "effect": None, "prob": 0, "val": 0, "desc": "無特效"},
-    
-    # 傷害 28 (無特效)
-    "雙倍奉還": {"dmg": 28, "effect": None, "prob": 0, "val": 0, "desc": "無特效"},
-    "逆鱗":     {"dmg": 28, "effect": None, "prob": 0, "val": 0, "desc": "無特效"},
-    "精神撃破": {"dmg": 28, "effect": None, "prob": 0, "val": 0, "desc": "無特效"},
-    "破壞光線": {"dmg": 28, "effect": None, "prob": 0, "val": 0, "desc": "無特效"}, # 補暴鯉龍
-    
-    # 傷害 34 (必中副作用)
-    "勇鳥猛攻": {"dmg": 34, "effect": "recoil", "prob": 1.0, "val": 0.1, "desc": "扣自身10%血"}
-}
-
-# 完整圖鑑 (對應 PDF 野怪列表)
+# 完整圖鑑
 POKEDEX_DATA = {
-    # 野怪 (PDF 指定)
+    # 野怪/玩家通用
     "小拉達": {"hp": 90, "atk": 80, "img": "https://img.pokemondb.net/artwork/large/rattata.jpg", "skills": ["抓", "出奇一擊", "撞擊"]},
     "波波":   {"hp": 95, "atk": 85, "img": "https://img.pokemondb.net/artwork/large/pidgey.jpg", "skills": ["抓", "啄", "燕返"]},
     "烈雀":   {"hp": 90, "atk": 90, "img": "https://img.pokemondb.net/artwork/large/spearow.jpg", "skills": ["抓", "啄", "燕返"]},
@@ -119,37 +62,76 @@ POKEDEX_DATA = {
     "夢幻":   {"hp": 155, "atk": 150, "img": "https://img.pokemondb.net/artwork/large/mew.jpg", "skills": ["念力", "精神強念", "精神撃破"]},
 }
 
-# 嚴格的等級解鎖對照表 (PDF: 每一級只有一隻)
-WILD_ENCOUNTER_MAP = {
-    1: "小拉達",
-    2: "波波",
-    3: "烈雀",
-    4: "阿柏蛇",
-    5: "瓦斯彈",
-    6: "海星星",
-    7: "角金魚",
-    8: "走路草",
-    9: "穿山鼠",
-    10: "蚊香蝌蚪",
-    11: "蚊香蝌蚪", # PDF 跳過 11, 沿用 10
-    12: "小磁怪",
-    13: "小磁怪",
-    14: "卡拉卡拉",
-    15: "卡拉卡拉",
-    16: "喵喵",
-    17: "喵喵",
-    18: "瑪瑙水母",
-    19: "瑪瑙水母",
-    20: "海刺龍",
-    # 21+ 都打海刺龍，或之後更新
+# 技能數據庫
+SKILL_DB = {
+    "水槍": {"dmg": 14, "effect": "heal", "prob": 0.5, "val": 0.15, "desc": "50%回血15%"},
+    "撒嬌": {"dmg": 14, "effect": "heal", "prob": 0.5, "val": 0.15, "desc": "50%回血15%"},
+    "念力": {"dmg": 14, "effect": "heal", "prob": 0.5, "val": 0.15, "desc": "50%回血15%"},
+    "毒針": {"dmg": 14, "effect": "buff_atk", "prob": 0.5, "val": 0.2, "desc": "50%加攻20%"},
+    "藤鞭": {"dmg": 16, "effect": "buff_atk", "prob": 0.35, "val": 0.2, "desc": "35%加攻20%"},
+    "火花": {"dmg": 16, "effect": "buff_atk", "prob": 0.35, "val": 0.2, "desc": "35%加攻20%"},
+    "電光": {"dmg": 16, "effect": "buff_atk", "prob": 0.35, "val": 0.2, "desc": "35%加攻20%"},
+    "挖洞": {"dmg": 16, "effect": "buff_atk", "prob": 0.35, "val": 0.2, "desc": "35%加攻20%"},
+    "地震": {"dmg": 16, "effect": "heal", "prob": 0.35, "val": 0.2, "desc": "35%回血20%"},
+    "冰礫": {"dmg": 16, "effect": "heal", "prob": 0.35, "val": 0.2, "desc": "35%回血20%"},
+    "泥巴射擊": {"dmg": 18, "effect": "buff_atk", "prob": 0.3, "val": 0.2, "desc": "30%加攻20%"},
+    "污泥炸彈": {"dmg": 18, "effect": "buff_atk", "prob": 0.3, "val": 0.2, "desc": "30%加攻20%"},
+    "噴射火焰": {"dmg": 18, "effect": "buff_atk", "prob": 0.3, "val": 0.2, "desc": "30%加攻20%"},
+    "水流噴射": {"dmg": 18, "effect": "buff_atk", "prob": 0.3, "val": 0.2, "desc": "30%加攻20%"},
+    "精神強念": {"dmg": 18, "effect": "buff_atk", "prob": 0.3, "val": 0.2, "desc": "30%加攻20%"},
+    "電擊":     {"dmg": 18, "effect": "buff_atk", "prob": 0.3, "val": 0.2, "desc": "30%加攻20%"},
+    "撞擊": {"dmg": 24, "effect": None, "prob": 0, "val": 0, "desc": "無特效"},
+    "啄":   {"dmg": 24, "effect": None, "prob": 0, "val": 0, "desc": "無特效"},
+    "緊束": {"dmg": 24, "effect": None, "prob": 0, "val": 0, "desc": "無特效"},
+    "葉刃": {"dmg": 24, "effect": None, "prob": 0, "val": 0, "desc": "無特效"},
+    "咬碎": {"dmg": 24, "effect": None, "prob": 0, "val": 0, "desc": "無特效"},
+    "抓":       {"dmg": 26, "effect": None, "prob": 0, "val": 0, "desc": "無特效"},
+    "放電":     {"dmg": 26, "effect": None, "prob": 0, "val": 0, "desc": "無特效"},
+    "出奇一擊": {"dmg": 26, "effect": None, "prob": 0, "val": 0, "desc": "無特效"},
+    "毒擊":     {"dmg": 26, "effect": None, "prob": 0, "val": 0, "desc": "無特效"},
+    "幻象光線": {"dmg": 26, "effect": None, "prob": 0, "val": 0, "desc": "無特效"},
+    "水流尾":   {"dmg": 26, "effect": None, "prob": 0, "val": 0, "desc": "無特效"},
+    "燕返":     {"dmg": 26, "effect": None, "prob": 0, "val": 0, "desc": "無特效"},
+    "種子炸彈": {"dmg": 26, "effect": None, "prob": 0, "val": 0, "desc": "無特效"},
+    "高速星星": {"dmg": 26, "effect": None, "prob": 0, "val": 0, "desc": "無特效"},
+    "泰山壓頂": {"dmg": 26, "effect": None, "prob": 0, "val": 0, "desc": "無特效"},
+    "大字爆炎": {"dmg": 26, "effect": None, "prob": 0, "val": 0, "desc": "無特效"},
+    "泥巴炸彈": {"dmg": 26, "effect": None, "prob": 0, "val": 0, "desc": "無特效"},
+    "冰凍光束": {"dmg": 26, "effect": None, "prob": 0, "val": 0, "desc": "無特效"},
+    "瘋狂伏特": {"dmg": 26, "effect": None, "prob": 0, "val": 0, "desc": "無特效"},
+    "雙倍奉還": {"dmg": 28, "effect": None, "prob": 0, "val": 0, "desc": "無特效"},
+    "逆鱗":     {"dmg": 28, "effect": None, "prob": 0, "val": 0, "desc": "無特效"},
+    "精神撃破": {"dmg": 28, "effect": None, "prob": 0, "val": 0, "desc": "無特效"},
+    "破壞光線": {"dmg": 28, "effect": None, "prob": 0, "val": 0, "desc": "無特效"},
+    "勇鳥猛攻": {"dmg": 34, "effect": "recoil", "prob": 1.0, "val": 0.1, "desc": "扣自身10%血"}
 }
 
-# 扭蛋池 (維持不變，省略內容)
-GACHA_HIGH = [{"name": "卡比獸", "rate": 20}, {"name": "吉利蛋", "rate": 24}, {"name": "幸福蛋", "rate": 10}, {"name": "拉普拉斯", "rate": 10}, {"name": "妙蛙花", "rate": 10}, {"name": "噴火龍", "rate": 10}, {"name": "水箭龜", "rate": 10}, {"name": "快龍", "rate": 6}]
-GACHA_GOLDEN = [{"name": "卡比獸", "rate": 30}, {"name": "吉利蛋", "rate": 35}, {"name": "幸福蛋", "rate": 20}, {"name": "拉普拉斯", "rate": 10}, {"name": "快龍", "rate": 5}]
+# 嚴格解鎖表
+WILD_ENCOUNTER_MAP = {
+    1: ["小拉達"],
+    2: ["小拉達", "波波"],
+    3: ["小拉達", "波波", "烈雀"],
+    4: ["小拉達", "波波", "烈雀", "阿柏蛇"],
+    5: ["小拉達", "波波", "烈雀", "阿柏蛇", "瓦斯彈"],
+    6: ["小拉達", "波波", "烈雀", "阿柏蛇", "瓦斯彈", "海星星"],
+    7: ["小拉達", "波波", "烈雀", "阿柏蛇", "瓦斯彈", "海星星", "角金魚"],
+    8: ["小拉達", "波波", "烈雀", "阿柏蛇", "瓦斯彈", "海星星", "角金魚", "走路草"],
+    9: ["小拉達", "波波", "烈雀", "阿柏蛇", "瓦斯彈", "海星星", "角金魚", "走路草", "穿山鼠"],
+    # ... 為了簡潔，這裡設定為：只要等級夠高，包含所有低等的
+}
+# 為了符合 "Lv.20 可以打前面的所有怪"，我們用動態生成比較好，或者上面的 map 改成 "該等級新增的怪"
+WILD_UNLOCK_LEVELS = {
+    1: ["小拉達"], 2: ["波波"], 3: ["烈雀"], 4: ["阿柏蛇"], 5: ["瓦斯彈"],
+    6: ["海星星"], 7: ["角金魚"], 8: ["走路草"], 9: ["穿山鼠"], 10: ["蚊香蝌蚪"],
+    12: ["小磁怪"], 14: ["卡拉卡拉"], 16: ["喵喵"], 18: ["瑪瑙水母"], 20: ["海刺龍"]
+}
+
+# 扭蛋池 (校正後)
 GACHA_NORMAL = [{"name": "妙蛙種子", "rate": 5}, {"name": "小火龍", "rate": 5}, {"name": "傑尼龜", "rate": 5}, {"name": "伊布", "rate": 8}, {"name": "皮卡丘", "rate": 8}, {"name": "皮皮", "rate": 10}, {"name": "胖丁", "rate": 10}, {"name": "毛辮羊", "rate": 8}, {"name": "大蔥鴨", "rate": 12}, {"name": "呆呆獸", "rate": 12}, {"name": "可達鴨", "rate": 12}, {"name": "卡比獸", "rate": 2}, {"name": "吉利蛋", "rate": 2}]
 GACHA_MEDIUM = [{"name": "妙蛙種子", "rate": 10}, {"name": "小火龍", "rate": 10}, {"name": "傑尼龜", "rate": 10}, {"name": "伊布", "rate": 10}, {"name": "皮卡丘", "rate": 10}, {"name": "呆呆獸", "rate": 10}, {"name": "可達鴨", "rate": 10}, {"name": "毛辮羊", "rate": 10}, {"name": "卡比獸", "rate": 5}, {"name": "吉利蛋", "rate": 3}, {"name": "拉普拉斯", "rate": 3}, {"name": "妙蛙花", "rate": 3}, {"name": "噴火龍", "rate": 3}, {"name": "水箭龜", "rate": 3}]
+GACHA_HIGH = [{"name": "卡比獸", "rate": 20}, {"name": "吉利蛋", "rate": 24}, {"name": "幸福蛋", "rate": 10}, {"name": "拉普拉斯", "rate": 10}, {"name": "妙蛙花", "rate": 10}, {"name": "噴火龍", "rate": 10}, {"name": "水箭龜", "rate": 10}, {"name": "快龍", "rate": 6}]
 GACHA_CANDY = [{"name": "伊布", "rate": 20}, {"name": "皮卡丘", "rate": 20}, {"name": "妙蛙花", "rate": 10}, {"name": "噴火龍", "rate": 10}, {"name": "水箭龜", "rate": 10}, {"name": "卡比獸", "rate": 10}, {"name": "吉利蛋", "rate": 10}, {"name": "幸福蛋", "rate": 4}, {"name": "拉普拉斯", "rate": 3}, {"name": "快龍", "rate": 3}]
+GACHA_GOLDEN = [{"name": "卡比獸", "rate": 30}, {"name": "吉利蛋", "rate": 35}, {"name": "幸福蛋", "rate": 20}, {"name": "拉普拉斯", "rate": 10}, {"name": "快龍", "rate": 5}]
 
 ACTIVE_BATTLES = {}
 RAID_STATE = {"boss_name": None, "hp": 0, "max_hp": 0, "active": False, "players": {}}
@@ -170,60 +152,93 @@ def apply_iv_stats(base_val, iv, level, is_player=True):
 def get_skill_data():
     return SKILL_DB
 
-# 🔥 1. 嚴格野怪列表 (單一隻) 🔥
+# 🔥 1. 野怪列表 API (V4.0 嚴格版) 🔥
 @router.get("/wild/list")
 def get_wild_list(level: int, current_user: User = Depends(get_current_user)):
     wild_list = []
     
-    # 根據等級直接決定名稱
-    name = WILD_ENCOUNTER_MAP.get(level, "海刺龍") # 超過20打海刺龍
-    if name not in POKEDEX_DATA: name = "小拉達"
+    # 規則：列出所有解鎖等級 <= 選擇等級的怪獸
+    # 且所有怪獸的數值等級 = 選擇的等級
     
-    base = POKEDEX_DATA[name]
+    available_species = []
+    for unlock_lv, species_list in WILD_UNLOCK_LEVELS.items():
+        if unlock_lv <= level:
+            available_species.extend(species_list)
+            
+    if not available_species: available_species = ["小拉達"]
     
-    # 數值計算 (PDF: atk*1.15, hp*1.3)
-    is_powerful = random.random() < 0.05
-    mult = 1.2 if is_powerful else 1.0
-    
-    wild_hp = int(base["hp"] * 1.3 * mult * (1.09 ** (level - 1)))
-    wild_atk = int(base["atk"] * 1.15 * mult * (1.07 ** (level - 1)))
-    wild_skills = base.get("skills", ["撞擊", "撞擊", "撞擊"])
-    
-    # 回傳單一隻
-    wild_list.append({
-        "name": f"💪 {name}" if is_powerful else name,
-        "raw_name": name,
-        "is_powerful": is_powerful,
-        "level": level,
-        "hp": wild_hp, "max_hp": wild_hp, "attack": wild_atk,
-        "image_url": base["img"],
-        "skills": wild_skills 
-    })
+    for name in available_species:
+        if name not in POKEDEX_DATA: continue
+        base = POKEDEX_DATA[name]
+        
+        # 這裡不決定是否變異，只回傳基本資料
+        is_powerful = False 
+        
+        # 數值計算：以 "level" 為準
+        # 野怪atk*1.15 hp*1.3
+        # 野怪:升級攻擊力*1.07、血量*1.09
+        mult = 1.0
+        wild_hp = int(base["hp"] * 1.3 * mult * (1.09 ** (level - 1)))
+        wild_atk = int(base["atk"] * 1.15 * mult * (1.07 ** (level - 1)))
+        wild_skills = base.get("skills", ["撞擊", "撞擊", "撞擊"])
+        
+        wild_list.append({
+            "name": name,
+            "raw_name": name,
+            "is_powerful": False, # 前端顯示用，實際戰鬥才決定變異
+            "level": level,
+            "hp": wild_hp, "max_hp": wild_hp, "attack": wild_atk,
+            "image_url": base["img"],
+            "skills": wild_skills 
+        })
         
     return wild_list
 
-# 🔥 2. 任務邏輯 (補齊3個) 🔥
+# ... (Tasks, Gacha, PVP, Raid 保持不變，但 Wild Attack 要微調)
+
+@router.post("/wild/attack")
+async def wild_attack_api(is_win: bool = Query(...), is_powerful: bool = Query(False), target_name: str = Query("野怪"), db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
+    if is_win:
+        xp = current_user.level * 20; money = current_user.level * 10
+        current_user.exp += xp; current_user.pet_exp += xp; current_user.money += money
+        msg = f"獲得 {xp} XP, {money} G"
+        if is_powerful:
+            inv = json.loads(current_user.inventory); inv["growth_candy"] = inv.get("growth_candy", 0) + 1; current_user.inventory = json.dumps(inv); msg += " & 🍬 成長糖果 x1"
+        
+        quests = json.loads(current_user.quests) if current_user.quests else []
+        quest_updated = False
+        for q in quests:
+            if q["status"] == "ACTIVE" and q.get("target") in target_name:
+                q["now"] += 1
+                if q["now"] >= q["req"]: q["status"] = "COMPLETED"
+                quest_updated = True
+        if quest_updated: current_user.quests = json.dumps(quests)
+
+        box = json.loads(current_user.pokemon_storage)
+        for p in box:
+            if p["uid"] == current_user.active_pokemon_uid: p["exp"] = current_user.pet_exp; p["lv"] = current_user.pet_level; break
+        current_user.pokemon_storage = json.dumps(box)
+        db.commit()
+        return {"message": f"勝利！{msg}"}
+    return {"message": "戰鬥結束"}
+
+# 任務生成邏輯 (V4.0: 3個任務)
 def generate_quests(user_level, count=3):
     new_quests = []
-    # 目標也是該等級的野怪
-    target_name = WILD_ENCOUNTER_MAP.get(user_level, "小拉達")
+    targets_pool = []
+    for u_lv, species in WILD_UNLOCK_LEVELS.items():
+        if u_lv <= user_level: targets_pool.extend(species)
+    if not targets_pool: targets_pool = ["小拉達"]
     
     for _ in range(count):
+        target = random.choice(targets_pool)
         req_count = random.randint(1, 3) + int(user_level/3)
-        is_golden = random.random() < 0.15
-        q = {
-            "id": str(uuid.uuid4()),
-            "type": "GOLDEN" if is_golden else "NORMAL",
-            "target": target_name,
-            "target_display": f"Lv.{user_level} {target_name}",
-            "target_lv": user_level,
-            "req": req_count,
-            "now": 0,
-            "gold": req_count * 150,
-            "xp": req_count * 80,
-            "status": "WAITING"
-        }
-        if is_golden: q["gold"] = 0; q["xp"] = 0
+        is_golden = random.random() < 0.03 #
+        
+        if is_golden:
+            q = { "id": str(uuid.uuid4()), "type": "GOLDEN", "target": "野怪", "target_display": "Lv.? 野怪", "target_lv": user_level, "req": 5, "now": 0, "gold": 0, "xp": 0, "status": "WAITING" }
+        else:
+            q = { "id": str(uuid.uuid4()), "type": "NORMAL", "target": target, "target_display": f"Lv.{user_level} {target}", "target_lv": user_level, "req": req_count, "now": 0, "gold": req_count * 150, "xp": req_count * 80, "status": "WAITING" }
         new_quests.append(q)
     return new_quests
 
@@ -232,25 +247,18 @@ def get_quests(db: Session = Depends(get_db), current_user: User = Depends(get_c
     quests = json.loads(current_user.quests) if current_user.quests else []
     active_or_waiting = [q for q in quests if q["status"] in ["ACTIVE", "WAITING"]]
     needed = 3 - len(active_or_waiting)
-    
     if needed > 0:
         new_qs = generate_quests(current_user.level, count=needed)
-        # 移除已完成的，只保留正在進行和新的
         final_list = active_or_waiting + new_qs
-        current_user.quests = json.dumps(final_list)
-        db.commit()
+        current_user.quests = json.dumps(final_list); db.commit()
         return final_list
-    
     return active_or_waiting
 
 @router.post("/quests/accept/{qid}")
 def accept_quest(qid: str, db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
     quests = json.loads(current_user.quests)
     for q in quests:
-        if q["id"] == qid and q["status"] == "WAITING":
-            q["status"] = "ACTIVE"
-            current_user.quests = json.dumps(quests); db.commit()
-            return {"message": "任務已接受"}
+        if q["id"] == qid and q["status"] == "WAITING": q["status"] = "ACTIVE"; current_user.quests = json.dumps(quests); db.commit(); return {"message": "任務已接受"}
     raise HTTPException(status_code=400, detail="無法接受此任務")
 
 @router.post("/quests/abandon/{qid}")
@@ -260,7 +268,6 @@ def abandon_quest(qid: str, db: Session = Depends(get_db), current_user: User = 
     new_quests = [q for q in quests if q["id"] != qid]
     if len(new_quests) == len(quests): raise HTTPException(status_code=404, detail="找不到任務")
     current_user.money -= 1000
-    # 補新
     new_q = generate_quests(current_user.level, count=1)[0]
     new_quests.append(new_q)
     current_user.quests = json.dumps(new_quests); db.commit()
@@ -282,34 +289,6 @@ def claim_quest(qid: str, db: Session = Depends(get_db), current_user: User = De
     quests.append(new_q)
     current_user.quests = json.dumps(quests); current_user.inventory = json.dumps(inv); db.commit()
     return {"message": msg}
-
-# ... (戰鬥API wild/attack, pvp/attack, raid/attack, gacha, swap, box 等保持不變)
-# 請保留 play_gacha, swap_active_pokemon, box_action, gamble, buy_heal, wild_attack_api, pvp_attack, raid 相關函式
-# 為了篇幅，這裡省略，請使用上一版(V3.1)的內容，因為邏輯通用
-
-@router.post("/wild/attack")
-async def wild_attack_api(is_win: bool = Query(...), is_powerful: bool = Query(False), target_name: str = Query("野怪"), db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
-    if is_win:
-        xp = current_user.level * 20; money = current_user.level * 10
-        current_user.exp += xp; current_user.pet_exp += xp; current_user.money += money
-        msg = f"獲得 {xp} XP, {money} G"
-        if is_powerful:
-            inv = json.loads(current_user.inventory); inv["growth_candy"] = inv.get("growth_candy", 0) + 1; current_user.inventory = json.dumps(inv); msg += " & 🍬 成長糖果 x1"
-        quests = json.loads(current_user.quests) if current_user.quests else []
-        quest_updated = False
-        for q in quests:
-            if q["status"] == "ACTIVE" and q.get("target") in target_name:
-                q["now"] += 1
-                if q["now"] >= q["req"]: q["status"] = "COMPLETED"
-                quest_updated = True
-        if quest_updated: current_user.quests = json.dumps(quests)
-        box = json.loads(current_user.pokemon_storage)
-        for p in box:
-            if p["uid"] == current_user.active_pokemon_uid: p["exp"] = current_user.pet_exp; p["lv"] = current_user.pet_level; break
-        current_user.pokemon_storage = json.dumps(box)
-        db.commit()
-        return {"message": f"勝利！{msg}"}
-    return {"message": "戰鬥結束"}
 
 @router.post("/gacha/{gacha_type}")
 async def play_gacha(gacha_type: str, db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
