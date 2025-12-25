@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>⚡️ 寶可夢大亂鬥 V3.1 (完全體) ⚡️</title>
+    <title>⚡️ 寶可夢大亂鬥 V3.2 (技能特效版) ⚡️</title>
     <script>
         window.onerror = function(msg, source, lineno) {
             const loader = document.getElementById('loading');
@@ -45,7 +45,6 @@
         .btn-action { width: 100%; padding: 8px; margin-top: 5px; border: none; border-radius: 5px; cursor: pointer; font-weight: bold; background: #c0392b; color: white; }
         .btn-small { width: 48%; padding: 5px; font-size: 0.9em; margin-top: 5px; border: none; border-radius: 5px; cursor: pointer; color: white; }
         
-        /* Quest */
         .quest-card { text-align: left; margin-bottom: 10px; border-left: 5px solid #aaa; padding: 15px; background:#1e2a38; }
         .quest-active { border-left-color: #f1c40f; } 
         .quest-completed { border-left-color: #2ecc71; background: #1b261b; }
@@ -75,8 +74,12 @@
         .rate-table { width: 100%; border-collapse: collapse; margin-top: 10px; }
         .rate-table th, .rate-table td { border: 1px solid #444; padding: 5px; font-size: 0.9em; text-align:left; }
         
-        /* Skills Grid */
-        .skills-grid { width:100%; max-width:600px; margin-top:20px; display:grid; grid-template-columns:1fr 1fr; gap:10px; }
+        /* 4-Button Grid for Battle */
+        .skills-grid { width:100%; max-width:600px; margin-top:20px; display:grid; grid-template-columns:1fr 1fr; gap:15px; }
+        .btn-skill { padding: 15px; font-size: 1.1em; background: #3498db; color: white; border: none; border-radius: 10px; cursor: pointer; transition: 0.2s; position:relative; }
+        .btn-skill:active { transform: scale(0.95); }
+        .btn-shield { background: #f1c40f; color: black; font-weight: bold; }
+        .btn-skill small { display: block; font-size: 0.7em; opacity: 0.8; }
     </style>
 </head>
 <body>
@@ -85,8 +88,8 @@
 
 <div id="app" class="container" v-cloak>
     <div v-if="!user" style="text-align:center; padding-top:100px;">
-        <h1 style="color:#e94560">寶可夢大亂鬥 V3.1</h1>
-        <p>經典介面回歸 + 修復崩潰</p>
+        <h1 style="color:#e94560">寶可夢大亂鬥 V3.2</h1>
+        <p>技能特效與數值完全修正版</p>
         <button class="btn-action" @click="logout">前往登入頁面</button>
         <br><br>
         <button style="background:transparent; border:1px solid #aaa; color:#aaa; padding:5px;" @click="initAdmin">👑 初始化管理員</button>
@@ -95,21 +98,16 @@
     <div v-else>
         <div v-if="newsState.show" class="modal-overlay">
             <div class="modal-box" style="text-align:left;">
-                <div class="modal-title" style="text-align:center;">📢 V3.1 更新公告</div>
+                <div class="modal-title" style="text-align:center;">📢 V3.2 更新公告</div>
                 <ul>
-                    <li><b>🦄 修復完成</b>：解決了野怪系統崩潰與變數錯誤。</li>
-                    <li><b>📜 任務升級</b>：現在有 3 個任務，且明確指示目標等級。</li>
-                    <li><b>💬 聊天室</b>：優化了顯示位置，不會被遮擋。</li>
+                    <li><b>⚔️ 技能特效</b>：實裝加攻、回血、反傷機率。</li>
+                    <li><b>🛡️ 戰鬥介面</b>：優化為 4 鍵操作，節奏更快。</li>
+                    <li><b>🌲 嚴格分級</b>：Lv.1 只能遇到 小拉達，以此類推。</li>
                 </ul>
                 <div style="text-align:center; margin-top:15px;">
                     <button class="btn-yes" @click="closeNews">我知道了</button>
                 </div>
             </div>
-        </div>
-
-        <div v-if="inLobby" class="lobby-bar">
-            <span style="font-size:1.2em; margin-right:20px;">⚠️ 戰鬥準備中...</span>
-            <span style="font-size:1.5em; color:#f1c40f; font-family:monospace;">{{ lobbyTimer }}s</span>
         </div>
 
         <div class="navbar">
@@ -147,7 +145,7 @@
             <div class="battle-arena">
                 <div class="fighter" :class="{'shake-hit': battle.shakeMe}">
                     <img :src="user.pokemon_image">
-                    <div>{{ user.username }}</div>
+                    <div>{{ user.username }} <span v-if="battle.atkBuff > 1" style="color:#f1c40f">▲</span></div>
                     <div class="bar-container"><div class="bar-fill hp-fill" :style="{width: hpPercent(user) + '%'}"></div></div>
                     <small>{{ user.hp }}/{{ user.max_hp }}</small>
                 </div>
@@ -160,14 +158,15 @@
             </div>
             
             <div class="skills-grid">
-                <button v-for="skill in mySkills" :key="skill" class="btn-action" style="background:#3498db" @click="doSkillAttack(skill)">
-                    ⚡ {{ skill }} ({{ getSkillDmg(skill) }})
+                <button v-for="skill in mySkills" :key="skill" class="btn-skill" @click="doSkillAttack(skill)">
+                    {{ skill }} <small>{{ getSkillDesc(skill) }}</small>
                 </button>
-                <button class="btn-action" style="background:#f1c40f; color:black;" @click="useShield" :disabled="shieldUses <= 0">
-                    🛡️ 防護盾 (剩 {{ shieldUses }} 次)
+                <button class="btn-skill btn-shield" @click="useShield" :disabled="shieldUses <= 0">
+                    🛡️ 防護盾 <small>剩 {{ shieldUses }} 次</small>
                 </button>
-                <button class="btn-action" style="background:#27ae60" @click="doHeal">💊 醫療包</button>
-                <button class="btn-action" style="background:#7f8c8d" @click="battle.active=false">🏳️ 逃跑</button>
+            </div>
+            <div style="margin-top:10px; text-align:center;">
+                <button @click="battle.active=false" style="background:none; border:none; color:#7f8c8d; cursor:pointer;">(逃跑)</button>
             </div>
         </div>
 
@@ -183,11 +182,12 @@
         </div>
 
         <div v-if="!battle.active">
+            
             <div v-if="tab=='wild'">
                 <h3>🌲 選擇探險區域</h3>
                 <div style="margin-bottom:15px; background:#2c3e50; padding:10px; border-radius:8px;">
-                    <label>當前玩家等級：Lv. {{ user.level }}</label>
-                    <p style="font-size:0.8em; color:#aaa;">(只能遭遇與自身等級相同的野怪)</p>
+                    <label>當前等級：Lv. {{ user.level }}</label>
+                    <p style="font-size:0.8em; color:#aaa;">(只能遭遇 Lv.{{ user.level }} 的特定野怪)</p>
                 </div>
                 <div class="card-grid">
                     <div v-for="m in wildList" :key="m.name" class="card">
@@ -215,6 +215,7 @@
                     </div>
                 </div>
             </div>
+            
             <div v-if="tab=='box'">
                 <h3>📦 寶可夢盒子</h3>
                 <div class="card-grid">
@@ -232,6 +233,7 @@
                     </div>
                 </div>
             </div>
+
             <div v-if="tab=='raid'">
                 <h3>🔥 傳說團體戰</h3>
                 <div v-if="raidState.active" class="card" style="border:2px solid #e74c3c; background:#2c0b0e;">
@@ -242,6 +244,7 @@
                 </div>
                 <div v-else class="card">目前沒有團體戰 (08:00, 18:00, 22:00 開放)</div>
             </div>
+
             <div v-if="tab=='quest'">
                 <h3>📜 冒險任務 (3/3)</h3>
                 <div v-for="q in quests" :key="q.id" class="card quest-card" :class="{'quest-active': q.status=='ACTIVE', 'quest-completed': q.status=='COMPLETED', 'quest-golden': q.type=='GOLDEN'}">
@@ -249,12 +252,12 @@
                     <p>進度: {{ q.now }} / {{ q.req }}</p>
                     <p v-if="q.type=='GOLDEN'">獎勵: 🍬 黃金糖果 x1</p>
                     <p v-else>獎勵: {{ q.gold }}G, {{ q.xp }} XP</p>
-                    
                     <button v-if="q.status=='WAITING'" class="btn-action" style="background:#3498db" @click="acceptQuest(q.id)">接受</button>
                     <button v-if="q.status=='ACTIVE'" class="btn-action" style="background:#e74c3c" @click="abandonQuest(q.id)">放棄 (-1000G)</button>
                     <button v-if="q.status=='COMPLETED'" class="btn-action" style="background:#2ecc71" @click="claimQuest(q.id)">領取獎勵</button>
                 </div>
             </div>
+
             <div v-if="tab=='shop'">
                 <h3>🛒 扭蛋商店 <button style="font-size:0.6em; background:#555; border:none; color:white; padding:3px;" @click="showRates=true">📊 機率</button></h3>
                 <button class="btn-action" @click="playGacha('normal')">🔮 初級 (1500G)</button>
@@ -264,6 +267,7 @@
                 <br><br>
                 <button class="btn-action" style="background:#27ae60" @click="buyHeal">💊 補血 (50G)</button>
             </div>
+
             <div v-if="tab=='gamble'">
                 <div class="card" style="text-align:center; border:2px solid #f39c12;">
                     <h3>🎰 幸運賭場</h3>
@@ -271,6 +275,7 @@
                     <button class="btn-action" style="margin-top:10px; background:#f39c12; color:black;" @click="doGamble">下注！</button>
                 </div>
             </div>
+
             <div v-if="tab=='social'">
                 <h3>💬 好友與管理</h3>
                 <div v-if="friends.length > 0">
@@ -329,15 +334,13 @@
             const tab = ref('wild'); 
             const box = computed(() => user.value ? JSON.parse(user.value.pokemon_storage) : []);
             const newsState = ref({ show: false });
-            const closeNews = () => { newsState.value.show = false; sessionStorage.setItem('seenNews_v30', 'true'); };
+            const closeNews = () => { newsState.value.show = false; sessionStorage.setItem('seenNews_v32', 'true'); };
             const quests = ref([]);
             const players = ref([]);
             const friends = ref([]);
             const selectedMon = ref(null);
             
-            // Skill Data
             const skillData = ref({});
-            // 預設技能組 (防呆)
             const mySkills = ref(["撞擊", "撞擊", "撞擊"]);
             const shieldUses = ref(2);
             
@@ -351,7 +354,7 @@
             const petXpPercent = (u) => Math.min(100, (u.pet_exp / (u.next_pet_level_exp || 9999)) * 100);
             const currentAtkMe = computed(() => user.value ? user.value.attack : 0);
 
-            const battle = ref({ active: false, mode: 'wild', target: null, shakeMe: false, shakeTarget: false });
+            const battle = ref({ active: false, mode: 'wild', target: null, shakeMe: false, shakeTarget: false, atkBuff: 1.0, shieldActive: false });
             const raidState = ref({ active: false, hp: 0, max_hp: 0, boss_name: '' });
             const inLobby = ref(false);
             const lobbyTimer = ref(15);
@@ -383,32 +386,26 @@
             const checkRaid = async () => { const res = await fetch(`${API_URL.replace('/items','')}/shop/raid/status`); if(res.ok) raidState.value = await res.json(); };
             const initAdmin = async () => { try { const res = await fetch(`${API_URL}/social/admin/init`); const d = await res.json(); alert(d.message); } catch(e) {} };
             const fetchWildList = async () => { const res = await fetch(`${API_URL.replace('/items','')}/shop/wild/list?level=${user.value.level}`, { headers: { 'Authorization': `Bearer ${token}` } }); if(res.ok) wildList.value = await res.json(); };
-            
-            // 抓取技能資料
             const fetchSkillData = async () => { const res = await fetch(`${API_URL.replace('/items','')}/shop/data/skills`); if(res.ok) skillData.value = await res.json(); };
 
-            // 取得出戰寵物的技能
             const updateMySkills = () => {
                 if(!user.value || !box.value) return;
                 const active = box.value.find(p => p.uid === user.value.active_pokemon_uid);
                 if(active) {
-                    const name = active.name;
-                    mySkills.value = ["撞擊", "撞擊", "撞擊"]; // 預設
-                    // 這裡是一個簡單的 Mapping 範例，實際應該用 API
+                    // 這裡暫時用硬編碼對應，正式版後端會回傳 skills
                     const skillMap = {
                         "小拉達": ["抓", "出奇一擊", "撞擊"], "波波": ["抓", "啄", "燕返"], 
                         "妙蛙種子": ["藤鞭", "種子炸彈", "污泥炸彈"], "小火龍": ["火花", "噴射火焰", "大字爆炎"], "傑尼龜": ["水槍", "水流噴射", "水流尾"],
-                        "卡比獸": ["泰山壓頂", "地震", "撞擊"], "皮卡丘": ["電光", "放電", "電擊"], "快龍": ["抓", "逆鱗", "勇鳥猛攻"],
-                        "海星星": ["水槍", "幻象光線", "撞擊"]
+                        "卡比獸": ["泰山壓頂", "地震", "撞擊"], "皮卡丘": ["電光", "放電", "電擊"], "快龍": ["抓", "逆鱗", "勇鳥猛攻"]
                     };
-                    if(skillMap[name]) mySkills.value = skillMap[name];
+                    mySkills.value = skillMap[active.name] || ["撞擊", "撞擊", "撞擊"];
                 }
             };
 
             onMounted(async () => {
                 document.getElementById('loading').style.display = 'none'; 
                 if(!token) return window.location.href = 'login.html';
-                if (!sessionStorage.getItem('seenNews_v30')) newsState.value.show = true;
+                if (!sessionStorage.getItem('seenNews_v32')) newsState.value.show = true;
                 await updateInfo(); await fetchSkillData(); updateMySkills();
                 fetchPlayers(); checkRaid(); setInterval(checkRaid, 5000); fetchQuests(); fetchWildList();
                 const ws = new WebSocket(`${WS_URL}?token=${token}`);
@@ -416,51 +413,80 @@
                     const msg = e.data;
                     if(msg.startsWith("CHAT|")) { chatMsgs.value.push(msg.split("|")[1]); setTimeout(() => { const b = document.getElementById('chat-box'); if(b) b.scrollTop = b.scrollHeight; }, 100); }
                     if(msg.startsWith("EVENT:DUEL_INVITE")) { const parts = msg.split("|"); if(parseInt(parts[3]) === user.value.id) { if(confirm(`${parts[2]} 邀請你決鬥！接受嗎？`)) acceptDuel(parts[1]); } }
-                    if(msg.startsWith("EVENT:DUEL_START")) { startLobby({id: 0, name: "對手", hp: 100, max_hp: 100, image_url: ''}); }
                     if(msg.startsWith("EVENT:PVP_SWAP") || msg.startsWith("EVENT:PVP_MOVE")) updateInfo();
                 };
             });
             
             watch(tab, (n) => { if(n==='arena') fetchPlayers(); if(n==='social') fetchFriends(); if(n==='quest') fetchQuests(); if(n==='wild') fetchWildList(); });
-            watch(user, () => updateMySkills()); // 當 user 更新時更新技能
+            watch(user, () => updateMySkills());
 
             const startWildBattle = (target) => {
-                shieldUses.value = 2; // 重置護盾
-                updateMySkills(); // 確保技能最新
-                battle.value = { active: true, mode: 'wild', target: JSON.parse(JSON.stringify(target)), shakeMe: false, shakeTarget: false };
-            };
-            
-            const startLobby = (target) => {
-                inLobby.value = true; lobbyTimer.value = 15; shieldUses.value = 2;
-                battle.value = { active: true, mode: 'pvp', target: target, shakeMe: false, shakeTarget: false };
-                lobbyInterval = setInterval(() => { lobbyTimer.value--; if(lobbyTimer.value <= 0) { clearInterval(lobbyInterval); inLobby.value = false; } }, 1000);
+                shieldUses.value = 2; updateMySkills();
+                battle.value = { active: true, mode: 'wild', target: JSON.parse(JSON.stringify(target)), shakeMe: false, shakeTarget: false, atkBuff: 1.0, shieldActive: false };
             };
 
-            const getSkillDmg = (name) => skillData.value[name] || 20;
+            const getSkillDesc = (name) => {
+                const s = skillData.value[name];
+                return s ? `${s.dmg}傷 ${s.desc || ''}` : '';
+            };
 
             const doSkillAttack = async (skillName) => {
-                const baseDmg = getSkillDmg(skillName);
-                const dmg = Math.floor((user.value.attack * baseDmg / 20) * (0.9 + Math.random()*0.2));
+                if(!skillData.value[skillName]) return;
+                const skill = skillData.value[skillName];
+                const baseDmg = skill.dmg;
                 
+                // 傷害公式: (ATK * (Dmg/20)) * Buff
+                let dmg = Math.floor((user.value.attack * baseDmg / 20) * battle.value.atkBuff);
+                
+                // 特效處理
+                let effectMsg = "";
+                if(skill.effect && Math.random() < skill.prob) {
+                    if(skill.effect === "heal") {
+                        const healAmt = Math.floor(user.value.max_hp * skill.val);
+                        user.value.hp = Math.min(user.value.max_hp, user.value.hp + healAmt);
+                        effectMsg = `並回復了 ${healAmt} HP!`;
+                    } else if(skill.effect === "buff_atk") {
+                        battle.value.atkBuff = 1 + skill.val;
+                        effectMsg = `攻擊力提升了!`;
+                    } else if(skill.effect === "recoil") {
+                        const recoil = Math.floor(user.value.max_hp * skill.val);
+                        user.value.hp -= recoil;
+                        effectMsg = `但受到 ${recoil} 反傷!`;
+                    }
+                }
+
                 if(battle.value.mode === 'wild') {
-                    // 玩家攻擊
                     battle.value.target.hp -= dmg;
                     battle.value.shakeTarget = true; setTimeout(()=>battle.value.shakeTarget=false, 500);
                     
                     if(battle.value.target.hp <= 0) {
                         const res = await fetch(`${API_URL.replace('/items','')}/shop/wild/attack?is_win=true&is_powerful=${battle.value.target.is_powerful||false}&target_name=${battle.value.target.raw_name}`, { method: 'POST', headers: { 'Authorization': `Bearer ${token}` } });
-                        const d = await res.json(); alert(d.message);
+                        const d = await res.json(); alert(`造成 ${dmg} 傷害${effectMsg}\n${d.message}`);
                         battle.value.active = false; updateInfo(); fetchQuests();
                     } else {
                         // 野怪反擊
                         setTimeout(() => {
-                            const enemySkill = battle.value.target.skills[Math.floor(Math.random()*3)];
-                            const enemyBaseDmg = getSkillDmg(enemySkill);
-                            const enemyDmg = Math.floor((battle.value.target.attack * enemyBaseDmg / 20));
-                            
-                            user.value.hp -= enemyDmg;
-                            battle.value.shakeMe = true; setTimeout(()=>battle.value.shakeMe=false, 500);
-                            if(user.value.hp <= 0) { alert("你被打敗了..."); battle.value.active = false; buyHeal(); }
+                            if(battle.value.shieldActive) {
+                                // 觸發防護盾
+                                const enemySkill = battle.value.target.skills[Math.floor(Math.random()*3)];
+                                const enemyBaseDmg = (skillData.value[enemySkill] || {dmg:20}).dmg;
+                                const enemyDmg = Math.floor((battle.value.target.attack * enemyBaseDmg / 20));
+                                const reflect = Math.floor(enemyDmg * 0.2);
+                                battle.value.target.hp -= reflect;
+                                alert(`🛡️ 擋下 ${enemyDmg} 傷害，反彈 ${reflect}！`);
+                                battle.value.shieldActive = false; // 消耗盾
+                                if(battle.value.target.hp <= 0) {
+                                     fetch(`${API_URL.replace('/items','')}/shop/wild/attack?is_win=true&is_powerful=${battle.value.target.is_powerful||false}&target_name=${battle.value.target.raw_name}`, { method: 'POST', headers: { 'Authorization': `Bearer ${token}` } })
+                                     .then(r=>r.json()).then(d=>{ alert(d.message); battle.value.active = false; updateInfo(); fetchQuests(); });
+                                }
+                            } else {
+                                const enemySkill = battle.value.target.skills[Math.floor(Math.random()*3)];
+                                const enemyBaseDmg = (skillData.value[enemySkill] || {dmg:20}).dmg;
+                                const enemyDmg = Math.floor((battle.value.target.attack * enemyBaseDmg / 20));
+                                user.value.hp -= enemyDmg;
+                                battle.value.shakeMe = true; setTimeout(()=>battle.value.shakeMe=false, 500);
+                                if(user.value.hp <= 0) { alert("你被打敗了..."); battle.value.active = false; buyHeal(); }
+                            }
                         }, 500);
                     }
                 }
@@ -469,26 +495,9 @@
             const useShield = () => {
                 if(shieldUses.value <= 0) return;
                 shieldUses.value--;
-                
-                if(battle.value.mode === 'wild') {
-                    // 本回合不攻擊，野怪攻擊時觸發反彈
-                    setTimeout(() => {
-                        const enemySkill = battle.value.target.skills[Math.floor(Math.random()*3)];
-                        const enemyBaseDmg = getSkillDmg(enemySkill);
-                        const enemyDmg = Math.floor((battle.value.target.attack * enemyBaseDmg / 20));
-                        
-                        // 反彈 20%
-                        const reflect = Math.floor(enemyDmg * 0.2);
-                        battle.value.target.hp -= reflect;
-                        alert(`🛡️ 防護盾生效！抵擋了 ${enemyDmg} 傷害，並反彈了 ${reflect} 傷害！`);
-                        
-                        if(battle.value.target.hp <= 0) {
-                            // 彈死對手
-                             fetch(`${API_URL.replace('/items','')}/shop/wild/attack?is_win=true&is_powerful=${battle.value.target.is_powerful||false}&target_name=${battle.value.target.raw_name}`, { method: 'POST', headers: { 'Authorization': `Bearer ${token}` } })
-                             .then(r=>r.json()).then(d=>{ alert(d.message); battle.value.active = false; updateInfo(); fetchQuests(); });
-                        }
-                    }, 500);
-                }
+                battle.value.shieldActive = true;
+                // 觸發野怪攻擊 (但不扣血)
+                doSkillAttack('wait'); // wait 是一個不存在的技能，不會造成傷害，只觸發野怪回合
             };
             
             const doHeal = async () => { const heal = Math.floor(user.value.max_hp * 0.2); user.value.hp = Math.min(user.value.max_hp, user.value.hp + heal); alert(`回復了 ${heal} HP`); };
@@ -510,7 +519,7 @@
             const abandonQuest = async (qid) => { if(confirm("放棄需消耗 1000G，確定嗎？")) { await fetch(`${API_URL.replace('/items','')}/shop/quests/abandon/${qid}`, { method: 'POST', headers: { 'Authorization': `Bearer ${token}` } }); fetchQuests(); } };
             const claimQuest = async (qid) => { const res = await fetch(`${API_URL.replace('/items','')}/shop/quests/claim/${qid}`, { method: 'POST', headers: { 'Authorization': `Bearer ${token}` } }); const d = await res.json(); alert(d.message); fetchQuests(); };
 
-            return { user, tab, box, players, friends, selectedMon, currentPetIV, battle, raidState, inLobby, lobbyTimer, dailyCheckin, logout, playGacha, swapMon, releaseMon, useCandy, gambleAmount, doGamble, chatMsgs, chatInput, sendChat, doSkillAttack, useShield, doHeal, buyHeal, promoCode, redeemCode, initAdmin, sendInvite, addFriend, sendGift, joinRaid, playerXpPercent, hpPercent, petXpPercent, currentAtkMe, quests, acceptQuest, abandonQuest, claimQuest, wildList, fetchWildList, startWildBattle, showRates, gachaRates, newsState, closeNews, mySkills, shieldUses, getSkillDmg };
+            return { user, tab, box, players, friends, selectedMon, currentPetIV, battle, raidState, inLobby, lobbyTimer, dailyCheckin, logout, playGacha, swapMon, releaseMon, useCandy, gambleAmount, doGamble, chatMsgs, chatInput, sendChat, doSkillAttack, useShield, doHeal, buyHeal, promoCode, redeemCode, initAdmin, sendInvite, addFriend, sendGift, joinRaid, playerXpPercent, hpPercent, petXpPercent, currentAtkMe, quests, acceptQuest, abandonQuest, claimQuest, wildList, fetchWildList, startWildBattle, showRates, gachaRates, newsState, closeNews, mySkills, shieldUses, getSkillDesc };
         }
     }).mount('#app');
 </script>
