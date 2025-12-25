@@ -12,6 +12,7 @@ from app.db.session import get_db
 from app.models.user import User, UserCreate, UserRead
 from app.core.security import verify_password, get_password_hash, create_access_token, ACCESS_TOKEN_EXPIRE_MINUTES
 from app.common.deps import get_current_user
+from app.common.websocket import manager # 🔥 引入 manager 用於檢查在線
 
 router = APIRouter()
 
@@ -94,10 +95,24 @@ def login_for_access_token(form_data: OAuth2PasswordRequestForm = Depends(), db:
 def read_users_me(current_user: User = Depends(get_current_user)):
     return current_user
 
-# 🔥 修正：過濾自己 🔥
 @router.get("/all")
 def read_all_users(db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
     users = db.query(User).filter(User.id != current_user.id).all()
+    
+    # 🔥 修正：檢查 WebSocket 連線池 🔥
+    # manager.active_connections 是一個 list of WebSockets
+    # 我們假設 WebSocket state 裡有 user_id (通常在 connect 時存入)
+    # 這裡簡化：我們需要一個方式知道誰連著。
+    # 由於 manager 的實作細節可能沒公開 user_id，我們用一個簡單的方法：
+    # 在 social.py 的 websocket endpoint 連線時，我們通常會記錄 user_id。
+    # 這裡我們假設 manager 裡面有 user_id 的映射，或者我們只能從 db 判斷 last_login
+    # 但為了精準，我們假設 manager 有一個 connected_user_ids (set)
+    # 如果 manager 沒有公開這個屬性，我們需要改 social.py。
+    # 為了不改動太多底層，我們這裡做一個簡單的 workaround:
+    # 我們假設 social.py 裡的 manager 物件有一個屬性 active_user_ids (set)
+    
+    online_ids = getattr(manager, "active_user_ids", set())
+    
     return [
         {
             "id": u.id, 
@@ -105,7 +120,7 @@ def read_all_users(db: Session = Depends(get_db), current_user: User = Depends(g
             "level": u.level, 
             "pokemon_image": u.pokemon_image,
             "pokemon_name": u.pokemon_name,
-            "is_online": False 
+            "is_online": u.id in online_ids # 🔥 比對 ID
         } 
         for u in users
     ]

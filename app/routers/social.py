@@ -1,6 +1,6 @@
 # app/routers/social.py
 
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.orm import Session
 from sqlalchemy import or_, and_, desc
 from datetime import datetime, timedelta
@@ -19,22 +19,15 @@ from app.core.security import get_password_hash
 
 router = APIRouter()
 
-# 🔥 新增：前端錯誤回報模型 🔥
 class FrontendLog(BaseModel):
     msg: str
     source: str
     lineno: int
 
-# 🔥 新增：接收前端錯誤並印在 Zeabur Log 🔥
 @router.post("/log/frontend")
 def log_frontend_error(log: FrontendLog):
-    # 這行 print 會出現在 Zeabur 的 Runtime Logs 裡
     print(f"🚨 [前端崩潰回報] 錯誤: {log.msg} | 位置: {log.source}:{log.lineno}")
     return {"status": "logged"}
-
-# ... (以下保持原有的 API: admin/init, leaderboard, chat, admin action, daily checkin, redeem ...)
-
-TOTAL_POKEMON_COUNT = 21
 
 @router.get("/admin/init")
 def init_admin(db: Session = Depends(get_db)):
@@ -44,15 +37,46 @@ def init_admin(db: Session = Depends(get_db)):
     db.add(admin_user); db.commit()
     return {"message": "✅ 管理員建立成功！帳號: admin / 密碼: admin888"}
 
+# 🔥 修正：排行榜 API 🔥
 @router.get("/leaderboard")
-def get_leaderboard(db: Session = Depends(get_db)):
-    leaders = db.query(User).order_by(desc(User.level), desc(User.money)).limit(10).all()
+def get_leaderboard(type: str = Query("level"), db: Session = Depends(get_db)):
+    # 預設抓取所有玩家，然後進行排序
+    # 因為 collection 需要運算，SQL sort 比較複雜，這裡玩家數少直接用 Python sort
+    all_users = db.query(User).all()
+    
+    if type == "level":
+        sorted_users = sorted(all_users, key=lambda u: u.level, reverse=True)
+    elif type == "money":
+        sorted_users = sorted(all_users, key=lambda u: u.money, reverse=True)
+    elif type == "collection":
+        # 計算解鎖數量
+        sorted_users = sorted(all_users, key=lambda u: len(u.unlocked_monsters.split(',')) if u.unlocked_monsters else 0, reverse=True)
+    else:
+        sorted_users = sorted(all_users, key=lambda u: u.level, reverse=True)
+        
+    top_5 = sorted_users[:5]
+    
     result = []
-    for idx, u in enumerate(leaders):
+    for idx, u in enumerate(top_5):
+        # 假設總數約 40 隻，這裡簡單算一下百分比
         unlocked_count = len(u.unlocked_monsters.split(',')) if u.unlocked_monsters else 0
-        collection_rate = int((unlocked_count / TOTAL_POKEMON_COUNT) * 100)
+        # 40 是大概總數，前端顯示百分比
+        # 為了更精確，可以從 shop.py 引入 POKEDEX_DATA，但為了避免 circular import，這裡回傳數量即可
+        
         name_display = f"🔴 {u.username}" if u.is_admin else u.username
-        result.append({"rank": idx + 1, "username": name_display, "level": u.level, "money": u.money, "pet": u.pokemon_name, "img": u.pokemon_image, "collection": collection_rate})
+        
+        val_display = ""
+        if type == "level": val_display = f"Lv.{u.level}"
+        elif type == "money": val_display = f"${u.money}"
+        elif type == "collection": val_display = f"蒐集 {unlocked_count} 隻"
+        
+        result.append({
+            "rank": idx + 1,
+            "username": name_display,
+            "pet": u.pokemon_name,
+            "img": u.pokemon_image,
+            "value": val_display
+        })
     return result
 
 @router.post("/chat/send")

@@ -14,7 +14,7 @@ from app.common.websocket import manager
 
 router = APIRouter()
 
-# 完整圖鑑
+# 完整圖鑑 (含技能組)
 POKEDEX_DATA = {
     # 野怪/玩家通用
     "小拉達": {"hp": 90, "atk": 80, "img": "https://img.pokemondb.net/artwork/large/rattata.jpg", "skills": ["抓", "出奇一擊", "撞擊"]},
@@ -107,31 +107,18 @@ SKILL_DB = {
 }
 
 # 嚴格解鎖表
-WILD_ENCOUNTER_MAP = {
-    1: ["小拉達"],
-    2: ["小拉達", "波波"],
-    3: ["小拉達", "波波", "烈雀"],
-    4: ["小拉達", "波波", "烈雀", "阿柏蛇"],
-    5: ["小拉達", "波波", "烈雀", "阿柏蛇", "瓦斯彈"],
-    6: ["小拉達", "波波", "烈雀", "阿柏蛇", "瓦斯彈", "海星星"],
-    7: ["小拉達", "波波", "烈雀", "阿柏蛇", "瓦斯彈", "海星星", "角金魚"],
-    8: ["小拉達", "波波", "烈雀", "阿柏蛇", "瓦斯彈", "海星星", "角金魚", "走路草"],
-    9: ["小拉達", "波波", "烈雀", "阿柏蛇", "瓦斯彈", "海星星", "角金魚", "走路草", "穿山鼠"],
-    # ... 為了簡潔，這裡設定為：只要等級夠高，包含所有低等的
-}
-# 為了符合 "Lv.20 可以打前面的所有怪"，我們用動態生成比較好，或者上面的 map 改成 "該等級新增的怪"
 WILD_UNLOCK_LEVELS = {
     1: ["小拉達"], 2: ["波波"], 3: ["烈雀"], 4: ["阿柏蛇"], 5: ["瓦斯彈"],
     6: ["海星星"], 7: ["角金魚"], 8: ["走路草"], 9: ["穿山鼠"], 10: ["蚊香蝌蚪"],
     12: ["小磁怪"], 14: ["卡拉卡拉"], 16: ["喵喵"], 18: ["瑪瑙水母"], 20: ["海刺龍"]
 }
 
-# 扭蛋池 (校正後)
+# 扭蛋池
+GACHA_HIGH = [{"name": "卡比獸", "rate": 20}, {"name": "吉利蛋", "rate": 24}, {"name": "幸福蛋", "rate": 10}, {"name": "拉普拉斯", "rate": 10}, {"name": "妙蛙花", "rate": 10}, {"name": "噴火龍", "rate": 10}, {"name": "水箭龜", "rate": 10}, {"name": "快龍", "rate": 6}]
+GACHA_GOLDEN = [{"name": "卡比獸", "rate": 30}, {"name": "吉利蛋", "rate": 35}, {"name": "幸福蛋", "rate": 20}, {"name": "拉普拉斯", "rate": 10}, {"name": "快龍", "rate": 5}]
 GACHA_NORMAL = [{"name": "妙蛙種子", "rate": 5}, {"name": "小火龍", "rate": 5}, {"name": "傑尼龜", "rate": 5}, {"name": "伊布", "rate": 8}, {"name": "皮卡丘", "rate": 8}, {"name": "皮皮", "rate": 10}, {"name": "胖丁", "rate": 10}, {"name": "毛辮羊", "rate": 8}, {"name": "大蔥鴨", "rate": 12}, {"name": "呆呆獸", "rate": 12}, {"name": "可達鴨", "rate": 12}, {"name": "卡比獸", "rate": 2}, {"name": "吉利蛋", "rate": 2}]
 GACHA_MEDIUM = [{"name": "妙蛙種子", "rate": 10}, {"name": "小火龍", "rate": 10}, {"name": "傑尼龜", "rate": 10}, {"name": "伊布", "rate": 10}, {"name": "皮卡丘", "rate": 10}, {"name": "呆呆獸", "rate": 10}, {"name": "可達鴨", "rate": 10}, {"name": "毛辮羊", "rate": 10}, {"name": "卡比獸", "rate": 5}, {"name": "吉利蛋", "rate": 3}, {"name": "拉普拉斯", "rate": 3}, {"name": "妙蛙花", "rate": 3}, {"name": "噴火龍", "rate": 3}, {"name": "水箭龜", "rate": 3}]
-GACHA_HIGH = [{"name": "卡比獸", "rate": 20}, {"name": "吉利蛋", "rate": 24}, {"name": "幸福蛋", "rate": 10}, {"name": "拉普拉斯", "rate": 10}, {"name": "妙蛙花", "rate": 10}, {"name": "噴火龍", "rate": 10}, {"name": "水箭龜", "rate": 10}, {"name": "快龍", "rate": 6}]
 GACHA_CANDY = [{"name": "伊布", "rate": 20}, {"name": "皮卡丘", "rate": 20}, {"name": "妙蛙花", "rate": 10}, {"name": "噴火龍", "rate": 10}, {"name": "水箭龜", "rate": 10}, {"name": "卡比獸", "rate": 10}, {"name": "吉利蛋", "rate": 10}, {"name": "幸福蛋", "rate": 4}, {"name": "拉普拉斯", "rate": 3}, {"name": "快龍", "rate": 3}]
-GACHA_GOLDEN = [{"name": "卡比獸", "rate": 30}, {"name": "吉利蛋", "rate": 35}, {"name": "幸福蛋", "rate": 20}, {"name": "拉普拉斯", "rate": 10}, {"name": "快龍", "rate": 5}]
 
 ACTIVE_BATTLES = {}
 RAID_STATE = {"boss_name": None, "hp": 0, "max_hp": 0, "active": False, "players": {}}
@@ -152,13 +139,16 @@ def apply_iv_stats(base_val, iv, level, is_player=True):
 def get_skill_data():
     return SKILL_DB
 
-# 🔥 1. 野怪列表 API (V4.0 嚴格版) 🔥
+# 🔥 新增：圖鑑資料 API 🔥
+@router.get("/pokedex/all")
+def get_all_pokedex():
+    """回傳所有可收集的寶可夢清單"""
+    # 這裡只回傳基本資料，不回傳詳細數值，減少傳輸量
+    return [{"name": name, "img": data["img"]} for name, data in POKEDEX_DATA.items()]
+
 @router.get("/wild/list")
 def get_wild_list(level: int, current_user: User = Depends(get_current_user)):
     wild_list = []
-    
-    # 規則：列出所有解鎖等級 <= 選擇等級的怪獸
-    # 且所有怪獸的數值等級 = 選擇的等級
     
     available_species = []
     for unlock_lv, species_list in WILD_UNLOCK_LEVELS.items():
@@ -170,13 +160,8 @@ def get_wild_list(level: int, current_user: User = Depends(get_current_user)):
     for name in available_species:
         if name not in POKEDEX_DATA: continue
         base = POKEDEX_DATA[name]
-        
-        # 這裡不決定是否變異，只回傳基本資料
         is_powerful = False 
         
-        # 數值計算：以 "level" 為準
-        # 野怪atk*1.15 hp*1.3
-        # 野怪:升級攻擊力*1.07、血量*1.09
         mult = 1.0
         wild_hp = int(base["hp"] * 1.3 * mult * (1.09 ** (level - 1)))
         wild_atk = int(base["atk"] * 1.15 * mult * (1.07 ** (level - 1)))
@@ -185,7 +170,7 @@ def get_wild_list(level: int, current_user: User = Depends(get_current_user)):
         wild_list.append({
             "name": name,
             "raw_name": name,
-            "is_powerful": False, # 前端顯示用，實際戰鬥才決定變異
+            "is_powerful": False,
             "level": level,
             "hp": wild_hp, "max_hp": wild_hp, "attack": wild_atk,
             "image_url": base["img"],
@@ -194,35 +179,7 @@ def get_wild_list(level: int, current_user: User = Depends(get_current_user)):
         
     return wild_list
 
-# ... (Tasks, Gacha, PVP, Raid 保持不變，但 Wild Attack 要微調)
-
-@router.post("/wild/attack")
-async def wild_attack_api(is_win: bool = Query(...), is_powerful: bool = Query(False), target_name: str = Query("野怪"), db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
-    if is_win:
-        xp = current_user.level * 20; money = current_user.level * 10
-        current_user.exp += xp; current_user.pet_exp += xp; current_user.money += money
-        msg = f"獲得 {xp} XP, {money} G"
-        if is_powerful:
-            inv = json.loads(current_user.inventory); inv["growth_candy"] = inv.get("growth_candy", 0) + 1; current_user.inventory = json.dumps(inv); msg += " & 🍬 成長糖果 x1"
-        
-        quests = json.loads(current_user.quests) if current_user.quests else []
-        quest_updated = False
-        for q in quests:
-            if q["status"] == "ACTIVE" and q.get("target") in target_name:
-                q["now"] += 1
-                if q["now"] >= q["req"]: q["status"] = "COMPLETED"
-                quest_updated = True
-        if quest_updated: current_user.quests = json.dumps(quests)
-
-        box = json.loads(current_user.pokemon_storage)
-        for p in box:
-            if p["uid"] == current_user.active_pokemon_uid: p["exp"] = current_user.pet_exp; p["lv"] = current_user.pet_level; break
-        current_user.pokemon_storage = json.dumps(box)
-        db.commit()
-        return {"message": f"勝利！{msg}"}
-    return {"message": "戰鬥結束"}
-
-# 任務生成邏輯 (V4.0: 3個任務)
+# 任務生成邏輯
 def generate_quests(user_level, count=3):
     new_quests = []
     targets_pool = []
@@ -233,7 +190,7 @@ def generate_quests(user_level, count=3):
     for _ in range(count):
         target = random.choice(targets_pool)
         req_count = random.randint(1, 3) + int(user_level/3)
-        is_golden = random.random() < 0.03 #
+        is_golden = random.random() < 0.03
         
         if is_golden:
             q = { "id": str(uuid.uuid4()), "type": "GOLDEN", "target": "野怪", "target_display": "Lv.? 野怪", "target_lv": user_level, "req": 5, "now": 0, "gold": 0, "xp": 0, "status": "WAITING" }
@@ -245,13 +202,31 @@ def generate_quests(user_level, count=3):
 @router.get("/quests/")
 def get_quests(db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
     quests = json.loads(current_user.quests) if current_user.quests else []
+    
+    need_reset = False
+    if not quests:
+        need_reset = True
+    else:
+        for q in quests:
+            if "target_display" not in q:
+                need_reset = True
+                break
+    
+    if need_reset:
+        quests = generate_quests(current_user.level, count=3)
+        current_user.quests = json.dumps(quests)
+        db.commit()
+        return quests
+
     active_or_waiting = [q for q in quests if q["status"] in ["ACTIVE", "WAITING"]]
     needed = 3 - len(active_or_waiting)
+    
     if needed > 0:
         new_qs = generate_quests(current_user.level, count=needed)
         final_list = active_or_waiting + new_qs
         current_user.quests = json.dumps(final_list); db.commit()
         return final_list
+        
     return active_or_waiting
 
 @router.post("/quests/accept/{qid}")
@@ -289,6 +264,32 @@ def claim_quest(qid: str, db: Session = Depends(get_db), current_user: User = De
     quests.append(new_q)
     current_user.quests = json.dumps(quests); current_user.inventory = json.dumps(inv); db.commit()
     return {"message": msg}
+
+@router.post("/wild/attack")
+async def wild_attack_api(is_win: bool = Query(...), is_powerful: bool = Query(False), target_name: str = Query("野怪"), db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
+    if is_win:
+        xp = current_user.level * 20; money = current_user.level * 10
+        current_user.exp += xp; current_user.pet_exp += xp; current_user.money += money
+        msg = f"獲得 {xp} XP, {money} G"
+        if is_powerful:
+            inv = json.loads(current_user.inventory); inv["growth_candy"] = inv.get("growth_candy", 0) + 1; current_user.inventory = json.dumps(inv); msg += " & 🍬 成長糖果 x1"
+        
+        quests = json.loads(current_user.quests) if current_user.quests else []
+        quest_updated = False
+        for q in quests:
+            if q["status"] == "ACTIVE" and q.get("target") in target_name:
+                q["now"] += 1
+                if q["now"] >= q["req"]: q["status"] = "COMPLETED"
+                quest_updated = True
+        if quest_updated: current_user.quests = json.dumps(quests)
+
+        box = json.loads(current_user.pokemon_storage)
+        for p in box:
+            if p["uid"] == current_user.active_pokemon_uid: p["exp"] = current_user.pet_exp; p["lv"] = current_user.pet_level; break
+        current_user.pokemon_storage = json.dumps(box)
+        db.commit()
+        return {"message": f"勝利！{msg}"}
+    return {"message": "戰鬥結束"}
 
 @router.post("/gacha/{gacha_type}")
 async def play_gacha(gacha_type: str, db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
