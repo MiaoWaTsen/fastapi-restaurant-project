@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>⚡️ 寶可夢大亂鬥 V2.0.6 (修復版) ⚡️</title>
+    <title>⚡️ 寶可夢大亂鬥 V2.0.7 (背包與數值修復) ⚡️</title>
     <script>
         window.onerror = function(msg, source, lineno) {
             const loader = document.getElementById('loading');
@@ -19,20 +19,19 @@
         [v-cloak] { display: none; }
         body { font-family: 'Segoe UI', sans-serif; background-color: #1a1a2e; color: #fff; padding: 20px; padding-bottom: 120px; user-select: none; }
         .container { max-width: 900px; margin: 0 auto; position: relative; }
-        
-        /* Navbar 重構 */
-        .navbar { background: #16213e; padding: 15px; border-radius: 10px; margin-bottom: 20px; border: 1px solid #0f3460; display:flex; flex-direction:column; gap:10px; }
-        .user-header { display: flex; gap: 15px; align-items: center; border-bottom: 1px solid #333; padding-bottom: 10px; }
-        .user-avatar { width: 60px; height: 60px; border-radius: 50%; border: 3px solid #f1c40f; object-fit: cover; }
-        .user-details { flex: 1; }
-        .xp-row { display: flex; flex-direction: column; gap: 5px; margin-top: 5px; }
-        .xp-label { font-size: 0.8em; color: #aaa; display: flex; justify-content: space-between; }
-        
-        .bar-container { width: 100%; background: #333; height: 10px; border-radius: 5px; overflow: hidden; position: relative; }
+        .navbar { display: flex; justify-content: space-between; align-items: center; background: #16213e; padding: 15px; border-radius: 10px; margin-bottom: 20px; border: 1px solid #0f3460; }
+        .user-info { display: flex; gap: 15px; width: 100%; }
+        .user-avatar { width: 70px; height: 70px; border-radius: 50%; border: 3px solid #f1c40f; object-fit: cover; }
+        .user-stats { flex: 1; display: flex; flex-direction: column; gap: 8px; }
+        .stat-block { background: rgba(0,0,0,0.2); padding: 5px 10px; border-radius: 5px; }
+        .stat-title { font-size: 0.9em; color: #aaa; margin-bottom: 2px; display: flex; justify-content: space-between; }
+        .bar-container { width: 100%; background: #333; height: 8px; border-radius: 4px; overflow: hidden; position: relative; }
         .bar-fill { height: 100%; transition: width 0.3s; }
         .hp-fill { background: linear-gradient(90deg, #e74c3c, #c0392b); } 
         .pet-xp-fill { background: linear-gradient(90deg, #3498db, #2980b9); } 
         .player-xp-fill { background: linear-gradient(90deg, #f1c40f, #d35400); }
+        .bar-text { font-size: 0.75em; color: #ccc; display: flex; justify-content: space-between; margin-top: 1px; }
+        .atk-val { color: #f1c40f; font-weight: bold; }
         
         .tabs { display: flex; gap: 10px; margin-bottom: 20px; flex-wrap: wrap; }
         .tab-btn { flex: 1; padding: 12px; background: #0f3460; border: none; color: #aaa; cursor: pointer; border-radius: 8px; font-weight: bold; min-width: 80px; transition:0.2s; display:flex; flex-direction:column; align-items:center; justify-content: center; }
@@ -60,7 +59,7 @@
         .fighter { width: 45%; text-align: center; position: relative; transition: 0.1s; }
         .fighter img { width: 100%; height: 200px; object-fit: contain; drop-shadow: 0 10px 10px rgba(0,0,0,0.5); }
         
-        /* 戰鬥特效 (1.5s 快速版) */
+        /* 戰鬥特效 */
         .shake-hit { animation: shake 0.4s; }
         .flash-red { animation: flashRed 0.3s; }
         .flash-heal { animation: flashGreen 0.5s; }
@@ -104,6 +103,10 @@
         .pokedex-img { width: 100%; height: 80px; object-fit: contain; }
         .pokedex-unknown { filter: brightness(0); opacity: 0.7; }
         .pokedex-owned { border: 2px solid #f1c40f; }
+
+        /* Gacha Animation */
+        .gacha-anim { font-size: 5em; animation: bounce 1s infinite; margin-bottom: 20px; }
+        @keyframes bounce { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-20px); } }
     </style>
 </head>
 <body>
@@ -112,42 +115,57 @@
 
 <div id="app" class="container" v-cloak>
     <div v-if="!user" style="text-align:center; padding-top:100px;">
-        <h1 style="color:#e94560">寶可夢大亂鬥 V2.0.6</h1>
-        <p>升級系統修復與介面優化</p>
+        <h1 style="color:#e94560">寶可夢大亂鬥 V2.0.7</h1>
+        <p>背包系統與數值修復版</p>
         <button class="btn-action" @click="logout">前往登入頁面</button>
         <br><br>
         <button style="background:transparent; border:1px solid #aaa; color:#aaa; padding:5px;" @click="initAdmin">👑 初始化管理員</button>
     </div>
 
     <div v-else>
+        <div v-if="showGachaAnim" class="modal-overlay">
+            <div style="text-align:center;">
+                <div class="gacha-anim">🔮</div>
+                <h2 style="color:white;">抽獎中...</h2>
+            </div>
+        </div>
+
+        <div v-if="gachaResult" class="modal-overlay">
+            <div class="modal-box">
+                <div class="modal-title">🎉 恭喜獲得！</div>
+                <h3 style="color:#f1c40f; font-size:1.5em; margin:10px 0;">{{ gachaResult.prize.name }}</h3>
+                <p>IV: {{ gachaResult.prize.iv }}</p>
+                <div style="margin-top:20px;">
+                    <button class="btn-yes" @click="gachaResult=null">太棒了</button>
+                </div>
+            </div>
+        </div>
+
+        <div v-if="showBattleResult" class="modal-overlay">
+            <div class="modal-box">
+                <div class="modal-title">🏆 戰鬥勝利！</div>
+                <p style="white-space: pre-wrap; line-height: 1.6;">{{ battleResultMsg }}</p>
+                <div style="margin-top:20px;">
+                    <button class="btn-yes" @click="showBattleResult=false">確定</button>
+                </div>
+            </div>
+        </div>
+
         <div v-if="viewMon" class="modal-overlay" @click.self="viewMon=null">
             <div class="modal-box">
                 <div class="modal-title">{{ viewMon.name }} <span style="font-size:0.6em; color:#aaa;">(Lv.{{ viewMon.lv }})</span></div>
                 <div style="text-align:center; margin-bottom:15px;">
                     <span style="background:#f1c40f; color:black; padding:2px 8px; border-radius:5px; font-weight:bold;">IV: {{ viewMon.iv }}</span>
                 </div>
-                
-                <div class="detail-row">
-                    <span>❤️ 最大血量</span>
-                    <b>{{ calcStats(viewMon).hp }}</b>
-                </div>
-                <div class="detail-row">
-                    <span>⚔️ 攻擊力</span>
-                    <b>{{ calcStats(viewMon).atk }}</b>
-                </div>
-                <div class="detail-row">
-                    <span>✨ 經驗值</span>
-                    <span>{{ viewMon.exp }}</span>
-                </div>
-                
+                <div class="detail-row"><span>❤️ 最大血量</span><b>{{ calcStats(viewMon).hp }}</b></div>
+                <div class="detail-row"><span>⚔️ 攻擊力</span><b>{{ calcStats(viewMon).atk }}</b></div>
+                <div class="detail-row"><span>✨ 經驗值</span><span>{{ viewMon.exp }}</span></div>
                 <div style="margin-top:15px; text-align:left;">
                     <h4>⚡ 技能組</h4>
                     <div v-for="skill in getMonSkills(viewMon.name)" :key="skill" style="background:#222; padding:5px; margin-bottom:5px; border-radius:5px;">
-                        <b style="color:#3498db">{{ skill }}</b> 
-                        <small style="color:#aaa;">{{ getSkillDesc(skill) }}</small>
+                        <b style="color:#3498db">{{ skill }}</b> <small style="color:#aaa;">{{ getSkillDesc(skill) }}</small>
                     </div>
                 </div>
-
                 <div style="display:flex; gap:10px; margin-top:20px;">
                     <button class="btn-yes" style="flex:1; background:#7f8c8d" @click="viewMon=null">關閉</button>
                     <button class="btn-yes" style="flex:1;" @click="swapMon(viewMon.uid); viewMon=null;">出戰</button>
@@ -157,11 +175,11 @@
 
         <div v-if="newsState.show" class="modal-overlay">
             <div class="modal-box" style="text-align:left;">
-                <div class="modal-title" style="text-align:center;">📢 V2.0.6 更新公告</div>
+                <div class="modal-title" style="text-align:center;">📢 V2.0.7 更新公告</div>
                 <ul>
-                    <li><b>🆙 升級修復</b>：現在經驗值足夠時會正確升級了。</li>
-                    <li><b>📊 介面優化</b>：訓練師與寶可夢的經驗條已分開顯示。</li>
-                    <li><b>⚡ 戰鬥調整</b>：傷害顯示速度變快，血量不會變負數。</li>
+                    <li><b>📊 數值顯示</b>：現在盒子裡能看到每隻寶可夢的準確數值了！</li>
+                    <li><b>🎒 背包系統</b>：新增背包分頁，可查看擁有的糖果。</li>
+                    <li><b>⚡ 體驗優化</b>：修復了戰鬥與介面的一些小問題。</li>
                 </ul>
                 <div style="text-align:center; margin-top:15px;">
                     <button class="btn-yes" @click="closeNews">我知道了</button>
@@ -175,51 +193,42 @@
         </div>
 
         <div class="navbar">
-            <div class="user-header">
+            <div class="user-info">
                 <img :src="user.pokemon_image" class="user-avatar">
-                <div class="user-details">
-                    <div style="font-weight:bold; font-size:1.1em;">{{ user.username }} <span style="font-size:0.8em; color:#aaa;">(Lv.{{ user.level }})</span></div>
-                    <div style="color:#f1c40f; font-weight:bold;">💰 {{ user.money }}</div>
+                <div class="user-stats">
+                    <div class="stat-block">
+                        <div class="stat-title">
+                            <span>{{ user.username }} <span v-if="user.is_admin" style="color:red">[GM]</span> (Lv.{{ user.level }})</span>
+                            <span>💰 {{ user.money }}</span>
+                        </div>
+                        <div class="bar-container"><div class="bar-fill player-xp-fill" :style="{ width: playerXpPercent + '%' }"></div></div>
+                        <div class="bar-text"><span>Trainer XP</span><span>{{ user.exp }}/{{ getReqXp(user.level) }}</span></div>
+                    </div>
+                    <div class="stat-block">
+                        <div class="stat-title">
+                            <span>{{ user.pokemon_name }} (Lv.{{ user.pet_level }})</span>
+                            <span class="atk-val">ATK: {{ currentAtkMe }} (IV: {{ currentPetIV }})</span>
+                        </div>
+                        <div class="bar-container"><div class="bar-fill hp-fill" :style="{ width: hpPercent(user) + '%' }"></div></div>
+                        <div class="bar-text"><span>HP: {{ user.hp }}/{{ user.max_hp }}</span></div>
+                        <div class="bar-container" style="margin-top:4px;"><div class="bar-fill pet-xp-fill" :style="{ width: petXpPercent(user) + '%' }"></div></div>
+                    </div>
                 </div>
-                <div style="display:flex; gap:5px;">
-                    <button class="btn-small" style="width:auto; padding:5px 10px; background:#34495e;" @click="dailyCheckin">📅</button>
-                    <button class="btn-small" style="width:auto; padding:5px 10px; background:#c0392b;" @click="logout">🚪</button>
-                </div>
             </div>
-
-            <div class="xp-row">
-                <div class="xp-label"><span>訓練師 XP</span><span>{{ user.exp }} / {{ getReqXp(user.level) }}</span></div>
-                <div class="bar-container"><div class="bar-fill player-xp-fill" :style="{ width: playerXpPercent + '%' }"></div></div>
-            </div>
-
-            <div class="user-header" style="border:none; padding-top:10px;">
-                <div class="user-details">
-                    <div style="font-weight:bold;">{{ user.pokemon_name }} <span style="font-size:0.8em; color:#aaa;">(Lv.{{ user.pet_level }})</span></div>
-                    <div style="font-size:0.8em; color:#f1c40f;">ATK: {{ currentAtkMe }} (IV: {{ currentPetIV }})</div>
-                </div>
-            </div>
-
-            <div class="xp-row">
-                <div class="xp-label"><span>HP</span><span>{{ user.hp }} / {{ user.max_hp }}</span></div>
-                <div class="bar-container"><div class="bar-fill hp-fill" :style="{ width: hpPercent(user) + '%' }"></div></div>
-            </div>
-            
-            <div class="xp-row">
-                <div class="xp-label"><span>寶可夢 XP</span><span>{{ user.pet_exp }} / {{ getReqXp(user.pet_level) }}</span></div>
-                <div class="bar-container"><div class="bar-fill pet-xp-fill" :style="{ width: petXpPercent(user) + '%' }"></div></div>
+            <div style="display:flex; flex-direction:column; gap:5px;">
+                <button class="btn-logout" @click="dailyCheckin">📅 簽到</button>
+                <button class="btn-logout" @click="logout">登出</button>
             </div>
         </div>
 
         <div v-if="battle.active && !inLobby" class="battle-overlay">
             <h2 style="color:#f1c40f">{{ battle.mode === 'raid' ? '🔥 團體戰' : (battle.mode === 'wild' ? '🌲 ' + battle.target.name : '⚔️ PVP 對決') }}</h2>
-            
             <div v-if="battle.mode === 'wild'" style="width:100%; max-width:600px; margin-bottom:10px; display:flex; justify-content:space-between; color:#aaa; font-size:0.8em;">
                 <span>⏳ 回合倒數: {{ turnTimer }}s</span>
             </div>
             <div v-if="battle.mode === 'wild'" class="timer-bar" style="width:100%; max-width:600px;">
                 <div class="timer-fill" :style="{width: (turnTimer/10)*100 + '%', background: turnTimer < 3 ? '#e74c3c' : '#f1c40f'}"></div>
             </div>
-
             <div class="battle-arena">
                 <div class="fighter" id="player-fighter">
                     <img :src="user.pokemon_image">
@@ -230,11 +239,11 @@
                 <div class="fighter" id="enemy-fighter">
                     <img :src="battle.target.image_url || battle.target.pokemon_image">
                     <div>{{ battle.target.name || battle.target.username }}</div>
+                    <small style="color:#f1c40f">ATK: {{ battle.target.attack }}</small>
                     <div class="bar-container"><div class="bar-fill hp-fill" :style="{width: (battle.target.hp/battle.target.max_hp)*100 + '%'}"></div></div>
                     <small>HP: {{ battle.target.hp }}</small>
                 </div>
             </div>
-            
             <div class="skills-grid">
                 <button v-for="skill in mySkills" :key="skill" class="btn-skill" :class="{'btn-disabled': isEnemyTurn}" @click="doSkillAttack(skill)">
                     {{ skill }} <small>{{ getSkillDesc(skill) }}</small>
@@ -255,6 +264,7 @@
             <button class="tab-btn" :class="{active: tab=='wild'}" @click="tab='wild'">🌲 野外</button>
             <button class="tab-btn" :class="{active: tab=='arena'}" @click="tab='arena'">🏟️ 競技</button>
             <button class="tab-btn" :class="{active: tab=='box'}" @click="tab='box'">📦 盒子</button>
+            <button class="tab-btn" :class="{active: tab=='bag'}" @click="tab='bag'">🎒 背包</button>
             <button class="tab-btn" :class="{active: tab=='pokedex'}" @click="tab='pokedex'">📖 圖鑑</button>
             <button class="tab-btn" :class="{active: tab=='leaderboard'}" @click="tab='leaderboard'">🏆 排行</button>
             <button class="tab-btn" :class="{active: tab=='raid'}" @click="tab='raid'">🔥 團體戰</button>
@@ -265,7 +275,6 @@
         </div>
 
         <div v-if="!battle.active">
-            
             <div v-if="tab=='wild'">
                 <h3>🌲 選擇探險區域</h3>
                 <div style="margin-bottom:15px; background:#2c3e50; padding:10px; border-radius:8px;">
@@ -281,6 +290,32 @@
                             <b>{{ m.name }}</b><br>
                             <small>Lv.{{ m.level }} | HP:{{m.hp}}</small><br>
                             <button class="btn-small" style="background:#c0392b" @click="startWildBattle(m)">戰鬥</button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <div v-if="tab=='bag'">
+                <div class="card">
+                    <h3>🎒 道具背包</h3>
+                    <div class="card-grid">
+                        <div class="card" style="background:#2c3e50;">
+                            <div style="font-size:2em;">🍬</div>
+                            <b>神奇糖果</b>
+                            <div style="font-size:1.2em; color:#f1c40f;">{{ inventory.candy || 0 }}</div>
+                            <small>用於扭蛋</small>
+                        </div>
+                        <div class="card" style="background:#2c3e50;">
+                            <div style="font-size:2em;">✨</div>
+                            <b>黃金糖果</b>
+                            <div style="font-size:1.2em; color:#f1c40f;">{{ inventory.golden_candy || 0 }}</div>
+                            <small>用於黃金扭蛋</small>
+                        </div>
+                        <div class="card" style="background:#2c3e50;">
+                            <div style="font-size:2em;">💊</div>
+                            <b>成長糖果</b>
+                            <div style="font-size:1.2em; color:#f1c40f;">{{ inventory.growth_candy || 0 }}</div>
+                            <small>用於寶可夢升級</small>
                         </div>
                     </div>
                 </div>
@@ -304,7 +339,6 @@
                     </div>
                 </div>
             </div>
-
             <div v-if="tab=='box'">
                 <h3>📦 寶可夢盒子</h3>
                 <div class="card-grid">
@@ -314,7 +348,6 @@
                     </div>
                 </div>
             </div>
-
             <div v-if="tab=='raid'">
                 <h3>🔥 傳說團體戰</h3>
                 <div v-if="raidState.active" class="card" style="border:2px solid #e74c3c; background:#2c0b0e;">
@@ -325,23 +358,19 @@
                 </div>
                 <div v-else class="card">目前沒有團體戰 (08:00, 18:00, 22:00 開放)</div>
             </div>
-
             <div v-if="tab=='quest'">
                 <h3>📜 冒險任務 (3/3)</h3>
                 <div v-for="q in quests" :key="q.id" class="card quest-card" :class="{'quest-active': q.status=='ACTIVE', 'quest-completed': q.status=='COMPLETED', 'quest-golden': q.type=='GOLDEN'}">
                     <h4>{{ q.type=='GOLDEN' ? '✨ 黃金任務' : '⚔️ 狩獵任務' }}: 擊敗 {{ q.target_display || q.target }}</h4>
                     <p v-if="q.status === 'COMPLETED'">進度: <b style="color:#2ecc71">完成!</b></p>
                     <p v-else>進度: {{ q.now }} / {{ q.req }}</p>
-                    
                     <p v-if="q.type=='GOLDEN'">獎勵: 🍬 黃金糖果 x1</p>
                     <p v-else>獎勵: {{ q.gold }}G, {{ q.xp }} XP</p>
-                    
                     <button v-if="q.status=='WAITING'" class="btn-action" style="background:#3498db" @click="acceptQuest(q.id)">接受</button>
                     <button v-if="q.status=='ACTIVE'" class="btn-action" style="background:#e74c3c" @click="abandonQuest(q.id)">放棄 (-1000G)</button>
                     <button v-if="q.status=='COMPLETED'" class="btn-action" style="background:#2ecc71" @click="claimQuest(q.id)">領取獎勵</button>
                 </div>
             </div>
-
             <div v-if="tab=='shop'">
                 <h3>🛒 扭蛋商店 <button style="font-size:0.6em; background:#555; border:none; color:white; padding:3px;" @click="showRates=true">📊 機率</button></h3>
                 <button class="btn-action" @click="playGacha('normal')">🔮 初級 (1500G)</button>
@@ -351,7 +380,6 @@
                 <br><br>
                 <button class="btn-action" style="background:#27ae60" @click="buyHeal">💊 補血 (50G)</button>
             </div>
-
             <div v-if="tab=='gamble'">
                 <div class="card" style="text-align:center; border:2px solid #f39c12;">
                     <h3>🎰 幸運賭場</h3>
@@ -359,7 +387,6 @@
                     <button class="btn-action" style="margin-top:10px; background:#f39c12; color:black;" @click="doGamble">下注！</button>
                 </div>
             </div>
-
             <div v-if="tab=='social'">
                 <h3>💬 好友與管理</h3>
                 <div v-if="friends.length > 0">
@@ -378,7 +405,6 @@
                     <button @click="redeemCode" style="padding:5px;">兌換</button>
                 </div>
             </div>
-            
             <div v-if="tab=='leaderboard'">
                 <div class="card">
                     <h3>🏆 全服排行榜</h3>
@@ -412,7 +438,6 @@
                     </table>
                 </div>
             </div>
-            
             <div v-if="tab=='pokedex'">
                 <div class="card">
                     <h3>📖 寶可夢圖鑑</h3>
@@ -467,13 +492,27 @@
             const token = localStorage.getItem('token');
             const tab = ref('wild'); 
             const box = computed(() => user.value ? JSON.parse(user.value.pokemon_storage) : []);
+            
+            // 🔥 新增：背包 Inventory (計算屬性) 🔥
+            const inventory = computed(() => {
+                if(!user.value) return {};
+                try {
+                    return JSON.parse(user.value.inventory);
+                } catch(e) { return {}; }
+            });
+
+            const showGachaAnim = ref(false);
+            const gachaResult = ref(null);
+            const showBattleResult = ref(false);
+            const battleResultMsg = ref("");
+
             const newsState = ref({ show: false });
-            const closeNews = () => { newsState.value.show = false; sessionStorage.setItem('seenNews_v206', 'true'); };
+            const closeNews = () => { newsState.value.show = false; sessionStorage.setItem('seenNews_v207', 'true'); };
             const quests = ref([]);
             const players = ref([]);
             const friends = ref([]);
             const selectedMon = ref(null);
-            const viewMon = ref(null); 
+            const viewMon = ref(null);
             
             const skillData = ref({});
             const mySkills = ref(["撞擊", "撞擊", "撞擊"]);
@@ -484,6 +523,9 @@
             const pokedexList = ref([]);
             const pokedexPercent = ref(0);
             
+            // 🔥 新增：圖鑑地圖 (用於計算數值) 🔥
+            const pokedexMap = ref({});
+            
             const turnTimer = ref(10);
             const isEnemyTurn = ref(false);
             let timerInterval = null;
@@ -493,14 +535,6 @@
                 const p = box.value.find(x => x.uid === user.value.active_pokemon_uid);
                 return p ? p.iv : 50;
             });
-            
-            const getReqXp = (lv) => {
-                 if (lv >= 25) return 999999999;
-                 const table = { 1: 50, 2: 150, 3: 300, 4: 500, 5: 800, 6: 1300, 7: 2000, 8: 3000, 9: 5000 };
-                 if (lv < 10) return table[lv] || 5000;
-                 return 5000 + (lv - 9) * 2000;
-            };
-
             const playerXpPercent = computed(() => user.value ? Math.min(100, (user.value.exp / getReqXp(user.value.level)) * 100) : 0);
             const hpPercent = (u) => (u.hp / u.max_hp) * 100;
             const petXpPercent = (u) => Math.min(100, (u.pet_exp / (u.next_pet_level_exp || 9999)) * 100);
@@ -530,6 +564,13 @@
                 "卡比獸": ["泰山壓頂", "地震", "撞擊"], "皮卡丘": ["電光", "放電", "電擊"], "快龍": ["抓", "逆鱗", "勇鳥猛攻"]
             };
 
+            const getReqXp = (lv) => {
+                 if (lv >= 25) return 999999999;
+                 const table = { 1: 50, 2: 150, 3: 300, 4: 500, 5: 800, 6: 1300, 7: 2000, 8: 3000, 9: 5000 };
+                 if (lv < 10) return table[lv] || 5000;
+                 return 5000 + (lv - 9) * 2000;
+            };
+
             const logout = () => { localStorage.clear(); window.location.href = 'login.html'; };
 
             const updateInfo = async () => {
@@ -549,22 +590,20 @@
             const initAdmin = async () => { try { const res = await fetch(`${API_URL}/social/admin/init`); const d = await res.json(); alert(d.message); } catch(e) {} };
             const fetchWildList = async () => { const res = await fetch(`${API_URL.replace('/items','')}/shop/wild/list?level=${selectedWildLevel.value}`, { headers: { 'Authorization': `Bearer ${token}` } }); if(res.ok) wildList.value = await res.json(); };
             const fetchSkillData = async () => { const res = await fetch(`${API_URL.replace('/items','')}/shop/data/skills`); if(res.ok) skillData.value = await res.json(); };
-
-            const fetchLeaderboard = async () => {
-                const res = await fetch(`${API_URL}/social/leaderboard?type=${leaderboardType.value}`, { headers: { 'Authorization': `Bearer ${token}` } });
-                if(res.ok) leaderboardData.value = await res.json();
-            };
+            const fetchLeaderboard = async () => { const res = await fetch(`${API_URL}/social/leaderboard?type=${leaderboardType.value}`, { headers: { 'Authorization': `Bearer ${token}` } }); if(res.ok) leaderboardData.value = await res.json(); };
             
-            const fetchPokedex = async () => {
-                const res = await fetch(`${API_URL.replace('/items','')}/shop/pokedex/all`, { headers: { 'Authorization': `Bearer ${token}` } });
-                if(res.ok && user.value) {
-                    const allMons = await res.json();
-                    const unlocked = (user.value.unlocked_monsters || "").split(",");
-                    pokedexList.value = allMons.map(m => ({
-                        ...m, owned: unlocked.includes(m.name)
-                    }));
-                    pokedexPercent.value = Math.floor((unlocked.length / allMons.length) * 100);
-                }
+            // 🔥 更新：Fetch Pokedex 並建立 Map 供計算 🔥
+            const fetchPokedex = async () => { 
+                const res = await fetch(`${API_URL.replace('/items','')}/shop/pokedex/all`, { headers: { 'Authorization': `Bearer ${token}` } }); 
+                if(res.ok && user.value) { 
+                    const allMons = await res.json(); 
+                    // 建立 Map
+                    allMons.forEach(m => pokedexMap.value[m.name] = m);
+                    
+                    const unlocked = (user.value.unlocked_monsters || "").split(","); 
+                    pokedexList.value = allMons.map(m => ({ ...m, owned: unlocked.includes(m.name) })); 
+                    pokedexPercent.value = Math.floor((unlocked.length / allMons.length) * 100); 
+                } 
             };
 
             const updateMySkills = () => {
@@ -573,9 +612,19 @@
                 if(active) mySkills.value = SKILL_MAP[active.name] || ["撞擊", "撞擊", "撞擊"];
             };
             
+            // 🔥 數值計算修復：依據種族值、等級、IV 計算 🔥
             const calcStats = (mon) => {
-                if(mon.uid === user.value.active_pokemon_uid) return { hp: user.value.max_hp, atk: user.value.attack };
-                return { hp: "???", atk: "???" };
+                const base = pokedexMap.value[mon.name];
+                if (!base) return { hp: "???", atk: "???" };
+                
+                // IV mult: 0.9 + (iv/100)*0.2
+                const ivMult = 0.9 + (mon.iv / 100) * 0.2;
+                // Growth: 1.06^(lv-1)
+                const growth = Math.pow(1.06, mon.lv - 1);
+                
+                const hp = Math.floor(base.hp * ivMult * growth);
+                const atk = Math.floor(base.atk * ivMult * growth);
+                return { hp, atk };
             };
             
             const getMonSkills = (name) => SKILL_MAP[name] || ["撞擊", "撞擊", "撞擊"];
@@ -583,8 +632,8 @@
             onMounted(async () => {
                 document.getElementById('loading').style.display = 'none'; 
                 if(!token) return window.location.href = 'login.html';
-                if (!sessionStorage.getItem('seenNews_v206')) newsState.value.show = true;
-                await updateInfo(); await fetchSkillData(); updateMySkills();
+                if (!sessionStorage.getItem('seenNews_v207')) newsState.value.show = true;
+                await updateInfo(); await fetchSkillData(); updateMySkills(); await fetchPokedex(); // 確保 Pokedex 載入以計算數值
                 fetchPlayers(); checkRaid(); setInterval(checkRaid, 5000); fetchQuests(); fetchWildList();
                 const ws = new WebSocket(`${WS_URL}?token=${token}`);
                 ws.onmessage = (e) => {
@@ -597,12 +646,8 @@
             });
             
             watch(tab, (n) => { 
-                if(n==='arena') fetchPlayers(); 
-                if(n==='social') fetchFriends(); 
-                if(n==='quest') fetchQuests(); 
-                if(n==='wild') fetchWildList();
-                if(n==='leaderboard') fetchLeaderboard();
-                if(n==='pokedex') fetchPokedex();
+                if(n==='arena') fetchPlayers(); if(n==='social') fetchFriends(); if(n==='quest') fetchQuests(); 
+                if(n==='wild') fetchWildList(); if(n==='leaderboard') fetchLeaderboard(); if(n==='pokedex') fetchPokedex();
             });
             watch(user, () => updateMySkills());
 
@@ -611,25 +656,14 @@
                 clearInterval(timerInterval);
                 turnTimer.value = 10;
                 isEnemyTurn.value = false;
-                
                 if (battle.value.mode !== 'wild') return; 
-
                 timerInterval = setInterval(() => {
                     turnTimer.value--;
-                    if(turnTimer.value <= 0) {
-                        clearInterval(timerInterval);
-                        handleTimeout();
-                    }
+                    if(turnTimer.value <= 0) { clearInterval(timerInterval); handleTimeout(); }
                 }, 1000);
             };
 
-            const handleTimeout = () => {
-                isEnemyTurn.value = true;
-                showFloatingText("逾時!", 'red');
-                setTimeout(() => {
-                    enemyAttackPhase();
-                }, 2000); // 停頓 2 秒
-            };
+            const handleTimeout = () => { isEnemyTurn.value = true; showFloatingText("逾時!", 'red'); setTimeout(() => { enemyAttackPhase(); }, 1500); };
 
             const startWildBattle = (target) => {
                 shieldUses.value = 2; updateMySkills();
@@ -644,59 +678,32 @@
                 startTurnTimer();
             };
             
-            const startLobby = (target) => {
-                inLobby.value = true; lobbyTimer.value = 15; shieldUses.value = 2;
-                battle.value = { active: true, mode: 'pvp', target: target, shakeMe: false, shakeTarget: false };
-                lobbyInterval = setInterval(() => { lobbyTimer.value--; if(lobbyTimer.value <= 0) { clearInterval(lobbyInterval); inLobby.value = false; } }, 1000);
-            };
-
+            const startLobby = (target) => { inLobby.value = true; lobbyTimer.value = 15; shieldUses.value = 2; battle.value = { active: true, mode: 'pvp', target: target, shakeMe: false, shakeTarget: false }; lobbyInterval = setInterval(() => { lobbyTimer.value--; if(lobbyTimer.value <= 0) { clearInterval(lobbyInterval); inLobby.value = false; } }, 1000); };
             const getSkillDesc = (name) => { const s = skillData.value[name]; return s ? `${s.dmg}傷 ${s.desc || ''}` : ''; };
 
             const doSkillAttack = async (skillName) => {
-                if(isEnemyTurn.value) return; 
-                clearInterval(timerInterval);
-                isEnemyTurn.value = true; 
-
+                if(isEnemyTurn.value) return; clearInterval(timerInterval); isEnemyTurn.value = true; 
                 if(!skillData.value[skillName]) return;
                 const skill = skillData.value[skillName];
                 let dmg = Math.floor((user.value.attack / 100) * skill.dmg * battle.value.atkBuff);
                 if (dmg < 1) dmg = 1;
-
                 if(skill.effect && Math.random() < skill.prob) {
-                    if(skill.effect === "heal") {
-                        const healAmt = Math.floor(user.value.max_hp * skill.val);
-                        user.value.hp = Math.min(user.value.max_hp, user.value.hp + healAmt);
-                        showFloatingText(`+${healAmt}`, 'green');
-                        document.getElementById('player-fighter').classList.add('flash-heal');
-                    } else if(skill.effect === "buff_atk") {
-                        battle.value.atkBuff = 1 + skill.val;
-                        showFloatingText(`ATK UP!`, 'gold');
-                    } else if(skill.effect === "recoil") {
-                        const recoil = Math.floor(user.value.max_hp * skill.val);
-                        user.value.hp -= recoil;
-                        showFloatingText(`反傷 -${recoil}`, 'red');
-                    }
+                    if(skill.effect === "heal") { const healAmt = Math.floor(user.value.max_hp * skill.val); user.value.hp = Math.min(user.value.max_hp, user.value.hp + healAmt); showFloatingText(`+${healAmt}`, 'green'); document.getElementById('player-fighter').classList.add('flash-heal'); } 
+                    else if(skill.effect === "buff_atk") { battle.value.atkBuff = 1 + skill.val; showFloatingText(`ATK UP!`, 'gold'); } 
+                    else if(skill.effect === "recoil") { const recoil = Math.floor(user.value.max_hp * skill.val); user.value.hp -= recoil; showFloatingText(`反傷 -${recoil}`, 'red'); }
                 }
-
                 showFloatingText(`-${dmg}`, 'red', true); 
-
                 if(battle.value.mode === 'wild') {
-                    // 🔥 修復：血量不為負 🔥
-                    battle.value.target.hp = Math.max(0, battle.value.target.hp - dmg);
+                    battle.value.target.hp = Math.max(0, battle.value.target.hp - dmg); 
                     battle.value.shakeTarget = true; setTimeout(()=>battle.value.shakeTarget=false, 500);
-                    
-                    const enemyEl = document.getElementById('enemy-fighter');
-                    if(enemyEl) { enemyEl.classList.add('flash-red'); setTimeout(()=>enemyEl.classList.remove('flash-red'), 300); }
-
+                    const enemyEl = document.getElementById('enemy-fighter'); if(enemyEl) { enemyEl.classList.add('flash-red'); setTimeout(()=>enemyEl.classList.remove('flash-red'), 300); }
                     if(battle.value.target.hp <= 0) {
                         const res = await fetch(`${API_URL.replace('/items','')}/shop/wild/attack?is_win=true&is_powerful=${battle.value.target.is_powerful||false}&target_name=${battle.value.target.raw_name}`, { method: 'POST', headers: { 'Authorization': `Bearer ${token}` } });
-                        const d = await res.json(); alert(`造成 ${dmg} 傷害\n${d.message}`);
+                        const d = await res.json(); 
+                        battleResultMsg.value = `造成 ${dmg} 傷害\n${d.message}`;
+                        showBattleResult.value = true;
                         battle.value.active = false; updateInfo(); fetchQuests();
-                    } else {
-                        setTimeout(() => {
-                            enemyAttackPhase();
-                        }, 2000); 
-                    }
+                    } else { setTimeout(() => { enemyAttackPhase(); }, 1500); }
                 }
             };
             
@@ -706,57 +713,54 @@
                     const enemyBaseDmg = (skillData.value[enemySkill] || {dmg:20}).dmg;
                     const enemyDmg = Math.floor(((battle.value.target.attack / 100) * enemyBaseDmg));
                     const reflect = Math.floor(enemyDmg * 0.2);
-                    // 🔥 修復：血量不為負 🔥
                     battle.value.target.hp = Math.max(0, battle.value.target.hp - reflect);
                     alert(`🛡️ 擋下 ${enemyDmg} 傷害，反彈 ${reflect}！`);
                     battle.value.shieldActive = false; 
                     if(battle.value.target.hp <= 0) {
                             fetch(`${API_URL.replace('/items','')}/shop/wild/attack?is_win=true&is_powerful=${battle.value.target.is_powerful||false}&target_name=${battle.value.target.raw_name}`, { method: 'POST', headers: { 'Authorization': `Bearer ${token}` } })
-                            .then(r=>r.json()).then(d=>{ alert(d.message); battle.value.active = false; updateInfo(); fetchQuests(); });
-                    } else {
-                        startTurnTimer(); 
-                    }
+                            .then(r=>r.json()).then(d=>{ 
+                                battleResultMsg.value = d.message; showBattleResult.value = true; 
+                                battle.value.active = false; updateInfo(); fetchQuests(); 
+                            });
+                    } else { startTurnTimer(); }
                 } else {
                     const enemySkill = battle.value.target.skills[Math.floor(Math.random()*3)];
                     const enemyBaseDmg = (skillData.value[enemySkill] || {dmg:20}).dmg;
                     const enemyDmg = Math.floor(((battle.value.target.attack / 100) * enemyBaseDmg));
-                    // 🔥 修復：血量不為負 🔥
                     user.value.hp = Math.max(0, user.value.hp - enemyDmg);
                     battle.value.shakeMe = true; setTimeout(()=>battle.value.shakeMe=false, 500);
-                    
                     showFloatingText(`-${enemyDmg}`, 'red'); 
-                    
-                    const playerEl = document.getElementById('player-fighter');
-                    if(playerEl) { playerEl.classList.add('flash-red'); setTimeout(()=>playerEl.classList.remove('flash-red'), 300); }
-
+                    const playerEl = document.getElementById('player-fighter'); if(playerEl) { playerEl.classList.add('flash-red'); setTimeout(()=>playerEl.classList.remove('flash-red'), 300); }
                     if(user.value.hp <= 0) { 
-                        alert("你被打敗了..."); 
-                        battle.value.active = false; 
+                        alert("你被打敗了..."); battle.value.active = false; 
                         fetch(`${API_URL.replace('/items','')}/shop/wild/attack?is_win=false`, { method: 'POST', headers: { 'Authorization': `Bearer ${token}` } });
                         buyHeal(); 
-                    } else {
-                        startTurnTimer(); 
-                    }
+                    } else { startTurnTimer(); }
                 }
             };
             
             const showFloatingText = (text, color='red', isEnemy=false) => {
-                const arena = document.querySelector('.battle-arena');
-                if(!arena) return;
-                const el = document.createElement('div');
-                el.className = 'floating-text';
-                el.innerText = text;
-                el.style.color = color === 'gold' ? '#f1c40f' : (color === 'green' ? '#2ecc71' : '#e74c3c');
-                el.style.left = isEnemy ? '60%' : '20%'; 
-                el.style.top = '30%';
-                arena.appendChild(el);
-                setTimeout(() => el.remove(), 1500);
+                const arena = document.querySelector('.battle-arena'); if(!arena) return;
+                const el = document.createElement('div'); el.className = 'floating-text';
+                el.innerText = text; el.style.color = color === 'gold' ? '#f1c40f' : (color === 'green' ? '#2ecc71' : '#e74c3c');
+                el.style.left = isEnemy ? '60%' : '20%'; el.style.top = '30%';
+                arena.appendChild(el); setTimeout(() => el.remove(), 1500);
+            };
+
+            const playGacha = async (type) => { 
+                showGachaAnim.value = true; 
+                const res = await fetch(`${API_URL.replace('/items','')}/shop/gacha/${type}`, { method: 'POST', headers: { 'Authorization': `Bearer ${token}` } }); 
+                const d = await res.json(); 
+                setTimeout(() => {
+                    showGachaAnim.value = false; 
+                    gachaResult.value = d; 
+                    updateInfo();
+                }, 2000); 
             };
 
             const useShield = () => { if(shieldUses.value <= 0) return; shieldUses.value--; battle.value.shieldActive = true; doSkillAttack('wait'); };
             const doHeal = async () => { const heal = Math.floor(user.value.max_hp * 0.2); user.value.hp = Math.min(user.value.max_hp, user.value.hp + heal); alert(`回復了 ${heal} HP`); };
             const dailyCheckin = async () => { const res = await fetch(`${API_URL}/social/daily_checkin`, { method: 'POST', headers: { 'Authorization': `Bearer ${token}` } }); const d = await res.json(); alert(d.message || d.detail); updateInfo(); };
-            const playGacha = async (type) => { const res = await fetch(`${API_URL.replace('/items','')}/shop/gacha/${type}`, { method: 'POST', headers: { 'Authorization': `Bearer ${token}` } }); const d = await res.json(); alert(d.message || d.detail); updateInfo(); };
             const swapMon = async (uid) => { await fetch(`${API_URL.replace('/items','')}/shop/box/swap/${uid}`, { method: 'POST', headers: { 'Authorization': `Bearer ${token}` } }); updateInfo(); };
             const releaseMon = async (uid) => { if(!confirm("確定放生？")) return; await fetch(`${API_URL.replace('/items','')}/shop/box/action/release/${uid}`, { method: 'POST', headers: { 'Authorization': `Bearer ${token}` } }); selectedMon.value = null; updateInfo(); };
             const useCandy = async (uid) => { const res = await fetch(`${API_URL.replace('/items','')}/shop/box/action/candy/${uid}`, { method: 'POST', headers: { 'Authorization': `Bearer ${token}` } }); const d = await res.json(); alert(d.message || d.detail); updateInfo(); };
@@ -773,7 +777,7 @@
             const abandonQuest = async (qid) => { if(confirm("放棄需消耗 1000G，確定嗎？")) { await fetch(`${API_URL.replace('/items','')}/shop/quests/abandon/${qid}`, { method: 'POST', headers: { 'Authorization': `Bearer ${token}` } }); fetchQuests(); } };
             const claimQuest = async (qid) => { const res = await fetch(`${API_URL.replace('/items','')}/shop/quests/claim/${qid}`, { method: 'POST', headers: { 'Authorization': `Bearer ${token}` } }); const d = await res.json(); alert(d.message); fetchQuests(); };
 
-            return { user, tab, box, players, friends, selectedMon, currentPetIV, battle, raidState, inLobby, lobbyTimer, dailyCheckin, logout, playGacha, swapMon, releaseMon, useCandy, gambleAmount, doGamble, chatMsgs, chatInput, sendChat, doSkillAttack, useShield, doHeal, buyHeal, promoCode, redeemCode, initAdmin, sendInvite, addFriend, sendGift, joinRaid, playerXpPercent, hpPercent, petXpPercent, currentAtkMe, quests, acceptQuest, abandonQuest, claimQuest, wildList, fetchWildList, startWildBattle, showRates, gachaRates, newsState, closeNews, mySkills, shieldUses, getSkillDesc, selectedWildLevel, viewMon, calcStats, getMonSkills, leaderboardType, leaderboardData, fetchLeaderboard, pokedexList, pokedexPercent, fetchPokedex, turnTimer, isEnemyTurn, getReqXp };
+            return { user, tab, box, players, friends, selectedMon, currentPetIV, battle, raidState, inLobby, lobbyTimer, dailyCheckin, logout, playGacha, swapMon, releaseMon, useCandy, gambleAmount, doGamble, chatMsgs, chatInput, sendChat, doSkillAttack, useShield, doHeal, buyHeal, promoCode, redeemCode, initAdmin, sendInvite, addFriend, sendGift, joinRaid, playerXpPercent, hpPercent, petXpPercent, currentAtkMe, quests, acceptQuest, abandonQuest, claimQuest, wildList, fetchWildList, startWildBattle, showRates, gachaRates, newsState, closeNews, mySkills, shieldUses, getSkillDesc, selectedWildLevel, viewMon, calcStats, getMonSkills, leaderboardType, leaderboardData, fetchLeaderboard, pokedexList, pokedexPercent, fetchPokedex, turnTimer, isEnemyTurn, getReqXp, showGachaAnim, gachaResult, showBattleResult, battleResultMsg, inventory };
         }
     }).mount('#app');
 </script>

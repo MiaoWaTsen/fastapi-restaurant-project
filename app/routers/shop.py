@@ -135,9 +135,10 @@ def apply_iv_stats(base_val, iv, level, is_player=True):
 def get_skill_data():
     return SKILL_DB
 
+# 🔥 更新：回傳基礎數值 (hp, atk) 以便前端計算 🔥
 @router.get("/pokedex/all")
 def get_all_pokedex():
-    return [{"name": name, "img": data["img"]} for name, data in POKEDEX_DATA.items()]
+    return [{"name": name, "img": data["img"], "hp": data["hp"], "atk": data["atk"]} for name, data in POKEDEX_DATA.items()]
 
 @router.get("/wild/list")
 def get_wild_list(level: int, current_user: User = Depends(get_current_user)):
@@ -226,32 +227,27 @@ def claim_quest(qid: str, db: Session = Depends(get_db), current_user: User = De
     quests = json.loads(current_user.quests)
     inv = json.loads(current_user.inventory)
     target_q = None
-    for q in quests:
-        if q["id"] == qid and q["status"] == "COMPLETED": target_q = q; break
-    if not target_q: raise HTTPException(status_code=400, detail="無法領取")
+    for i, q in enumerate(quests):
+        if q["id"] == qid and q["status"] == "COMPLETED": target_q = q; target_index = i; break
+    if not target_q: raise HTTPException(status_code=400, detail="無法領取：任務不存在或未完成")
     msg = ""
     if target_q["type"] == "GOLDEN": inv["golden_candy"] = inv.get("golden_candy", 0) + 1; msg = "獲得 ✨ 黃金糖果 x1"
     else: current_user.money += target_q["gold"]; current_user.exp += target_q["xp"]; current_user.pet_exp += target_q["xp"]; msg = f"獲得 {target_q['gold']}G, {target_q['xp']} XP"
-    quests = [q for q in quests if q["id"] != qid]
+    del quests[target_index]
     new_q = generate_quests(current_user.level, count=1)[0]
     quests.append(new_q)
     current_user.quests = json.dumps(quests); current_user.inventory = json.dumps(inv); db.commit()
     return {"message": msg}
 
-# 🔥 1. 野怪戰鬥結算 (修復升級邏輯) 🔥
 @router.post("/wild/attack")
 async def wild_attack_api(is_win: bool = Query(...), is_powerful: bool = Query(False), target_name: str = Query("野怪"), db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
-    # 無論輸贏，都補滿血
     current_user.hp = current_user.max_hp
-    
     if is_win:
         xp = current_user.level * 50; money = current_user.level * 30
         current_user.exp += xp; current_user.pet_exp += xp; current_user.money += money
         msg = f"獲得 {xp} XP, {money} G"
         if is_powerful:
             inv = json.loads(current_user.inventory); inv["growth_candy"] = inv.get("growth_candy", 0) + 1; current_user.inventory = json.dumps(inv); msg += " & 🍬 成長糖果 x1"
-        
-        # 任務進度
         quests = json.loads(current_user.quests) if current_user.quests else []
         quest_updated = False
         for q in quests:
@@ -260,44 +256,26 @@ async def wild_attack_api(is_win: bool = Query(...), is_powerful: bool = Query(F
                 if q["now"] >= q["req"]: q["status"] = "COMPLETED"
                 quest_updated = True
         if quest_updated: current_user.quests = json.dumps(quests)
-
-        # 🔥 處理升級 (Player) 🔥
         req_xp_p = get_req_xp(current_user.level)
         while current_user.exp >= req_xp_p and current_user.level < 25:
-            current_user.exp -= req_xp_p
-            current_user.level += 1
-            req_xp_p = get_req_xp(current_user.level)
-            msg += f" | 訓練師升級 Lv.{current_user.level}!"
-
-        # 🔥 處理升級 (Pet) 🔥
+            current_user.exp -= req_xp_p; current_user.level += 1; req_xp_p = get_req_xp(current_user.level); msg += f" | 訓練師升級 Lv.{current_user.level}!"
         req_xp_pet = get_req_xp(current_user.pet_level)
         pet_leveled_up = False
         while current_user.pet_exp >= req_xp_pet and current_user.pet_level < 25:
-            current_user.pet_exp -= req_xp_pet
-            current_user.pet_level += 1
-            req_xp_pet = get_req_xp(current_user.pet_level)
-            pet_leveled_up = True
-            msg += f" | 寶可夢升級 Lv.{current_user.pet_level}!"
-            
-        # 同步更新 Active Pet 數值
+            current_user.pet_exp -= req_xp_pet; current_user.pet_level += 1; req_xp_pet = get_req_xp(current_user.pet_level); pet_leveled_up = True; msg += f" | 寶可夢升級 Lv.{current_user.pet_level}!"
         box = json.loads(current_user.pokemon_storage)
         active_pet = next((p for p in box if p['uid'] == current_user.active_pokemon_uid), None)
         if active_pet:
-            active_pet["exp"] = current_user.pet_exp
-            active_pet["lv"] = current_user.pet_level
-            
+            active_pet["exp"] = current_user.pet_exp; active_pet["lv"] = current_user.pet_level
             if pet_leveled_up:
-                # 重新計算並寫入數值
                 base = POKEDEX_DATA.get(active_pet["name"])
                 if base:
                     current_user.max_hp = apply_iv_stats(base["hp"], active_pet["iv"], current_user.pet_level)
                     current_user.attack = apply_iv_stats(base["atk"], active_pet["iv"], current_user.pet_level)
-                    current_user.hp = current_user.max_hp # 升級回滿
-        
+                    current_user.hp = current_user.max_hp
         current_user.pokemon_storage = json.dumps(box)
         db.commit()
         return {"message": f"勝利！HP已回復。{msg}"}
-    
     db.commit()
     return {"message": "戰鬥結束，HP已回復。"}
 
