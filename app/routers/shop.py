@@ -110,6 +110,7 @@ WILD_UNLOCK_LEVELS = {
     12: ["小磁怪"], 14: ["卡拉卡拉"], 16: ["喵喵"], 18: ["瑪瑙水母"], 20: ["海刺龍"]
 }
 
+# 扭蛋池
 GACHA_HIGH = [{"name": "卡比獸", "rate": 20}, {"name": "吉利蛋", "rate": 24}, {"name": "幸福蛋", "rate": 10}, {"name": "拉普拉斯", "rate": 10}, {"name": "妙蛙花", "rate": 10}, {"name": "噴火龍", "rate": 10}, {"name": "水箭龜", "rate": 10}, {"name": "快龍", "rate": 6}]
 GACHA_GOLDEN = [{"name": "卡比獸", "rate": 30}, {"name": "吉利蛋", "rate": 35}, {"name": "幸福蛋", "rate": 20}, {"name": "拉普拉斯", "rate": 10}, {"name": "快龍", "rate": 5}]
 GACHA_NORMAL = [{"name": "妙蛙種子", "rate": 5}, {"name": "小火龍", "rate": 5}, {"name": "傑尼龜", "rate": 5}, {"name": "伊布", "rate": 8}, {"name": "皮卡丘", "rate": 8}, {"name": "皮皮", "rate": 10}, {"name": "胖丁", "rate": 10}, {"name": "毛辮羊", "rate": 8}, {"name": "大蔥鴨", "rate": 12}, {"name": "呆呆獸", "rate": 12}, {"name": "可達鴨", "rate": 12}, {"name": "卡比獸", "rate": 2}, {"name": "吉利蛋", "rate": 2}]
@@ -135,7 +136,6 @@ def apply_iv_stats(base_val, iv, level, is_player=True):
 def get_skill_data():
     return SKILL_DB
 
-# 🔥 更新：回傳基礎數值 (hp, atk) 以便前端計算 🔥
 @router.get("/pokedex/all")
 def get_all_pokedex():
     return [{"name": name, "img": data["img"], "hp": data["hp"], "atk": data["atk"]} for name, data in POKEDEX_DATA.items()]
@@ -222,21 +222,37 @@ def abandon_quest(qid: str, db: Session = Depends(get_db), current_user: User = 
     current_user.quests = json.dumps(new_quests); db.commit()
     return {"message": "任務已刪除並刷新 (-1000G)"}
 
+# 🔥 任務領取修正：確保 ID 比對正確 🔥
 @router.post("/quests/claim/{qid}")
 def claim_quest(qid: str, db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
     quests = json.loads(current_user.quests)
     inv = json.loads(current_user.inventory)
-    target_q = None
-    for i, q in enumerate(quests):
-        if q["id"] == qid and q["status"] == "COMPLETED": target_q = q; target_index = i; break
-    if not target_q: raise HTTPException(status_code=400, detail="無法領取：任務不存在或未完成")
+    
+    # 查找並驗證
+    target_q = next((q for q in quests if q["id"] == qid and q["status"] == "COMPLETED"), None)
+    if not target_q:
+        raise HTTPException(status_code=400, detail="無法領取：任務不存在或未完成")
+    
+    # 發放獎勵
     msg = ""
-    if target_q["type"] == "GOLDEN": inv["golden_candy"] = inv.get("golden_candy", 0) + 1; msg = "獲得 ✨ 黃金糖果 x1"
-    else: current_user.money += target_q["gold"]; current_user.exp += target_q["xp"]; current_user.pet_exp += target_q["xp"]; msg = f"獲得 {target_q['gold']}G, {target_q['xp']} XP"
-    del quests[target_index]
+    if target_q["type"] == "GOLDEN":
+        inv["golden_candy"] = inv.get("golden_candy", 0) + 1
+        msg = "獲得 ✨ 黃金糖果 x1"
+    else:
+        current_user.money += target_q["gold"]
+        current_user.exp += target_q["xp"]
+        current_user.pet_exp += target_q["xp"]
+        msg = f"獲得 {target_q['gold']}G, {target_q['xp']} XP"
+    
+    # 更新任務列表：保留其他任務，移除當前，補一個新任務
+    quests = [q for q in quests if q["id"] != qid]
     new_q = generate_quests(current_user.level, count=1)[0]
     quests.append(new_q)
-    current_user.quests = json.dumps(quests); current_user.inventory = json.dumps(inv); db.commit()
+    
+    current_user.quests = json.dumps(quests)
+    current_user.inventory = json.dumps(inv)
+    db.commit()
+    
     return {"message": msg}
 
 @router.post("/wild/attack")
@@ -408,16 +424,31 @@ async def pvp_attack(target_id: int, damage: int = Query(0), heal: int = Query(0
     await manager.broadcast(msg)
     return {"message": "攻擊成功", "result": result_type, "reward": reward_msg, "user": current_user}
 
+# 🔥 團體戰時間修正：開放大廳 🔥
 @router.get("/raid/status")
 def get_raid_status():
     now = datetime.now()
     hour = now.hour
-    is_raid_time = hour in [8, 18, 22] and now.minute < 30
+    minute = now.minute
+    # 開放時間：整點前 1 分鐘 到 整點 30 分
+    # 例如 7:59, 8:00~8:30
+    is_raid_time = (hour in [7, 17, 21] and minute >= 59) or (hour in [8, 18, 22] and minute < 30)
+    
     if is_raid_time and not RAID_STATE["active"]:
+        # 決定 Boss
         bosses = ["急凍鳥", "火焰鳥", "閃電鳥"]
-        name = bosses[hour % 3]
-        RAID_STATE["active"] = True; RAID_STATE["boss_name"] = name; RAID_STATE["max_hp"] = 3000; RAID_STATE["hp"] = 3000; RAID_STATE["players"] = {}
-    elif not is_raid_time: RAID_STATE["active"] = False
+        # 使用下一個整點來決定 Boss，避免 7:59 算成 7 點的
+        target_hour = hour + 1 if minute >= 59 else hour
+        name = bosses[target_hour % 3]
+        
+        RAID_STATE["active"] = True
+        RAID_STATE["boss_name"] = name
+        RAID_STATE["max_hp"] = 3000
+        RAID_STATE["hp"] = 3000
+        RAID_STATE["players"] = {}
+    elif not is_raid_time:
+        RAID_STATE["active"] = False
+        
     return RAID_STATE
 
 @router.post("/raid/join")

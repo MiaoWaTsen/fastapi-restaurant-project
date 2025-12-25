@@ -2,7 +2,7 @@
 
 from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.orm import Session
-from sqlalchemy import or_, and_, desc
+from sqlalchemy import or_, and_
 from datetime import datetime, timedelta
 import json
 import uuid
@@ -37,46 +37,23 @@ def init_admin(db: Session = Depends(get_db)):
     db.add(admin_user); db.commit()
     return {"message": "✅ 管理員建立成功！帳號: admin / 密碼: admin888"}
 
-# 🔥 修正：排行榜 API 🔥
 @router.get("/leaderboard")
 def get_leaderboard(type: str = Query("level"), db: Session = Depends(get_db)):
-    # 預設抓取所有玩家，然後進行排序
-    # 因為 collection 需要運算，SQL sort 比較複雜，這裡玩家數少直接用 Python sort
     all_users = db.query(User).all()
-    
-    if type == "level":
-        sorted_users = sorted(all_users, key=lambda u: u.level, reverse=True)
-    elif type == "money":
-        sorted_users = sorted(all_users, key=lambda u: u.money, reverse=True)
-    elif type == "collection":
-        # 計算解鎖數量
-        sorted_users = sorted(all_users, key=lambda u: len(u.unlocked_monsters.split(',')) if u.unlocked_monsters else 0, reverse=True)
-    else:
-        sorted_users = sorted(all_users, key=lambda u: u.level, reverse=True)
-        
+    if type == "level": sorted_users = sorted(all_users, key=lambda u: u.level, reverse=True)
+    elif type == "money": sorted_users = sorted(all_users, key=lambda u: u.money, reverse=True)
+    elif type == "collection": sorted_users = sorted(all_users, key=lambda u: len(u.unlocked_monsters.split(',')) if u.unlocked_monsters else 0, reverse=True)
+    else: sorted_users = sorted(all_users, key=lambda u: u.level, reverse=True)
     top_5 = sorted_users[:5]
-    
     result = []
     for idx, u in enumerate(top_5):
-        # 假設總數約 40 隻，這裡簡單算一下百分比
         unlocked_count = len(u.unlocked_monsters.split(',')) if u.unlocked_monsters else 0
-        # 40 是大概總數，前端顯示百分比
-        # 為了更精確，可以從 shop.py 引入 POKEDEX_DATA，但為了避免 circular import，這裡回傳數量即可
-        
         name_display = f"🔴 {u.username}" if u.is_admin else u.username
-        
         val_display = ""
         if type == "level": val_display = f"Lv.{u.level}"
         elif type == "money": val_display = f"${u.money}"
         elif type == "collection": val_display = f"蒐集 {unlocked_count} 隻"
-        
-        result.append({
-            "rank": idx + 1,
-            "username": name_display,
-            "pet": u.pokemon_name,
-            "img": u.pokemon_image,
-            "value": val_display
-        })
+        result.append({"rank": idx + 1, "username": name_display, "pet": u.pokemon_name, "img": u.pokemon_image, "value": val_display})
     return result
 
 @router.post("/chat/send")
@@ -125,9 +102,16 @@ def daily_checkin(db: Session = Depends(get_db), current_user: User = Depends(ge
     db.commit()
     return {"message": f"Day {current_user.login_days} 簽到成功！{msg}", "user": current_user}
 
+# 🔥 代碼領取邏輯 (限領一次) 🔥
 @router.post("/redeem")
 def redeem_code(code: str, db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
     inv = json.loads(current_user.inventory)
+    
+    # 檢查是否已領取 (儲存在 inventory["_redeemed_codes"] 中)
+    redeemed_list = inv.get("_redeemed_codes", [])
+    if code in redeemed_list:
+        raise HTTPException(status_code=400, detail="此代碼已領取過")
+        
     msg = ""
     if code == "compensation_gold":
         current_user.money += 30000; msg = "補償領取：30000 Gold"
@@ -145,6 +129,11 @@ def redeem_code(code: str, db: Session = Depends(get_db), current_user: User = D
         if "卡比獸" not in unlocked: unlocked.append("卡比獸"); current_user.unlocked_monsters = ",".join(unlocked)
         msg = "補償領取：IV 80 卡比獸！"
     else: raise HTTPException(status_code=400, detail="無效的序號")
+    
+    # 記錄已領取代碼
+    redeemed_list.append(code)
+    inv["_redeemed_codes"] = redeemed_list
+    
     current_user.inventory = json.dumps(inv)
     db.commit()
     return {"message": msg}

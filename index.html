@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>⚡️ 寶可夢大亂鬥 V2.0.7 (背包與數值修復) ⚡️</title>
+    <title>⚡️ 寶可夢大亂鬥 V2.0.8 (美化與修復) ⚡️</title>
     <script>
         window.onerror = function(msg, source, lineno) {
             const loader = document.getElementById('loading');
@@ -45,6 +45,15 @@
         .btn-action { width: 100%; padding: 8px; margin-top: 5px; border: none; border-radius: 5px; cursor: pointer; font-weight: bold; background: #c0392b; color: white; }
         .btn-small { width: 48%; padding: 5px; font-size: 0.9em; margin-top: 5px; border: none; border-radius: 5px; cursor: pointer; color: white; }
         .btn-disabled { background: #555 !important; cursor: not-allowed; opacity: 0.6; pointer-events: none; }
+
+        /* Gacha Buttons */
+        .btn-gacha { width: 100%; padding: 15px; margin-bottom: 10px; border: none; border-radius: 10px; color: white; font-weight: bold; font-size: 1.1em; cursor: pointer; display: flex; justify-content: space-between; align-items: center; transition: transform 0.2s; box-shadow: 0 4px 6px rgba(0,0,0,0.3); }
+        .btn-gacha:hover { transform: translateY(-3px); }
+        .gacha-normal { background: linear-gradient(90deg, #3498db, #2980b9); }
+        .gacha-medium { background: linear-gradient(90deg, #9b59b6, #8e44ad); }
+        .gacha-high { background: linear-gradient(90deg, #e67e22, #d35400); }
+        .gacha-candy { background: linear-gradient(90deg, #e91e63, #c2185b); }
+        .gacha-golden { background: linear-gradient(90deg, #f1c40f, #f39c12); color: #000; text-shadow: 0px 0px 2px white; }
 
         .quest-card { text-align: left; margin-bottom: 10px; border-left: 5px solid #aaa; padding: 15px; background:#1e2a38; }
         .quest-active { border-left-color: #f1c40f; } 
@@ -115,8 +124,8 @@
 
 <div id="app" class="container" v-cloak>
     <div v-if="!user" style="text-align:center; padding-top:100px;">
-        <h1 style="color:#e94560">寶可夢大亂鬥 V2.0.7</h1>
-        <p>背包系統與數值修復版</p>
+        <h1 style="color:#e94560">寶可夢大亂鬥 V2.0.8</h1>
+        <p>美化修復版</p>
         <button class="btn-action" @click="logout">前往登入頁面</button>
         <br><br>
         <button style="background:transparent; border:1px solid #aaa; color:#aaa; padding:5px;" @click="initAdmin">👑 初始化管理員</button>
@@ -175,11 +184,11 @@
 
         <div v-if="newsState.show" class="modal-overlay">
             <div class="modal-box" style="text-align:left;">
-                <div class="modal-title" style="text-align:center;">📢 V2.0.7 更新公告</div>
+                <div class="modal-title" style="text-align:center;">📢 V2.0.8 更新公告</div>
                 <ul>
-                    <li><b>📊 數值顯示</b>：現在盒子裡能看到每隻寶可夢的準確數值了！</li>
-                    <li><b>🎒 背包系統</b>：新增背包分頁，可查看擁有的糖果。</li>
-                    <li><b>⚡ 體驗優化</b>：修復了戰鬥與介面的一些小問題。</li>
+                    <li><b>🛡️ 戰鬥修復</b>：防護盾現在不會卡住遊戲了。</li>
+                    <li><b>🎨 介面美化</b>：扭蛋按鈕升級，看起來更高級！</li>
+                    <li><b>🔥 團體戰</b>：現在每小時 59 分即可進入大廳。</li>
                 </ul>
                 <div style="text-align:center; margin-top:15px;">
                     <button class="btn-yes" @click="closeNews">我知道了</button>
@@ -348,6 +357,7 @@
                     </div>
                 </div>
             </div>
+            
             <div v-if="tab=='raid'">
                 <h3>🔥 傳說團體戰</h3>
                 <div v-if="raidState.active" class="card" style="border:2px solid #e74c3c; background:#2c0b0e;">
@@ -356,8 +366,13 @@
                     <p>HP: {{ raidState.hp }} / {{ raidState.max_hp }}</p>
                     <button class="btn-action" @click="joinRaid">加入戰鬥 (1000G)</button>
                 </div>
-                <div v-else class="card">目前沒有團體戰 (08:00, 18:00, 22:00 開放)</div>
+                <div v-else class="card">
+                    目前沒有團體戰 (08:00, 18:00, 22:00 開放)
+                    <br>
+                    <button v-if="canJoinLobby" class="btn-action" style="margin-top:10px;" @click="joinRaid">預先進入大廳 (1000G)</button>
+                </div>
             </div>
+
             <div v-if="tab=='quest'">
                 <h3>📜 冒險任務 (3/3)</h3>
                 <div v-for="q in quests" :key="q.id" class="card quest-card" :class="{'quest-active': q.status=='ACTIVE', 'quest-completed': q.status=='COMPLETED', 'quest-golden': q.type=='GOLDEN'}">
@@ -371,15 +386,28 @@
                     <button v-if="q.status=='COMPLETED'" class="btn-action" style="background:#2ecc71" @click="claimQuest(q.id)">領取獎勵</button>
                 </div>
             </div>
+
             <div v-if="tab=='shop'">
                 <h3>🛒 扭蛋商店 <button style="font-size:0.6em; background:#555; border:none; color:white; padding:3px;" @click="showRates=true">📊 機率</button></h3>
-                <button class="btn-action" @click="playGacha('normal')">🔮 初級 (1500G)</button>
-                <button class="btn-action" style="background:linear-gradient(45deg, #3498db, #2980b9)" @click="playGacha('medium')">🔵 中級 (3000G)</button>
-                <button class="btn-action" style="background:linear-gradient(45deg, #8e44ad, #9b59b6)" @click="playGacha('high')">🟣 高級 (10000G)</button>
-                <button class="btn-action" style="background:linear-gradient(45deg, #f1c40f, #d35400)" @click="playGacha('golden')">✨ 黃金 (3 Golden)</button>
-                <br><br>
+                <button class="btn-gacha gacha-normal" @click="playGacha('normal')">
+                    <span>🔮 初級扭蛋</span> <span>1500G</span>
+                </button>
+                <button class="btn-gacha gacha-medium" @click="playGacha('medium')">
+                    <span>🔵 中級扭蛋</span> <span>3000G</span>
+                </button>
+                <button class="btn-gacha gacha-high" @click="playGacha('high')">
+                    <span>🟣 高級扭蛋</span> <span>10000G</span>
+                </button>
+                <button class="btn-gacha gacha-candy" @click="playGacha('candy')">
+                    <span>🍬 糖果扭蛋</span> <span>12 Candy</span>
+                </button>
+                <button class="btn-gacha gacha-golden" @click="playGacha('golden')">
+                    <span>✨ 黃金扭蛋</span> <span>3 Golden</span>
+                </button>
+                <br>
                 <button class="btn-action" style="background:#27ae60" @click="buyHeal">💊 補血 (50G)</button>
             </div>
+
             <div v-if="tab=='gamble'">
                 <div class="card" style="text-align:center; border:2px solid #f39c12;">
                     <h3>🎰 幸運賭場</h3>
@@ -387,6 +415,7 @@
                     <button class="btn-action" style="margin-top:10px; background:#f39c12; color:black;" @click="doGamble">下注！</button>
                 </div>
             </div>
+
             <div v-if="tab=='social'">
                 <h3>💬 好友與管理</h3>
                 <div v-if="friends.length > 0">
@@ -457,13 +486,15 @@
     </div>
 
     <div v-if="showRates" class="modal-overlay" @click.self="showRates=false">
-        <div class="modal-box" style="width: 400px;">
+        <div class="modal-box" style="width: 400px; max-height:80vh;">
             <div class="modal-title">📊 扭蛋機率表</div>
-            <div v-for="(pool, name) in gachaRates" :key="name" style="margin-bottom: 15px;">
-                <h4 style="color: #f1c40f; border-bottom: 1px solid #555;">{{ name }}</h4>
-                <table class="rate-table">
-                    <tr v-for="item in pool" :key="item.name"><td>{{ item.name }}</td><td style="text-align: right;">{{ item.rate }}%</td></tr>
-                </table>
+            <div style="overflow-y:auto; max-height:60vh;">
+                <div v-for="(pool, name) in gachaRates" :key="name" style="margin-bottom: 15px;">
+                    <h4 style="color: #f1c40f; border-bottom: 1px solid #555;">{{ name }}</h4>
+                    <table class="rate-table">
+                        <tr v-for="item in pool" :key="item.name"><td>{{ item.name }}</td><td style="text-align: right;">{{ item.rate }}%</td></tr>
+                    </table>
+                </div>
             </div>
             <button class="btn-yes" style="width: 100%; margin-top: 10px;" @click="showRates=false">關閉</button>
         </div>
@@ -493,12 +524,9 @@
             const tab = ref('wild'); 
             const box = computed(() => user.value ? JSON.parse(user.value.pokemon_storage) : []);
             
-            // 🔥 新增：背包 Inventory (計算屬性) 🔥
             const inventory = computed(() => {
                 if(!user.value) return {};
-                try {
-                    return JSON.parse(user.value.inventory);
-                } catch(e) { return {}; }
+                try { return JSON.parse(user.value.inventory); } catch(e) { return {}; }
             });
 
             const showGachaAnim = ref(false);
@@ -507,7 +535,7 @@
             const battleResultMsg = ref("");
 
             const newsState = ref({ show: false });
-            const closeNews = () => { newsState.value.show = false; sessionStorage.setItem('seenNews_v207', 'true'); };
+            const closeNews = () => { newsState.value.show = false; sessionStorage.setItem('seenNews_v208', 'true'); };
             const quests = ref([]);
             const players = ref([]);
             const friends = ref([]);
@@ -522,8 +550,6 @@
             const leaderboardData = ref([]);
             const pokedexList = ref([]);
             const pokedexPercent = ref(0);
-            
-            // 🔥 新增：圖鑑地圖 (用於計算數值) 🔥
             const pokedexMap = ref({});
             
             const turnTimer = ref(10);
@@ -546,6 +572,14 @@
             const lobbyTimer = ref(15);
             let lobbyInterval = null;
 
+            // 🔥 新增：判斷是否能進入大廳 (時間判斷) 🔥
+            const canJoinLobby = computed(() => {
+                const now = new Date();
+                const m = now.getMinutes();
+                // XX:59 分時可以進入 (Raid 在 XX:00 開始)
+                return m >= 59;
+            });
+
             const chatMsgs = ref([]);
             const chatInput = ref("");
             const gambleAmount = ref(100);
@@ -553,9 +587,14 @@
             const selectedWildLevel = ref(1);
             const wildList = ref([]);
             const showRates = ref(false);
+            
+            // 🔥 完整扭蛋機率表 (V2.0.8) 🔥
             const gachaRates = {
-                "🟣 高級扭蛋 (10000G)": [{name: "卡比獸", rate: 20}, {name: "吉利蛋", rate: 24}, {name: "幸福蛋/拉普拉斯/妙蛙/噴火/水箭", rate: 10}, {name: "快龍", rate: 6}],
-                "✨ 黃金扭蛋 (3 Golden)": [{name: "卡比獸", rate: 30}, {name: "吉利蛋", rate: 35}, {name: "幸福蛋", rate: 20}, {name: "拉普拉斯", rate: 10}, {name: "快龍", rate: 5}]
+                "🔮 初級扭蛋 (1500G)": [ {name: "妙蛙種子/小火龍/傑尼龜", rate: 5}, {name: "伊布/皮卡丘/毛辮羊", rate: 8}, {name: "皮皮/胖丁", rate: 10}, {name: "大蔥鴨/呆呆獸/可達鴨", rate: 12}, {name: "卡比獸/吉利蛋", rate: 2} ],
+                "🔵 中級扭蛋 (3000G)": [ {name: "御三家/伊布/皮卡丘/呆呆獸/可達鴨/毛辮羊", rate: 10}, {name: "卡比獸", rate: 5}, {name: "吉利蛋/拉普拉斯/御三家進化", rate: 3} ],
+                "🟣 高級扭蛋 (10000G)": [ {name: "卡比獸", rate: 20}, {name: "吉利蛋", rate: 24}, {name: "幸福蛋/拉普拉斯/御三家進化", rate: 10}, {name: "快龍", rate: 6} ],
+                "🍬 糖果扭蛋 (12 Candy)": [ {name: "伊布/皮卡丘", rate: 20}, {name: "御三家進化/卡比獸/吉利蛋", rate: 10}, {name: "幸福蛋", rate: 4}, {name: "拉普拉斯/快龍", rate: 3} ],
+                "✨ 黃金扭蛋 (3 Golden)": [ {name: "卡比獸", rate: 30}, {name: "吉利蛋", rate: 35}, {name: "幸福蛋", rate: 20}, {name: "拉普拉斯", rate: 10}, {name: "快龍", rate: 5} ]
             };
             
             const SKILL_MAP = {
@@ -592,14 +631,11 @@
             const fetchSkillData = async () => { const res = await fetch(`${API_URL.replace('/items','')}/shop/data/skills`); if(res.ok) skillData.value = await res.json(); };
             const fetchLeaderboard = async () => { const res = await fetch(`${API_URL}/social/leaderboard?type=${leaderboardType.value}`, { headers: { 'Authorization': `Bearer ${token}` } }); if(res.ok) leaderboardData.value = await res.json(); };
             
-            // 🔥 更新：Fetch Pokedex 並建立 Map 供計算 🔥
             const fetchPokedex = async () => { 
                 const res = await fetch(`${API_URL.replace('/items','')}/shop/pokedex/all`, { headers: { 'Authorization': `Bearer ${token}` } }); 
                 if(res.ok && user.value) { 
                     const allMons = await res.json(); 
-                    // 建立 Map
                     allMons.forEach(m => pokedexMap.value[m.name] = m);
-                    
                     const unlocked = (user.value.unlocked_monsters || "").split(","); 
                     pokedexList.value = allMons.map(m => ({ ...m, owned: unlocked.includes(m.name) })); 
                     pokedexPercent.value = Math.floor((unlocked.length / allMons.length) * 100); 
@@ -612,16 +648,11 @@
                 if(active) mySkills.value = SKILL_MAP[active.name] || ["撞擊", "撞擊", "撞擊"];
             };
             
-            // 🔥 數值計算修復：依據種族值、等級、IV 計算 🔥
             const calcStats = (mon) => {
                 const base = pokedexMap.value[mon.name];
                 if (!base) return { hp: "???", atk: "???" };
-                
-                // IV mult: 0.9 + (iv/100)*0.2
                 const ivMult = 0.9 + (mon.iv / 100) * 0.2;
-                // Growth: 1.06^(lv-1)
                 const growth = Math.pow(1.06, mon.lv - 1);
-                
                 const hp = Math.floor(base.hp * ivMult * growth);
                 const atk = Math.floor(base.atk * ivMult * growth);
                 return { hp, atk };
@@ -632,8 +663,8 @@
             onMounted(async () => {
                 document.getElementById('loading').style.display = 'none'; 
                 if(!token) return window.location.href = 'login.html';
-                if (!sessionStorage.getItem('seenNews_v207')) newsState.value.show = true;
-                await updateInfo(); await fetchSkillData(); updateMySkills(); await fetchPokedex(); // 確保 Pokedex 載入以計算數值
+                if (!sessionStorage.getItem('seenNews_v208')) newsState.value.show = true;
+                await updateInfo(); await fetchSkillData(); updateMySkills(); await fetchPokedex(); 
                 fetchPlayers(); checkRaid(); setInterval(checkRaid, 5000); fetchQuests(); fetchWildList();
                 const ws = new WebSocket(`${WS_URL}?token=${token}`);
                 ws.onmessage = (e) => {
@@ -651,7 +682,6 @@
             });
             watch(user, () => updateMySkills());
 
-            // 戰鬥計時器
             const startTurnTimer = () => {
                 clearInterval(timerInterval);
                 turnTimer.value = 10;
@@ -758,7 +788,18 @@
                 }, 2000); 
             };
 
-            const useShield = () => { if(shieldUses.value <= 0) return; shieldUses.value--; battle.value.shieldActive = true; doSkillAttack('wait'); };
+            // 🔥 防護盾修復：直接進入敵人回合，不再卡住 🔥
+            const useShield = () => { 
+                if(shieldUses.value <= 0) return; 
+                shieldUses.value--; 
+                battle.value.shieldActive = true; 
+                showFloatingText("🛡️ 防護盾開啟", 'gold');
+                // 暫停一下再觸發敵人攻擊
+                setTimeout(() => {
+                    enemyAttackPhase();
+                }, 1000); 
+            };
+
             const doHeal = async () => { const heal = Math.floor(user.value.max_hp * 0.2); user.value.hp = Math.min(user.value.max_hp, user.value.hp + heal); alert(`回復了 ${heal} HP`); };
             const dailyCheckin = async () => { const res = await fetch(`${API_URL}/social/daily_checkin`, { method: 'POST', headers: { 'Authorization': `Bearer ${token}` } }); const d = await res.json(); alert(d.message || d.detail); updateInfo(); };
             const swapMon = async (uid) => { await fetch(`${API_URL.replace('/items','')}/shop/box/swap/${uid}`, { method: 'POST', headers: { 'Authorization': `Bearer ${token}` } }); updateInfo(); };
@@ -777,7 +818,7 @@
             const abandonQuest = async (qid) => { if(confirm("放棄需消耗 1000G，確定嗎？")) { await fetch(`${API_URL.replace('/items','')}/shop/quests/abandon/${qid}`, { method: 'POST', headers: { 'Authorization': `Bearer ${token}` } }); fetchQuests(); } };
             const claimQuest = async (qid) => { const res = await fetch(`${API_URL.replace('/items','')}/shop/quests/claim/${qid}`, { method: 'POST', headers: { 'Authorization': `Bearer ${token}` } }); const d = await res.json(); alert(d.message); fetchQuests(); };
 
-            return { user, tab, box, players, friends, selectedMon, currentPetIV, battle, raidState, inLobby, lobbyTimer, dailyCheckin, logout, playGacha, swapMon, releaseMon, useCandy, gambleAmount, doGamble, chatMsgs, chatInput, sendChat, doSkillAttack, useShield, doHeal, buyHeal, promoCode, redeemCode, initAdmin, sendInvite, addFriend, sendGift, joinRaid, playerXpPercent, hpPercent, petXpPercent, currentAtkMe, quests, acceptQuest, abandonQuest, claimQuest, wildList, fetchWildList, startWildBattle, showRates, gachaRates, newsState, closeNews, mySkills, shieldUses, getSkillDesc, selectedWildLevel, viewMon, calcStats, getMonSkills, leaderboardType, leaderboardData, fetchLeaderboard, pokedexList, pokedexPercent, fetchPokedex, turnTimer, isEnemyTurn, getReqXp, showGachaAnim, gachaResult, showBattleResult, battleResultMsg, inventory };
+            return { user, tab, box, players, friends, selectedMon, currentPetIV, battle, raidState, inLobby, lobbyTimer, dailyCheckin, logout, playGacha, swapMon, releaseMon, useCandy, gambleAmount, doGamble, chatMsgs, chatInput, sendChat, doSkillAttack, useShield, doHeal, buyHeal, promoCode, redeemCode, initAdmin, sendInvite, addFriend, sendGift, joinRaid, playerXpPercent, hpPercent, petXpPercent, currentAtkMe, quests, acceptQuest, abandonQuest, claimQuest, wildList, fetchWildList, startWildBattle, showRates, gachaRates, newsState, closeNews, mySkills, shieldUses, getSkillDesc, selectedWildLevel, viewMon, calcStats, getMonSkills, leaderboardType, leaderboardData, fetchLeaderboard, pokedexList, pokedexPercent, fetchPokedex, turnTimer, isEnemyTurn, getReqXp, showGachaAnim, gachaResult, showBattleResult, battleResultMsg, inventory, canJoinLobby };
         }
     }).mount('#app');
 </script>
