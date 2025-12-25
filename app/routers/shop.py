@@ -14,7 +14,7 @@ from app.common.websocket import manager
 
 router = APIRouter()
 
-# 完整圖鑑 (維持不變)
+# 完整圖鑑
 POKEDEX_DATA = {
     "小拉達": {"hp": 90, "atk": 80, "img": "https://img.pokemondb.net/artwork/large/rattata.jpg", "skills": ["抓", "出奇一擊", "撞擊"]},
     "波波":   {"hp": 95, "atk": 85, "img": "https://img.pokemondb.net/artwork/large/pidgey.jpg", "skills": ["抓", "啄", "燕返"]},
@@ -110,7 +110,7 @@ WILD_UNLOCK_LEVELS = {
     12: ["小磁怪"], 14: ["卡拉卡拉"], 16: ["喵喵"], 18: ["瑪瑙水母"], 20: ["海刺龍"]
 }
 
-# 扭蛋池 (省略詳細內容，請保持原樣)
+# 扭蛋池
 GACHA_HIGH = [{"name": "卡比獸", "rate": 20}, {"name": "吉利蛋", "rate": 24}, {"name": "幸福蛋", "rate": 10}, {"name": "拉普拉斯", "rate": 10}, {"name": "妙蛙花", "rate": 10}, {"name": "噴火龍", "rate": 10}, {"name": "水箭龜", "rate": 10}, {"name": "快龍", "rate": 6}]
 GACHA_GOLDEN = [{"name": "卡比獸", "rate": 30}, {"name": "吉利蛋", "rate": 35}, {"name": "幸福蛋", "rate": 20}, {"name": "拉普拉斯", "rate": 10}, {"name": "快龍", "rate": 5}]
 GACHA_NORMAL = [{"name": "妙蛙種子", "rate": 5}, {"name": "小火龍", "rate": 5}, {"name": "傑尼龜", "rate": 5}, {"name": "伊布", "rate": 8}, {"name": "皮卡丘", "rate": 8}, {"name": "皮皮", "rate": 10}, {"name": "胖丁", "rate": 10}, {"name": "毛辮羊", "rate": 8}, {"name": "大蔥鴨", "rate": 12}, {"name": "呆呆獸", "rate": 12}, {"name": "可達鴨", "rate": 12}, {"name": "卡比獸", "rate": 2}, {"name": "吉利蛋", "rate": 2}]
@@ -119,11 +119,27 @@ GACHA_CANDY = [{"name": "伊布", "rate": 20}, {"name": "皮卡丘", "rate": 20}
 
 ACTIVE_BATTLES = {}
 RAID_STATE = {"boss_name": None, "hp": 0, "max_hp": 0, "active": False, "players": {}}
-LEVEL_XP = { 1: 50, 2: 150, 3: 300, 4: 500, 5: 800, 6: 1300, 7: 2000, 8: 3000, 9: 5000 }
 
+# 🔥 修正 XP 表 🔥
+LEVEL_XP = { 
+    1: 50, 
+    2: 150, 
+    3: 300, 
+    4: 500, 
+    5: 800, 
+    6: 1300, 
+    7: 2000, 
+    8: 3000, 
+    9: 5000 
+}
+
+# 🔥 修正 get_req_xp 邏輯 🔥
 def get_req_xp(lv):
     if lv >= 25: return 999999999
+    # Lv1-9 查表
     if lv < 10: return LEVEL_XP.get(lv, 5000)
+    # Lv10 開始: 5000 + (lv-9)*2000
+    # Lv10: 5000+2000=7000, Lv11: 9000...
     return 5000 + (lv - 9) * 2000
 
 def apply_iv_stats(base_val, iv, level, is_player=True):
@@ -165,7 +181,6 @@ def get_wild_list(level: int, current_user: User = Depends(get_current_user)):
         })
     return wild_list
 
-# 任務生成
 def generate_quests(user_level, count=3):
     new_quests = []
     targets_pool = []
@@ -241,10 +256,8 @@ def claim_quest(qid: str, db: Session = Depends(get_db), current_user: User = De
     current_user.quests = json.dumps(quests); current_user.inventory = json.dumps(inv); db.commit()
     return {"message": msg}
 
-# 🔥 1. 野怪戰鬥結算 (強制補滿血) 🔥
 @router.post("/wild/attack")
 async def wild_attack_api(is_win: bool = Query(...), is_powerful: bool = Query(False), target_name: str = Query("野怪"), db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
-    # 無論輸贏，都補滿血
     current_user.hp = current_user.max_hp
     
     if is_win:
@@ -254,7 +267,6 @@ async def wild_attack_api(is_win: bool = Query(...), is_powerful: bool = Query(F
         if is_powerful:
             inv = json.loads(current_user.inventory); inv["growth_candy"] = inv.get("growth_candy", 0) + 1; current_user.inventory = json.dumps(inv); msg += " & 🍬 成長糖果 x1"
         
-        # 任務進度
         quests = json.loads(current_user.quests) if current_user.quests else []
         quest_updated = False
         for q in quests:
@@ -274,7 +286,6 @@ async def wild_attack_api(is_win: bool = Query(...), is_powerful: bool = Query(F
     db.commit()
     return {"message": "戰鬥結束，HP已回復。"}
 
-# 🔥 2. 扭蛋機率 (IV 常態分佈修正) 🔥
 @router.post("/gacha/{gacha_type}")
 async def play_gacha(gacha_type: str, db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
     box = json.loads(current_user.pokemon_storage)
@@ -294,18 +305,13 @@ async def play_gacha(gacha_type: str, db: Session = Depends(get_db), current_use
     else:
         if current_user.money < cost: raise HTTPException(status_code=400, detail="金幣不足")
         current_user.money -= cost
-    
     total_rate = sum(p["rate"] for p in pool)
     r = random.randint(1, total_rate)
     acc = 0; prize_name = pool[0]["name"]
     for p in pool:
         acc += p["rate"]
         if r <= acc: prize_name = p["name"]; break
-    
-    # 🔥 IV 改為常態分佈 (Triangular) 🔥
-    # min=0, max=100, mode=50 -> 讓 50 附近機率最高
     iv = int(random.triangular(0, 100, 50))
-    
     new_mon = { "uid": str(uuid.uuid4()), "name": prize_name, "iv": iv, "lv": 1, "exp": 0 }
     box.append(new_mon)
     current_user.pokemon_storage = json.dumps(box)
@@ -317,7 +323,6 @@ async def play_gacha(gacha_type: str, db: Session = Depends(get_db), current_use
         await manager.broadcast(f"🎰 恭喜 [{current_user.username}] 獲得了稀有的 [{prize_name}]！")
     return {"message": f"獲得 {prize_name} (IV: {iv})!", "prize": new_mon, "user": current_user}
 
-# (其餘 box/pvp/raid 等 API 保持 V4.1 不變，省略以節省空間)
 @router.post("/box/swap/{pokemon_uid}")
 async def swap_active_pokemon(pokemon_uid: str, db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
     box = json.loads(current_user.pokemon_storage)
