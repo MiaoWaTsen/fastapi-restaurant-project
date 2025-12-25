@@ -3,8 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>⚡️ 寶可夢大亂鬥 V2.9 (任務修復版) ⚡️</title>
-    
+    <title>⚡️ 寶可夢大亂鬥 V3.0 (技能版) ⚡️</title>
     <script>
         window.onerror = function(msg, source, lineno) {
             const loader = document.getElementById('loading');
@@ -15,7 +14,6 @@
             });
         };
     </script>
-
     <script src="https://unpkg.com/vue@3/dist/vue.global.js"></script>
     <style>
         [v-cloak] { display: none; }
@@ -76,6 +74,9 @@
         
         .rate-table { width: 100%; border-collapse: collapse; margin-top: 10px; }
         .rate-table th, .rate-table td { border: 1px solid #444; padding: 5px; font-size: 0.9em; text-align:left; }
+        
+        /* Skills Grid */
+        .skills-grid { width:100%; max-width:600px; margin-top:20px; display:grid; grid-template-columns:1fr 1fr; gap:10px; }
     </style>
 </head>
 <body>
@@ -84,8 +85,8 @@
 
 <div id="app" class="container" v-cloak>
     <div v-if="!user" style="text-align:center; padding-top:100px;">
-        <h1 style="color:#e94560">寶可夢大亂鬥 V2.9</h1>
-        <p>經典介面回歸 + 任務系統修復</p>
+        <h1 style="color:#e94560">寶可夢大亂鬥 V3.0</h1>
+        <p>技能戰鬥系統 + 等級解鎖機制</p>
         <button class="btn-action" @click="logout">前往登入頁面</button>
         <br><br>
         <button style="background:transparent; border:1px solid #aaa; color:#aaa; padding:5px;" @click="initAdmin">👑 初始化管理員</button>
@@ -94,14 +95,14 @@
     <div v-else>
         <div v-if="newsState.show" class="modal-overlay">
             <div class="modal-box" style="text-align:left;">
-                <div class="modal-title" style="text-align:center;">📢 V2.9 更新公告</div>
+                <div class="modal-title" style="text-align:center;">📢 V3.0 更新公告</div>
                 <ul>
-                    <li><b>🌲 野外修復</b>：解決了野怪不出現的問題。</li>
-                    <li><b>📜 任務升級</b>：現在有 3 個任務，且需擊敗特定寶可夢。</li>
-                    <li><b>💬 聊天室</b>：優化了顯示位置，不會被遮擋。</li>
+                    <li><b>⚔️ 技能戰鬥</b>：每隻寶可夢擁有 3 招專屬技能！</li>
+                    <li><b>🛡️ 防護盾</b>：每場戰鬥可使用 2 次，免疫傷害並反彈 20%！</li>
+                    <li><b>🌲 區域解鎖</b>：野怪隨等級解鎖，數值更精確。</li>
                 </ul>
                 <div style="text-align:center; margin-top:15px;">
-                    <button class="btn-yes" @click="closeNews">我知道了</button>
+                    <button class="btn-yes" @click="closeNews">開始冒險</button>
                 </div>
             </div>
         </div>
@@ -157,10 +158,15 @@
                     <small>HP: {{ battle.target.hp }}</small>
                 </div>
             </div>
-            <div style="width:100%; max-width:600px; margin-top:20px; display:grid; grid-template-columns:1fr 1fr; gap:10px;">
-                <button class="btn-action" @click="doAttack(1.0)">👊 普通攻擊</button>
-                <button class="btn-action" style="background:#3498db" @click="doAttack(1.2)">⚡ 技能攻擊</button>
-                <button class="btn-action" style="background:#27ae60" @click="doHeal">💊 醫療包 (20%)</button>
+            
+            <div class="skills-grid">
+                <button v-for="skill in mySkills" :key="skill" class="btn-action" style="background:#3498db" @click="doSkillAttack(skill)">
+                    ⚡ {{ skill }} ({{ getSkillDmg(skill) }})
+                </button>
+                <button class="btn-action" style="background:#f1c40f; color:black;" @click="useShield" :disabled="shieldUses <= 0">
+                    🛡️ 防護盾 (剩 {{ shieldUses }} 次)
+                </button>
+                <button class="btn-action" style="background:#27ae60" @click="doHeal">💊 醫療包</button>
                 <button class="btn-action" style="background:#7f8c8d" @click="battle.active=false">🏳️ 逃跑</button>
             </div>
         </div>
@@ -180,45 +186,19 @@
             <div v-if="tab=='wild'">
                 <h3>🌲 選擇探險區域</h3>
                 <div style="margin-bottom:15px; background:#2c3e50; padding:10px; border-radius:8px;">
-                    <label>選擇難度等級：</label>
-                    <select v-model="selectedWildLevel" @change="fetchWildList" style="padding:5px; background:#16213e; color:white; border:none;">
-                        <option v-for="n in 10" :value="n">Lv. {{ n }}</option>
-                    </select>
+                    <label>當前玩家等級：Lv. {{ user.level }}</label>
+                    <p style="font-size:0.8em; color:#aaa;">(只能遭遇與自身等級相同的野怪)</p>
                 </div>
                 <div class="card-grid">
                     <div v-for="m in wildList" :key="m.name" class="card">
                         <img :src="m.image_url" class="card-img">
                         <div style="margin-top:5px;">
                             <b :style="{color: m.is_powerful?'#e74c3c':'white'}">{{ m.name }}</b><br>
-                            <small>HP:{{m.hp}}</small><br>
+                            <small>Lv.{{ m.level }} | HP:{{m.hp}}</small><br>
                             <button class="btn-small" style="background:#c0392b" @click="startWildBattle(m)">戰鬥</button>
                         </div>
                     </div>
                 </div>
-            </div>
-
-            <div v-if="tab=='quest'">
-                <h3>📜 冒險任務 (3/3)</h3>
-                <div v-for="q in quests" :key="q.id" class="card quest-card" :class="{'quest-active': q.status=='ACTIVE', 'quest-completed': q.status=='COMPLETED', 'quest-golden': q.type=='GOLDEN'}">
-                    <h4>{{ q.type=='GOLDEN' ? '✨ 黃金任務' : '⚔️ 狩獵任務' }}: 擊敗 {{ q.target }} x{{ q.req }}</h4>
-                    <p>進度: {{ q.now }} / {{ q.req }}</p>
-                    <p v-if="q.type=='GOLDEN'">獎勵: 🍬 黃金糖果 x1</p>
-                    <p v-else>獎勵: {{ q.gold }}G, {{ q.xp }} XP</p>
-                    
-                    <button v-if="q.status=='WAITING'" class="btn-action" style="background:#3498db" @click="acceptQuest(q.id)">接受</button>
-                    <button v-if="q.status=='ACTIVE'" class="btn-action" style="background:#e74c3c" @click="abandonQuest(q.id)">放棄 (-1000G)</button>
-                    <button v-if="q.status=='COMPLETED'" class="btn-action" style="background:#2ecc71" @click="claimQuest(q.id)">領取獎勵</button>
-                </div>
-            </div>
-
-            <div v-if="tab=='shop'">
-                <h3>🛒 扭蛋商店 <button style="font-size:0.6em; background:#555; border:none; color:white; padding:3px;" @click="showRates=true">📊 機率</button></h3>
-                <button class="btn-action" @click="playGacha('normal')">🔮 初級 (1500G)</button>
-                <button class="btn-action" style="background:linear-gradient(45deg, #3498db, #2980b9)" @click="playGacha('medium')">🔵 中級 (3000G)</button>
-                <button class="btn-action" style="background:linear-gradient(45deg, #8e44ad, #9b59b6)" @click="playGacha('high')">🟣 高級 (10000G)</button>
-                <button class="btn-action" style="background:linear-gradient(45deg, #f1c40f, #d35400)" @click="playGacha('golden')">✨ 黃金 (3 Golden)</button>
-                <br><br>
-                <button class="btn-action" style="background:#27ae60" @click="buyHeal">💊 補血 (50G)</button>
             </div>
 
             <div v-if="tab=='arena'">
@@ -261,6 +241,28 @@
                     <button class="btn-action" @click="joinRaid">加入戰鬥 (1000G)</button>
                 </div>
                 <div v-else class="card">目前沒有團體戰 (08:00, 18:00, 22:00 開放)</div>
+            </div>
+            <div v-if="tab=='quest'">
+                <h3>📜 冒險任務 (3/3)</h3>
+                <div v-for="q in quests" :key="q.id" class="card quest-card" :class="{'quest-active': q.status=='ACTIVE', 'quest-completed': q.status=='COMPLETED', 'quest-golden': q.type=='GOLDEN'}">
+                    <h4>{{ q.type=='GOLDEN' ? '✨ 黃金任務' : '⚔️ 狩獵任務' }}: 擊敗 {{ q.target }} x{{ q.req }}</h4>
+                    <p>進度: {{ q.now }} / {{ q.req }}</p>
+                    <p v-if="q.type=='GOLDEN'">獎勵: 🍬 黃金糖果 x1</p>
+                    <p v-else>獎勵: {{ q.gold }}G, {{ q.xp }} XP</p>
+                    
+                    <button v-if="q.status=='WAITING'" class="btn-action" style="background:#3498db" @click="acceptQuest(q.id)">接受</button>
+                    <button v-if="q.status=='ACTIVE'" class="btn-action" style="background:#e74c3c" @click="abandonQuest(q.id)">放棄 (-1000G)</button>
+                    <button v-if="q.status=='COMPLETED'" class="btn-action" style="background:#2ecc71" @click="claimQuest(q.id)">領取獎勵</button>
+                </div>
+            </div>
+            <div v-if="tab=='shop'">
+                <h3>🛒 扭蛋商店 <button style="font-size:0.6em; background:#555; border:none; color:white; padding:3px;" @click="showRates=true">📊 機率</button></h3>
+                <button class="btn-action" @click="playGacha('normal')">🔮 初級 (1500G)</button>
+                <button class="btn-action" style="background:linear-gradient(45deg, #3498db, #2980b9)" @click="playGacha('medium')">🔵 中級 (3000G)</button>
+                <button class="btn-action" style="background:linear-gradient(45deg, #8e44ad, #9b59b6)" @click="playGacha('high')">🟣 高級 (10000G)</button>
+                <button class="btn-action" style="background:linear-gradient(45deg, #f1c40f, #d35400)" @click="playGacha('golden')">✨ 黃金 (3 Golden)</button>
+                <br><br>
+                <button class="btn-action" style="background:#27ae60" @click="buyHeal">💊 補血 (50G)</button>
             </div>
             <div v-if="tab=='gamble'">
                 <div class="card" style="text-align:center; border:2px solid #f39c12;">
@@ -327,11 +329,17 @@
             const tab = ref('wild'); 
             const box = computed(() => user.value ? JSON.parse(user.value.pokemon_storage) : []);
             const newsState = ref({ show: false });
-            const closeNews = () => { newsState.value.show = false; sessionStorage.setItem('seenNews_v24', 'true'); };
+            const closeNews = () => { newsState.value.show = false; sessionStorage.setItem('seenNews_v30', 'true'); };
             const quests = ref([]);
             const players = ref([]);
             const friends = ref([]);
             const selectedMon = ref(null);
+            
+            // Skill Data
+            const skillData = ref({});
+            // 預設技能組 (防呆)
+            const mySkills = ref(["撞擊", "撞擊", "撞擊"]);
+            const shieldUses = ref(2);
             
             const currentPetIV = computed(() => {
                 if(!user.value) return 0;
@@ -353,7 +361,6 @@
             const chatInput = ref("");
             const gambleAmount = ref(100);
             const promoCode = ref("");
-            const selectedWildLevel = ref(1);
             const wildList = ref([]);
             const showRates = ref(false);
             const gachaRates = {
@@ -375,52 +382,119 @@
             const fetchQuests = async () => { const res = await fetch(`${API_URL.replace('/items','')}/shop/quests/`, { headers: { 'Authorization': `Bearer ${token}` } }); if(res.ok) quests.value = await res.json(); updateInfo(); };
             const checkRaid = async () => { const res = await fetch(`${API_URL.replace('/items','')}/shop/raid/status`); if(res.ok) raidState.value = await res.json(); };
             const initAdmin = async () => { try { const res = await fetch(`${API_URL}/social/admin/init`); const d = await res.json(); alert(d.message); } catch(e) {} };
-            const fetchWildList = async () => { const res = await fetch(`${API_URL.replace('/items','')}/shop/wild/list?level=${selectedWildLevel.value}`, { headers: { 'Authorization': `Bearer ${token}` } }); if(res.ok) wildList.value = await res.json(); };
+            const fetchWildList = async () => { const res = await fetch(`${API_URL.replace('/items','')}/shop/wild/list?level=${user.value.level}`, { headers: { 'Authorization': `Bearer ${token}` } }); if(res.ok) wildList.value = await res.json(); };
+            
+            // 抓取技能資料
+            const fetchSkillData = async () => { const res = await fetch(`${API_URL.replace('/items','')}/shop/data/skills`); if(res.ok) skillData.value = await res.json(); };
+
+            // 取得出戰寵物的技能
+            const updateMySkills = () => {
+                if(!user.value || !box.value) return;
+                const active = box.value.find(p => p.uid === user.value.active_pokemon_uid);
+                if(active) {
+                    // 這裡簡化：目前沒有存每隻怪的技能，所以直接用 POKEDEX_DATA 裡的預設
+                    // 實務上應該在 User API 回傳 current_pet_skills
+                    // 暫時解法：假設 POKEDEX_DATA 的技能是固定的，這裡先用寫死的
+                    const name = active.name;
+                    // 因為前端沒有 POKEDEX_DATA，我們需要後端傳回來，或者在這裡硬編碼
+                    // 為了完整性，這裡需要一個映射表，但為了不讓檔案過大，我們假設 startWildBattle 時會更新對手，
+                    // 自己的技能則需要在 User 物件裡。
+                    // 🔥 修復：因為 User 物件沒回傳技能，這裡先用簡單映射 (V3.0+ 應該要後端給) 🔥
+                    mySkills.value = ["撞擊", "撞擊", "撞擊"]; // 預設
+                    // 這裡是一個簡單的 Mapping 範例，實際應該用 API
+                    const skillMap = {
+                        "小拉達": ["抓", "出奇一擊", "撞擊"], "波波": ["抓", "啄", "燕返"], 
+                        "妙蛙種子": ["藤鞭", "種子炸彈", "污泥炸彈"], "小火龍": ["火花", "噴射火焰", "大字爆炎"], "傑尼龜": ["水槍", "水流噴射", "水流尾"],
+                        "卡比獸": ["泰山壓頂", "地震", "撞擊"], "皮卡丘": ["電光", "放電", "電擊"], "快龍": ["抓", "逆鱗", "勇鳥猛攻"]
+                    };
+                    if(skillMap[name]) mySkills.value = skillMap[name];
+                }
+            };
 
             onMounted(async () => {
                 document.getElementById('loading').style.display = 'none'; 
                 if(!token) return window.location.href = 'login.html';
-                if (!sessionStorage.getItem('seenNews_v24')) newsState.value.show = true;
-                await updateInfo(); fetchPlayers(); checkRaid(); setInterval(checkRaid, 5000); fetchQuests(); fetchWildList();
+                if (!sessionStorage.getItem('seenNews_v30')) newsState.value.show = true;
+                await updateInfo(); await fetchSkillData(); updateMySkills();
+                fetchPlayers(); checkRaid(); setInterval(checkRaid, 5000); fetchQuests(); fetchWildList();
                 const ws = new WebSocket(`${WS_URL}?token=${token}`);
                 ws.onmessage = (e) => {
                     const msg = e.data;
                     if(msg.startsWith("CHAT|")) { chatMsgs.value.push(msg.split("|")[1]); setTimeout(() => { const b = document.getElementById('chat-box'); if(b) b.scrollTop = b.scrollHeight; }, 100); }
                     if(msg.startsWith("EVENT:DUEL_INVITE")) { const parts = msg.split("|"); if(parseInt(parts[3]) === user.value.id) { if(confirm(`${parts[2]} 邀請你決鬥！接受嗎？`)) acceptDuel(parts[1]); } }
-                    if(msg.startsWith("EVENT:DUEL_START")) {
-                        const parts = msg.split("|");
-                        if(user.value.id == parts[1] || user.value.id == parts[3]) {
-                            const oppId = user.value.id == parts[1] ? parts[3] : parts[1];
-                            const oppName = user.value.id == parts[1] ? parts[4] : parts[2];
-                            startLobby({id: oppId, name: oppName, hp: 100, max_hp: 100, image_url: 'https://img.pokemondb.net/artwork/large/pikachu.jpg'}); 
-                        }
-                    }
+                    if(msg.startsWith("EVENT:DUEL_START")) { startLobby({id: 0, name: "對手", hp: 100, max_hp: 100, image_url: ''}); }
                     if(msg.startsWith("EVENT:PVP_SWAP") || msg.startsWith("EVENT:PVP_MOVE")) updateInfo();
                 };
             });
             
             watch(tab, (n) => { if(n==='arena') fetchPlayers(); if(n==='social') fetchFriends(); if(n==='quest') fetchQuests(); if(n==='wild') fetchWildList(); });
+            watch(user, () => updateMySkills()); // 當 user 更新時更新技能
 
-            const startWildBattle = (target) => { battle.value = { active: true, mode: 'wild', target: JSON.parse(JSON.stringify(target)), shakeMe: false, shakeTarget: false }; };
-            const startLobby = (target) => { inLobby.value = true; lobbyTimer.value = 15; battle.value = { active: true, mode: 'pvp', target: target, shakeMe: false, shakeTarget: false }; lobbyInterval = setInterval(() => { lobbyTimer.value--; if(lobbyTimer.value <= 0) { clearInterval(lobbyInterval); inLobby.value = false; } }, 1000); };
+            const startWildBattle = (target) => {
+                shieldUses.value = 2; // 重置護盾
+                updateMySkills(); // 確保技能最新
+                battle.value = { active: true, mode: 'wild', target: JSON.parse(JSON.stringify(target)), shakeMe: false, shakeTarget: false };
+            };
+            
+            const startLobby = (target) => {
+                inLobby.value = true; lobbyTimer.value = 15; shieldUses.value = 2;
+                battle.value = { active: true, mode: 'pvp', target: target, shakeMe: false, shakeTarget: false };
+                lobbyInterval = setInterval(() => { lobbyTimer.value--; if(lobbyTimer.value <= 0) { clearInterval(lobbyInterval); inLobby.value = false; } }, 1000);
+            };
 
-            const doAttack = async (mult) => {
-                const dmg = Math.floor(user.value.attack * mult);
+            const getSkillDmg = (name) => skillData.value[name] || 20;
+
+            const doSkillAttack = async (skillName) => {
+                const baseDmg = getSkillDmg(skillName);
+                // 傷害公式：(ATK * 技能傷害 / 50) * 浮動 (簡化)
+                const dmg = Math.floor((user.value.attack * baseDmg / 20) * (0.9 + Math.random()*0.2));
+                
                 if(battle.value.mode === 'wild') {
+                    // 玩家攻擊
                     battle.value.target.hp -= dmg;
                     battle.value.shakeTarget = true; setTimeout(()=>battle.value.shakeTarget=false, 500);
+                    
                     if(battle.value.target.hp <= 0) {
                         const res = await fetch(`${API_URL.replace('/items','')}/shop/wild/attack?is_win=true&is_powerful=${battle.value.target.is_powerful||false}&target_name=${battle.value.target.raw_name}`, { method: 'POST', headers: { 'Authorization': `Bearer ${token}` } });
                         const d = await res.json(); alert(d.message);
                         battle.value.active = false; updateInfo(); fetchQuests();
                     } else {
+                        // 野怪反擊 (隨機選一招)
                         setTimeout(() => {
-                            user.value.hp -= Math.floor(battle.value.target.attack * 0.8);
+                            const enemySkill = battle.value.target.skills[Math.floor(Math.random()*3)];
+                            const enemyBaseDmg = getSkillDmg(enemySkill);
+                            const enemyDmg = Math.floor((battle.value.target.attack * enemyBaseDmg / 20));
+                            
+                            user.value.hp -= enemyDmg;
                             battle.value.shakeMe = true; setTimeout(()=>battle.value.shakeMe=false, 500);
+                            if(user.value.hp <= 0) { alert("你被打敗了..."); battle.value.active = false; buyHeal(); }
                         }, 500);
                     }
-                } else if (battle.value.mode === 'pvp') {
-                    await fetch(`${API_URL.replace('/items','')}/shop/pvp/${battle.value.target.id}?damage=${dmg}`, { method: 'POST', headers: { 'Authorization': `Bearer ${token}` } });
+                }
+            };
+            
+            const useShield = () => {
+                if(shieldUses.value <= 0) return;
+                shieldUses.value--;
+                
+                if(battle.value.mode === 'wild') {
+                    // 本回合不攻擊，野怪攻擊時觸發反彈
+                    setTimeout(() => {
+                        const enemySkill = battle.value.target.skills[Math.floor(Math.random()*3)];
+                        const enemyBaseDmg = getSkillDmg(enemySkill);
+                        const enemyDmg = Math.floor((battle.value.target.attack * enemyBaseDmg / 20));
+                        
+                        // 反彈 20%
+                        const reflect = Math.floor(enemyDmg * 0.2);
+                        battle.value.target.hp -= reflect;
+                        alert(`🛡️ 防護盾生效！抵擋了 ${enemyDmg} 傷害，並反彈了 ${reflect} 傷害！`);
+                        
+                        if(battle.value.target.hp <= 0) {
+                            // 彈死對手
+                             fetch(`${API_URL.replace('/items','')}/shop/wild/attack?is_win=true&is_powerful=${battle.value.target.is_powerful||false}&target_name=${battle.value.target.raw_name}`, { method: 'POST', headers: { 'Authorization': `Bearer ${token}` } })
+                             .then(r=>r.json()).then(d=>{ alert(d.message); battle.value.active = false; updateInfo(); fetchQuests(); });
+                        }
+                    }, 500);
                 }
             };
             
@@ -443,7 +517,7 @@
             const abandonQuest = async (qid) => { if(confirm("放棄需消耗 1000G，確定嗎？")) { await fetch(`${API_URL.replace('/items','')}/shop/quests/abandon/${qid}`, { method: 'POST', headers: { 'Authorization': `Bearer ${token}` } }); fetchQuests(); } };
             const claimQuest = async (qid) => { const res = await fetch(`${API_URL.replace('/items','')}/shop/quests/claim/${qid}`, { method: 'POST', headers: { 'Authorization': `Bearer ${token}` } }); const d = await res.json(); alert(d.message); fetchQuests(); };
 
-            return { user, tab, box, players, friends, selectedMon, currentPetIV, battle, raidState, inLobby, lobbyTimer, dailyCheckin, logout, playGacha, swapMon, releaseMon, useCandy, gambleAmount, doGamble, chatMsgs, chatInput, sendChat, doAttack, doHeal, buyHeal, promoCode, redeemCode, initAdmin, sendInvite, addFriend, sendGift, joinRaid, playerXpPercent, hpPercent, petXpPercent, currentAtkMe, quests, acceptQuest, abandonQuest, claimQuest, selectedWildLevel, wildList, fetchWildList, startWildBattle, showRates, gachaRates, newsState, closeNews };
+            return { user, tab, box, players, friends, selectedMon, currentPetIV, battle, raidState, inLobby, lobbyTimer, dailyCheckin, logout, playGacha, swapMon, releaseMon, useCandy, gambleAmount, doGamble, chatMsgs, chatInput, sendChat, doSkillAttack, useShield, doHeal, buyHeal, promoCode, redeemCode, initAdmin, sendInvite, addFriend, sendGift, joinRaid, playerXpPercent, hpPercent, petXpPercent, currentAtkMe, quests, acceptQuest, abandonQuest, claimQuest, wildList, fetchWildList, startWildBattle, showRates, gachaRates, newsState, closeNews, mySkills, shieldUses, getSkillDmg };
         }
     }).mount('#app');
 </script>
