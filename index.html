@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>⚡️ 寶可夢大亂鬥 V3.0 (技能版) ⚡️</title>
+    <title>⚡️ 寶可夢大亂鬥 V3.1 (完全體) ⚡️</title>
     <script>
         window.onerror = function(msg, source, lineno) {
             const loader = document.getElementById('loading');
@@ -46,8 +46,8 @@
         .btn-small { width: 48%; padding: 5px; font-size: 0.9em; margin-top: 5px; border: none; border-radius: 5px; cursor: pointer; color: white; }
         
         /* Quest */
-        .quest-card { text-align: left; margin-bottom: 10px; border-left: 5px solid #aaa; padding: 15px; }
-        .quest-active { border-left-color: #f1c40f; background: #222; } 
+        .quest-card { text-align: left; margin-bottom: 10px; border-left: 5px solid #aaa; padding: 15px; background:#1e2a38; }
+        .quest-active { border-left-color: #f1c40f; } 
         .quest-completed { border-left-color: #2ecc71; background: #1b261b; }
         .quest-golden { background: linear-gradient(45deg, #f1c40f, #f39c12); color: #000; border-left: 5px solid #fff; }
 
@@ -85,8 +85,8 @@
 
 <div id="app" class="container" v-cloak>
     <div v-if="!user" style="text-align:center; padding-top:100px;">
-        <h1 style="color:#e94560">寶可夢大亂鬥 V3.0</h1>
-        <p>技能戰鬥系統 + 等級解鎖機制</p>
+        <h1 style="color:#e94560">寶可夢大亂鬥 V3.1</h1>
+        <p>經典介面回歸 + 修復崩潰</p>
         <button class="btn-action" @click="logout">前往登入頁面</button>
         <br><br>
         <button style="background:transparent; border:1px solid #aaa; color:#aaa; padding:5px;" @click="initAdmin">👑 初始化管理員</button>
@@ -95,14 +95,14 @@
     <div v-else>
         <div v-if="newsState.show" class="modal-overlay">
             <div class="modal-box" style="text-align:left;">
-                <div class="modal-title" style="text-align:center;">📢 V3.0 更新公告</div>
+                <div class="modal-title" style="text-align:center;">📢 V3.1 更新公告</div>
                 <ul>
-                    <li><b>⚔️ 技能戰鬥</b>：每隻寶可夢擁有 3 招專屬技能！</li>
-                    <li><b>🛡️ 防護盾</b>：每場戰鬥可使用 2 次，免疫傷害並反彈 20%！</li>
-                    <li><b>🌲 區域解鎖</b>：野怪隨等級解鎖，數值更精確。</li>
+                    <li><b>🦄 修復完成</b>：解決了野怪系統崩潰與變數錯誤。</li>
+                    <li><b>📜 任務升級</b>：現在有 3 個任務，且明確指示目標等級。</li>
+                    <li><b>💬 聊天室</b>：優化了顯示位置，不會被遮擋。</li>
                 </ul>
                 <div style="text-align:center; margin-top:15px;">
-                    <button class="btn-yes" @click="closeNews">開始冒險</button>
+                    <button class="btn-yes" @click="closeNews">我知道了</button>
                 </div>
             </div>
         </div>
@@ -245,7 +245,7 @@
             <div v-if="tab=='quest'">
                 <h3>📜 冒險任務 (3/3)</h3>
                 <div v-for="q in quests" :key="q.id" class="card quest-card" :class="{'quest-active': q.status=='ACTIVE', 'quest-completed': q.status=='COMPLETED', 'quest-golden': q.type=='GOLDEN'}">
-                    <h4>{{ q.type=='GOLDEN' ? '✨ 黃金任務' : '⚔️ 狩獵任務' }}: 擊敗 {{ q.target }} x{{ q.req }}</h4>
+                    <h4>{{ q.type=='GOLDEN' ? '✨ 黃金任務' : '⚔️ 狩獵任務' }}: 擊敗 {{ q.target_display || q.target }} x{{ q.req }}</h4>
                     <p>進度: {{ q.now }} / {{ q.req }}</p>
                     <p v-if="q.type=='GOLDEN'">獎勵: 🍬 黃金糖果 x1</p>
                     <p v-else>獎勵: {{ q.gold }}G, {{ q.xp }} XP</p>
@@ -392,20 +392,14 @@
                 if(!user.value || !box.value) return;
                 const active = box.value.find(p => p.uid === user.value.active_pokemon_uid);
                 if(active) {
-                    // 這裡簡化：目前沒有存每隻怪的技能，所以直接用 POKEDEX_DATA 裡的預設
-                    // 實務上應該在 User API 回傳 current_pet_skills
-                    // 暫時解法：假設 POKEDEX_DATA 的技能是固定的，這裡先用寫死的
                     const name = active.name;
-                    // 因為前端沒有 POKEDEX_DATA，我們需要後端傳回來，或者在這裡硬編碼
-                    // 為了完整性，這裡需要一個映射表，但為了不讓檔案過大，我們假設 startWildBattle 時會更新對手，
-                    // 自己的技能則需要在 User 物件裡。
-                    // 🔥 修復：因為 User 物件沒回傳技能，這裡先用簡單映射 (V3.0+ 應該要後端給) 🔥
                     mySkills.value = ["撞擊", "撞擊", "撞擊"]; // 預設
                     // 這裡是一個簡單的 Mapping 範例，實際應該用 API
                     const skillMap = {
                         "小拉達": ["抓", "出奇一擊", "撞擊"], "波波": ["抓", "啄", "燕返"], 
                         "妙蛙種子": ["藤鞭", "種子炸彈", "污泥炸彈"], "小火龍": ["火花", "噴射火焰", "大字爆炎"], "傑尼龜": ["水槍", "水流噴射", "水流尾"],
-                        "卡比獸": ["泰山壓頂", "地震", "撞擊"], "皮卡丘": ["電光", "放電", "電擊"], "快龍": ["抓", "逆鱗", "勇鳥猛攻"]
+                        "卡比獸": ["泰山壓頂", "地震", "撞擊"], "皮卡丘": ["電光", "放電", "電擊"], "快龍": ["抓", "逆鱗", "勇鳥猛攻"],
+                        "海星星": ["水槍", "幻象光線", "撞擊"]
                     };
                     if(skillMap[name]) mySkills.value = skillMap[name];
                 }
@@ -446,7 +440,6 @@
 
             const doSkillAttack = async (skillName) => {
                 const baseDmg = getSkillDmg(skillName);
-                // 傷害公式：(ATK * 技能傷害 / 50) * 浮動 (簡化)
                 const dmg = Math.floor((user.value.attack * baseDmg / 20) * (0.9 + Math.random()*0.2));
                 
                 if(battle.value.mode === 'wild') {
@@ -459,7 +452,7 @@
                         const d = await res.json(); alert(d.message);
                         battle.value.active = false; updateInfo(); fetchQuests();
                     } else {
-                        // 野怪反擊 (隨機選一招)
+                        // 野怪反擊
                         setTimeout(() => {
                             const enemySkill = battle.value.target.skills[Math.floor(Math.random()*3)];
                             const enemyBaseDmg = getSkillDmg(enemySkill);
