@@ -2,7 +2,7 @@
 
 from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.orm import Session
-from datetime import datetime, time
+from datetime import datetime
 import random
 import json
 import uuid
@@ -14,7 +14,9 @@ from app.common.websocket import manager
 
 router = APIRouter()
 
-# 完整圖鑑
+# ==========================================
+# 1. 遊戲數據資料庫 (保留完整內容)
+# ==========================================
 POKEDEX_DATA = {
     "小拉達": {"hp": 90, "atk": 80, "img": "https://img.pokemondb.net/artwork/large/rattata.jpg", "skills": ["抓", "出奇一擊", "撞擊"]},
     "波波":   {"hp": 95, "atk": 85, "img": "https://img.pokemondb.net/artwork/large/pidgey.jpg", "skills": ["抓", "啄", "燕返"]},
@@ -60,7 +62,6 @@ POKEDEX_DATA = {
     "夢幻":   {"hp": 155, "atk": 150, "img": "https://img.pokemondb.net/artwork/large/mew.jpg", "skills": ["念力", "精神強念", "精神撃破"]},
 }
 
-# 可收集名單
 OBTAINABLE_MONS = [
     "妙蛙種子", "小火龍", "傑尼龜", "妙蛙花", "噴火龍", "水箭龜",
     "毛辮羊", "皮卡丘", "伊布", "胖丁", "皮皮", "大蔥鴨", "呆呆獸", "可達鴨",
@@ -124,9 +125,27 @@ GACHA_MEDIUM = [{"name": "妙蛙種子", "rate": 10}, {"name": "小火龍", "rat
 GACHA_CANDY = [{"name": "伊布", "rate": 20}, {"name": "皮卡丘", "rate": 20}, {"name": "妙蛙花", "rate": 10}, {"name": "噴火龍", "rate": 10}, {"name": "水箭龜", "rate": 10}, {"name": "卡比獸", "rate": 10}, {"name": "吉利蛋", "rate": 10}, {"name": "幸福蛋", "rate": 4}, {"name": "拉普拉斯", "rate": 3}, {"name": "快龍", "rate": 3}]
 
 ACTIVE_BATTLES = {}
-RAID_STATE = {"boss_name": None, "hp": 0, "max_hp": 0, "active": False, "players": {}}
 LEVEL_XP = { 1: 50, 2: 150, 3: 300, 4: 500, 5: 800, 6: 1300, 7: 2000, 8: 3000, 9: 5000 }
 
+# --- 團體戰設定 ---
+RAID_SCHEDULE = [8, 18, 22] # 開放時間
+RAID_STATE = {
+    "active": False,
+    "status": "IDLE",
+    "boss": None,
+    "current_hp": 0,
+    "max_hp": 0,
+    "players": {} 
+}
+LEGENDARY_BIRDS = [
+    {"name": "❄️ 急凍鳥", "hp": 50000, "atk": 300, "img": "https://img.pokemondb.net/sprites/home/normal/articuno.png"},
+    {"name": "⚡ 閃電鳥", "hp": 50000, "atk": 320, "img": "https://img.pokemondb.net/sprites/home/normal/zapdos.png"},
+    {"name": "🔥 火焰鳥", "hp": 50000, "atk": 350, "img": "https://img.pokemondb.net/sprites/home/normal/moltres.png"}
+]
+
+# ==========================================
+# 2. 輔助函式
+# ==========================================
 def get_req_xp(lv):
     if lv >= 25: return 999999999
     if lv < 10: return LEVEL_XP.get(lv, 5000)
@@ -137,6 +156,59 @@ def apply_iv_stats(base_val, iv, level, is_player=True):
     growth = 1.06 if is_player else 1.07
     if base_val > 500: growth = 1.08 if is_player else 1.09
     return int(base_val * iv_mult * (growth ** (level - 1)))
+
+def update_raid_logic():
+    """
+    更新團體戰狀態：
+    - 59分: 進入 LOBBY (預先生成 Boss)
+    - 00分~15分: FIGHTING (開打)
+    - 其他: IDLE
+    """
+    now = datetime.now()
+    current_hour = now.hour
+    current_min = now.minute
+    
+    # 1. 檢查是否為 59 分 (LOBBY 準備期)
+    next_hour = current_hour + 1
+    if current_min == 59 and next_hour in RAID_SCHEDULE:
+        if RAID_STATE["status"] != "LOBBY":
+            boss_template = random.choice(LEGENDARY_BIRDS)
+            RAID_STATE["active"] = True
+            RAID_STATE["status"] = "LOBBY"
+            RAID_STATE["boss"] = boss_template
+            RAID_STATE["max_hp"] = boss_template["hp"]
+            RAID_STATE["current_hp"] = boss_template["hp"]
+            RAID_STATE["players"] = {}
+        return
+
+    # 2. 檢查是否為開放時段 (FIGHTING 戰鬥期)
+    if current_hour in RAID_SCHEDULE and 0 <= current_min < 30:
+        if RAID_STATE["status"] == "LOBBY":
+             RAID_STATE["status"] = "FIGHTING"
+        elif RAID_STATE["status"] == "IDLE":
+             # 錯過 59 分補救
+             boss_template = random.choice(LEGENDARY_BIRDS)
+             RAID_STATE["active"] = True
+             RAID_STATE["status"] = "FIGHTING"
+             RAID_STATE["boss"] = boss_template
+             RAID_STATE["max_hp"] = boss_template["hp"]
+             RAID_STATE["current_hp"] = boss_template["hp"]
+             RAID_STATE["players"] = {}
+        
+        if RAID_STATE["current_hp"] <= 0:
+            RAID_STATE["status"] = "ENDED"
+            RAID_STATE["active"] = False
+        return
+
+    # 3. 其他時間 (IDLE)
+    if RAID_STATE["status"] != "IDLE":
+        RAID_STATE["active"] = False
+        RAID_STATE["status"] = "IDLE"
+        RAID_STATE["boss"] = None
+
+# ==========================================
+# 3. API Endpoints
+# ==========================================
 
 @router.get("/data/skills")
 def get_skill_data():
@@ -188,9 +260,8 @@ async def wild_attack_api(is_win: bool = Query(...), is_powerful: bool = Query(F
         quests = json.loads(current_user.quests) if current_user.quests else []
         quest_updated = False
         for q in quests:
-            if q["status"] == "ACTIVE" and q.get("target") in target_name:
+            if q["status"] == "IN_PROGRESS" and q.get("target") in target_name:
                 q["now"] += 1
-                if q["now"] >= q["req"]: q["status"] = "COMPLETED"
                 quest_updated = True
         if quest_updated: current_user.quests = json.dumps(quests)
         req_xp_p = get_req_xp(current_user.level)
@@ -274,7 +345,6 @@ async def swap_active_pokemon(pokemon_uid: str, db: Session = Depends(get_db), c
     await manager.broadcast(f"EVENT:PVP_SWAP|{current_user.id}")
     return {"message": f"就決定是你了，{target['name']}！"}
 
-# 🔥 新增：成長糖果等級限制檢查 🔥
 @router.post("/box/action/{action}/{pokemon_uid}")
 async def box_action(action: str, pokemon_uid: str, db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
     box = json.loads(current_user.pokemon_storage)
@@ -289,7 +359,6 @@ async def box_action(action: str, pokemon_uid: str, db: Session = Depends(get_db
         msg = "放生成功，獲得 100 Gold"
         
     elif action == "candy":
-        # 🚨 關鍵修正：檢查寶可夢等級是否已達訓練師等級 🚨
         if target["lv"] >= current_user.level:
             raise HTTPException(status_code=400, detail=f"等級已達上限 (訓練師 Lv.{current_user.level})")
 
@@ -299,13 +368,8 @@ async def box_action(action: str, pokemon_uid: str, db: Session = Depends(get_db
         
         req = get_req_xp(target["lv"])
         while target["exp"] >= req and target["lv"] < 25:
-            # 迴圈內再次檢查，防止單次大量經驗導致超車
-            if target["lv"] >= current_user.level:
-                break
-                
-            target["lv"] += 1
-            target["exp"] -= req
-            req = get_req_xp(target["lv"])
+            if target["lv"] >= current_user.level: break
+            target["lv"] += 1; target["exp"] -= req; req = get_req_xp(target["lv"])
             
         if pokemon_uid == current_user.active_pokemon_uid:
             base = POKEDEX_DATA.get(target["name"])
@@ -361,35 +425,35 @@ async def pvp_attack(target_id: int, damage: int = Query(0), heal: int = Query(0
     await manager.broadcast(msg)
     return {"message": "攻擊成功", "result": result_type, "reward": reward_msg, "user": current_user}
 
+# 🔥 新版 Raid 邏輯 (Lobby @ :59, Fight @ :00) 🔥
 @router.get("/raid/status")
 def get_raid_status():
-    now = datetime.now()
-    hour = now.hour
-    is_raid_time = hour in [8, 18, 22] and now.minute < 30
-    if is_raid_time and not RAID_STATE["active"]:
-        bosses = ["急凍鳥", "火焰鳥", "閃電鳥"]
-        name = bosses[hour % 3]
-        RAID_STATE["active"] = True; RAID_STATE["boss_name"] = name; RAID_STATE["max_hp"] = 3000; RAID_STATE["hp"] = 3000; RAID_STATE["players"] = {}
-    elif not is_raid_time: RAID_STATE["active"] = False
-    return RAID_STATE
+    update_raid_logic()
+    if not RAID_STATE["active"] and RAID_STATE["status"] != "LOBBY":
+        return {"active": False, "status": "IDLE"}
+    boss = RAID_STATE["boss"]
+    return {
+        "active": True,
+        "status": RAID_STATE["status"],
+        "boss_name": boss["name"],
+        "hp": RAID_STATE["current_hp"],
+        "max_hp": RAID_STATE["max_hp"],
+        "image": boss["img"]
+    }
 
 @router.post("/raid/join")
-def join_raid(db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
-    if not RAID_STATE["active"]: raise HTTPException(status_code=400, detail="目前沒有團體戰")
-    if current_user.money < 1000: raise HTTPException(status_code=400, detail="入場費不足 1000G")
-    current_user.money -= 1000; db.commit()
+def join_raid(current_user: User = Depends(get_current_user), db: Session = Depends(get_db)):
+    update_raid_logic()
+    if RAID_STATE["status"] not in ["LOBBY", "FIGHTING"]: raise HTTPException(status_code=400, detail="目前沒有開放團體戰")
+    if current_user.id in RAID_STATE["players"]: return {"message": "已經加入過了"}
+    if current_user.money < 1000: raise HTTPException(status_code=400, detail="金幣不足 (需 1000 G)")
+    current_user.money -= 1000
     RAID_STATE["players"][current_user.id] = {"name": current_user.username, "dmg": 0}
-    return {"message": "已加入團體戰！"}
+    db.commit()
+    return {"message": "成功加入團體戰大廳！"}
 
 @router.post("/raid/attack")
-async def attack_raid(damage: int = Query(...), db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
-    if not RAID_STATE["active"]: raise HTTPException(status_code=400, detail="團體戰已結束")
-    if current_user.id not in RAID_STATE["players"]: raise HTTPException(status_code=400, detail="請先支付入場費")
-    RAID_STATE["hp"] = max(0, RAID_STATE["hp"] - damage)
-    RAID_STATE["players"][current_user.id]["dmg"] += damage
-    await manager.broadcast(f"RAID_UPDATE|{RAID_STATE['hp']}|{RAID_STATE['max_hp']}")
-    if RAID_STATE["hp"] <= 0:
-        RAID_STATE["active"] = False; current_user.exp += 3000; current_user.pet_exp += 3000; db.commit()
-        await manager.broadcast(f"RAID_WIN|{current_user.username}")
-        return {"message": "Boss 擊敗！", "result": "WIN"}
-    return {"message": "攻擊成功", "boss_hp": RAID_STATE["hp"]}
+def attack_raid_boss(damage: int = Query(...), current_user: User = Depends(get_current_user)):
+    if RAID_STATE["status"] != "FIGHTING": return {"message": "戰鬥尚未開始或已結束", "boss_hp": RAID_STATE["current_hp"]}
+    RAID_STATE["current_hp"] = max(0, RAID_STATE["current_hp"] - damage)
+    return {"message": f"造成 {damage} 點傷害", "boss_hp": RAID_STATE["current_hp"]}
