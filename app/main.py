@@ -2,11 +2,11 @@
 
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
-from app.routers import auth, shop, social, quest # 🔥 引入 quest
+# 🔥 1. 記得 import quest
+from app.routers import auth, shop, social, quest 
 
 app = FastAPI()
 
-# 允許跨域請求
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],
@@ -19,7 +19,9 @@ app.add_middleware(
 app.include_router(auth.router, prefix="/api/v1/auth", tags=["auth"])
 app.include_router(shop.router, prefix="/api/v1/shop", tags=["shop"])
 app.include_router(social.router, prefix="/api/v1/social", tags=["social"])
-app.include_router(quest.router, prefix="/api/v1/quest", tags=["quests"]) # 🔥 新增這一行
+
+# 🔥 2. 這一行非常重要！沒有這行就會出現 404 錯誤
+app.include_router(quest.router, prefix="/api/v1/quests", tags=["quests"]) 
 
 @app.get("/")
 def read_root():

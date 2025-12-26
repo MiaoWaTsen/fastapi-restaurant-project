@@ -3,11 +3,11 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>⚡️ 寶可夢大亂鬥 V2.0.13 (穩定修正版) ⚡️</title>
+    <title>⚡️ 寶可夢大亂鬥 V2.0.14 (聊天室獨立版) ⚡️</title>
     <script src="https://unpkg.com/vue@3/dist/vue.global.js"></script>
     <style>
         [v-cloak] { display: none; }
-        body { font-family: 'Segoe UI', sans-serif; background-color: #1a1a2e; color: #fff; padding: 20px; padding-bottom: 120px; user-select: none; }
+        body { font-family: 'Segoe UI', sans-serif; background-color: #1a1a2e; color: #fff; padding: 20px; padding-bottom: 50px; user-select: none; }
         .container { max-width: 900px; margin: 0 auto; position: relative; }
         .navbar { display: flex; justify-content: space-between; align-items: center; background: #16213e; padding: 15px; border-radius: 10px; margin-bottom: 20px; border: 1px solid #0f3460; }
         .user-info { display: flex; gap: 15px; width: 100%; }
@@ -36,7 +36,6 @@
         .btn-small { width: 48%; padding: 5px; font-size: 0.9em; margin-top: 5px; border: none; border-radius: 5px; cursor: pointer; color: white; }
         .btn-disabled { background: #555 !important; cursor: not-allowed; opacity: 0.6; pointer-events: none; }
 
-        /* Gacha Buttons */
         .btn-gacha { width: 100%; padding: 15px; margin-bottom: 10px; border: none; border-radius: 10px; color: white; font-weight: bold; font-size: 1.1em; cursor: pointer; display: flex; justify-content: space-between; align-items: center; transition: transform 0.2s; box-shadow: 0 4px 6px rgba(0,0,0,0.3); }
         .btn-gacha:hover { transform: translateY(-3px); }
         .gacha-normal { background: linear-gradient(90deg, #3498db, #2980b9); }
@@ -45,7 +44,6 @@
         .gacha-candy { background: linear-gradient(90deg, #e91e63, #c2185b); }
         .gacha-golden { background: linear-gradient(90deg, #f1c40f, #f39c12); color: #000; text-shadow: 0px 0px 2px white; }
 
-        /* Quest Styles */
         .quest-card { text-align: left; margin-bottom: 10px; border-left: 5px solid #aaa; padding: 15px; background:#1e2a38; transition: 0.3s; }
         .quest-completed { border-left-color: #2ecc71; background: #1b261b; }
         .quest-golden { background: linear-gradient(135deg, #f1c40f, #f39c12); color: #000 !important; border-left: 5px solid #fff; box-shadow: 0 0 10px rgba(241, 196, 15, 0.3); }
@@ -78,12 +76,6 @@
         .modal-title { font-size: 1.5em; color: #f1c40f; margin-bottom: 20px; }
         .btn-yes { background: #27ae60; padding: 10px 20px; border:none; color:white; border-radius:5px; cursor:pointer; margin:5px; }
         
-        .chat-panel { position: fixed; bottom: 0; left: 0; width: 100%; height: 120px; background: rgba(0,0,0,0.95); z-index: 9999; padding: 10px; display: flex; flex-direction: column; border-top: 1px solid #333; }
-        .chat-msgs { flex: 1; overflow-y: auto; font-size: 0.9em; margin-bottom: 5px; color: #ccc; }
-        .chat-input { flex: 1; padding: 8px; border-radius: 5px; border: none; background: #333; color: white; }
-        
-        .lobby-bar { position: fixed; bottom: 130px; left: 0; width: 100%; background: rgba(22, 33, 62, 0.95); border-top: 3px solid #f1c40f; padding: 10px; z-index: 6000; display: flex; justify-content: center; align-items: center; }
-        
         .rate-table { width: 100%; border-collapse: collapse; margin-top: 10px; }
         .rate-table th, .rate-table td { border: 1px solid #444; padding: 5px; font-size: 0.9em; text-align:left; }
         
@@ -105,6 +97,29 @@
         /* Gacha Animation */
         .gacha-anim { font-size: 5em; animation: bounce 1s infinite; margin-bottom: 20px; }
         @keyframes bounce { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-20px); } }
+
+        /* 🔥 Chat Room 獨立樣式 🔥 */
+        .chat-room {
+            background: #1e2a38;
+            border-radius: 10px;
+            padding: 15px;
+            height: 65vh; /* 固定高度 */
+            display: flex;
+            flex-direction: column;
+            border: 1px solid #333;
+        }
+        .chat-msgs {
+            flex: 1;
+            overflow-y: auto;
+            margin-bottom: 10px;
+            padding: 10px;
+            background: rgba(0,0,0,0.2);
+            border-radius: 5px;
+            text-align: left;
+        }
+        .chat-msg-item { margin-bottom: 5px; font-size: 0.95em; border-bottom: 1px solid rgba(255,255,255,0.05); padding-bottom: 3px; }
+        .chat-input-area { display: flex; gap: 10px; }
+        .chat-input { flex: 1; padding: 12px; border-radius: 5px; border: none; background: #333; color: white; }
     </style>
 </head>
 <body>
@@ -113,8 +128,8 @@
 
 <div id="app" class="container" v-cloak>
     <div v-if="!user" style="text-align:center; padding-top:100px;">
-        <h1 style="color:#e94560">寶可夢大亂鬥 V2.0.13</h1>
-        <p>穩定修正版</p>
+        <h1 style="color:#e94560">寶可夢大亂鬥 V2.0.14</h1>
+        <p>獨立聊天室版</p>
         <button class="btn-action" @click="logout">前往登入頁面</button>
         <br><br>
         <button style="background:transparent; border:1px solid #aaa; color:#aaa; padding:5px;" @click="initAdmin">👑 初始化管理員</button>
@@ -168,11 +183,10 @@
         
         <div v-if="newsState.show" class="modal-overlay">
             <div class="modal-box" style="text-align:left;">
-                <div class="modal-title" style="text-align:center;">📢 V2.0.13 更新公告</div>
+                <div class="modal-title" style="text-align:center;">📢 V2.0.14 更新公告</div>
                 <ul>
-                    <li><b>📜 任務修正</b>：任務現在會依據您的寶可夢等級來派發。</li>
-                    <li><b>🔥 團體戰優化</b>：每日 8, 18, 22 點準時開打。</li>
-                    <li><b>🐞 錯誤修復</b>：修復了前端崩潰問題。</li>
+                    <li><b>💬 聊天室升級</b>：現在聊天室擁有獨立的分頁，不會擋到畫面了！</li>
+                    <li><b>🐞 任務修復</b>：任務系統現在運作正常。</li>
                 </ul>
                 <div style="text-align:center; margin-top:15px;">
                     <button class="btn-yes" @click="closeNews">我知道了</button>
@@ -260,7 +274,8 @@
             <button class="tab-btn" :class="{active: tab=='quest'}" @click="tab='quest'">📜 任務</button>
             <button class="tab-btn" :class="{active: tab=='shop'}" @click="tab='shop'">🛒 商店</button>
             <button class="tab-btn" :class="{active: tab=='gamble'}" @click="tab='gamble'">🎰 賭場</button>
-            <button class="tab-btn" :class="{active: tab=='social'}" @click="tab='social'">💬 社交</button>
+            <button class="tab-btn" :class="{active: tab=='chat'}" @click="tab='chat'">💬 聊天</button>
+            <button class="tab-btn" :class="{active: tab=='social'}" @click="tab='social'">👥 好友</button>
         </div>
 
         <div v-if="!battle.active">
@@ -374,7 +389,7 @@
             </div>
 
             <div v-if="tab=='social'">
-                <h3>💬 好友與管理</h3>
+                <h3>👥 好友與管理</h3>
                 <div v-if="friends.length > 0">
                     <h4>我的好友</h4>
                     <div class="card-grid">
@@ -453,6 +468,20 @@
                     </div>
                 </div>
             </div>
+
+            <div v-if="tab=='chat'">
+                <h3>💬 世界頻道</h3>
+                <div class="chat-room">
+                    <div class="chat-msgs" id="chat-box">
+                        <div v-for="m in chatMsgs" class="chat-msg-item">{{ m }}</div>
+                        <div v-if="chatMsgs.length === 0" style="color:#aaa; text-align:center;">目前沒有訊息，說點什麼吧！</div>
+                    </div>
+                    <div class="chat-input-area">
+                        <input v-model="chatInput" class="chat-input" placeholder="輸入訊息..." @keyup.enter="sendChat">
+                        <button class="btn-action" style="margin-top:0; width:80px; background:#e94560;" @click="sendChat">送出</button>
+                    </div>
+                </div>
+            </div>
         </div>
     </div>
 
@@ -471,20 +500,9 @@
         </div>
     </div>
 
-    <div v-if="user" class="chat-panel">
-        <div class="chat-msgs" id="chat-box">
-            <div v-for="m in chatMsgs" style="margin-bottom:2px;">{{ m }}</div>
-        </div>
-        <div class="chat-input-area">
-            <input v-model="chatInput" class="chat-input" placeholder="說點什麼..." @keyup.enter="sendChat">
-            <button @click="sendChat" style="padding:0 15px; border-radius:5px; border:none;">送出</button>
-        </div>
-    </div>
-
 </div>
 
 <script>
-    // 🔥 修復：Vue Destructuring 加上 onUpdated 🔥
     const { createApp, ref, onMounted, computed, watch, onUpdated } = Vue;
     const API_URL = `https://mwtpokemons.zeabur.app/api/v1`;
     const WS_URL = `wss://mwtpokemons.zeabur.app/ws`;
@@ -615,9 +633,8 @@
             };
             
             const getMonSkills = (name) => SKILL_MAP[name] || ["撞擊", "撞擊", "撞擊"];
-            const closeNews = () => { newsState.value.show = false; sessionStorage.setItem('seenNews_v2013', 'true'); };
+            const closeNews = () => { newsState.value.show = false; sessionStorage.setItem('seenNews_v2014', 'true'); };
 
-            // 🔥 修復：使用 onUpdated 🔥
             onUpdated(() => {
                 const chatBox = document.getElementById('chat-box');
                 if(chatBox) chatBox.scrollTop = chatBox.scrollHeight;
@@ -626,14 +643,17 @@
             onMounted(async () => {
                 document.getElementById('loading').style.display = 'none'; 
                 if(!token) return window.location.href = 'login.html';
-                if (!sessionStorage.getItem('seenNews_v2013')) newsState.value.show = true;
+                if (!sessionStorage.getItem('seenNews_v2014')) newsState.value.show = true;
                 await updateInfo(); await fetchSkillData(); updateMySkills(); await fetchPokedex(); 
                 fetchPlayers(); checkRaid(); setInterval(checkRaid, 5000); fetchQuests(); fetchWildList();
-                const ws = new WebSocket(`${WS_URL}?token=${token}`);
-                ws.onmessage = (e) => {
-                    const msg = e.data;
-                    if(msg.startsWith("CHAT|")) { chatMsgs.value.push(msg.split("|")[1]); }
-                };
+                
+                try {
+                    const ws = new WebSocket(`${WS_URL}?token=${token}`);
+                    ws.onmessage = (e) => {
+                        const msg = e.data;
+                        if(msg.startsWith("CHAT|")) { chatMsgs.value.push(msg.split("|")[1]); }
+                    };
+                } catch(e) { console.error("WS error", e); }
             });
             
             watch(tab, (n) => { 
@@ -671,7 +691,6 @@
                 
                 showFloatingText(`-${dmg}`, 'red', true); 
 
-                // A. 野怪戰鬥
                 if(battle.value.mode === 'wild') {
                     isEnemyTurn.value = true;
                     battle.value.target.hp = Math.max(0, battle.value.target.hp - dmg); 
@@ -686,7 +705,6 @@
                         battle.value.active = false; updateInfo(); fetchQuests();
                     } else { setTimeout(() => { enemyAttackPhase(); }, 1200); }
                 }
-                // 🔥 B. 團體戰邏輯 (補上) 🔥
                 else if (battle.value.mode === 'raid') {
                     battle.value.shakeTarget = true; setTimeout(()=>battle.value.shakeTarget=false, 500);
                     const res = await fetch(`${API_URL.replace('/items','')}/shop/raid/attack?damage=${dmg}`, { method: 'POST', headers: { 'Authorization': `Bearer ${token}` } });
