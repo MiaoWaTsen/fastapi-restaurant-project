@@ -55,10 +55,11 @@
         .gacha-candy { background: linear-gradient(90deg, #e91e63, #c2185b); }
         .gacha-golden { background: linear-gradient(90deg, #f1c40f, #f39c12); color: #000; text-shadow: 0px 0px 2px white; }
 
-        .quest-card { text-align: left; margin-bottom: 10px; border-left: 5px solid #aaa; padding: 15px; background:#1e2a38; }
-        .quest-active { border-left-color: #f1c40f; } 
+        /* Quest Styles (Updated) */
+        .quest-card { text-align: left; margin-bottom: 10px; border-left: 5px solid #aaa; padding: 15px; background:#1e2a38; transition: 0.3s; }
         .quest-completed { border-left-color: #2ecc71; background: #1b261b; }
-        .quest-golden { background: linear-gradient(45deg, #f1c40f, #f39c12); color: #000; border-left: 5px solid #fff; }
+        .quest-golden { background: linear-gradient(135deg, #f1c40f, #f39c12); color: #000 !important; border-left: 5px solid #fff; box-shadow: 0 0 10px rgba(241, 196, 15, 0.3); }
+        .quest-golden h4, .quest-golden p { color: #000 !important; font-weight: bold; }
 
         .box-item.active { border: 2px solid #f1c40f; }
         .iv-tag { position: absolute; top: 5px; right: 5px; background: #f1c40f; color: black; padding: 2px 5px; border-radius: 3px; font-size: 0.7em; font-weight: bold; }
@@ -375,20 +376,36 @@
             </div>
 
             <div v-if="tab=='quest'">
-                <h3>📜 冒險任務 (3/3)</h3>
-                <div v-for="q in quests" :key="q.id" class="card quest-card" :class="{'quest-active': q.status=='ACTIVE', 'quest-completed': q.status=='COMPLETED', 'quest-golden': q.type=='GOLDEN'}">
+                <h3>📜 冒險任務 (自動補位系統)</h3>
+                <div v-for="q in quests" :key="q.id" class="card quest-card" 
+                     :class="{'quest-golden': q.type=='GOLDEN', 'quest-completed': q.now >= q.req}">
                     <h4>
                         <span v-if="q.type=='GOLDEN'">✨</span> 
                         {{ q.target_display || q.target }}
                         <span v-if="q.type=='GOLDEN'">✨</span>
                     </h4>
-                    <p v-if="q.status === 'COMPLETED'">進度: <b style="color:#2ecc71">完成!</b></p>
-                    <p v-else>進度: {{ q.now }} / {{ q.req }}</p>
-                    <p v-if="q.type=='GOLDEN'">獎勵: 🍬 黃金糖果 x1</p>
-                    <p v-else>獎勵: {{ q.gold }}G, {{ q.xp }} XP</p>
-                    <button v-if="q.status=='WAITING'" class="btn-action" style="background:#3498db" @click="acceptQuest(q.id)">接受</button>
-                    <button v-if="q.status=='ACTIVE'" class="btn-action" style="background:#e74c3c" @click="abandonQuest(q.id)">放棄 (-1000G)</button>
-                    <button v-if="q.status=='COMPLETED'" class="btn-action" style="background:#2ecc71" @click="claimQuest(q.id)">🎁 領取獎勵</button>
+                    
+                    <div class="bar-container" style="height:12px; margin:10px 0; background:rgba(0,0,0,0.3);">
+                        <div class="bar-fill" 
+                             :style="{ width: Math.min(100, (q.now/q.req)*100) + '%', background: q.now >= q.req ? '#2ecc71' : (q.type=='GOLDEN' ? '#fff' : '#f1c40f') }">
+                        </div>
+                    </div>
+                    
+                    <div style="display:flex; justify-content:space-between; align-items:center;">
+                        <div>
+                            <p style="margin:2px 0;">進度：{{ q.now }} / {{ q.req }}</p>
+                            <p style="margin:2px 0; font-size:0.9em; opacity:0.8;">
+                                獎勵：{{ q.type=='GOLDEN' ? '✨ 黃金糖果 x1' : (q.gold + 'G / ' + q.xp + ' XP') }}
+                            </p>
+                        </div>
+                        
+                        <button v-if="q.now >= q.req" class="btn-action" style="width:120px; background:#2ecc71;" @click="claimQuest(q.id)">
+                            🎁 領取獎勵
+                        </button>
+                        <button v-else class="btn-action" style="width:120px; background:#e74c3c; font-size:0.8em; opacity:0.8;" @click="abandonQuest(q.id)">
+                            更換 (-1000G)
+                        </button>
+                    </div>
                 </div>
             </div>
 
@@ -626,8 +643,12 @@
             const fetchPlayers = async () => { const res = await fetch(`${API_URL}/auth/all`, { headers: { 'Authorization': `Bearer ${token}` } }); if(res.ok) players.value = await res.json(); };
             const fetchFriends = async () => { const res = await fetch(`${API_URL}/social/list`, { headers: { 'Authorization': `Bearer ${token}` } }); if(res.ok) friends.value = await res.json(); };
             
-            // 🔥 修正：從 Quest API 獲取任務 🔥
-            const fetchQuests = async () => { const res = await fetch(`${API_URL}/quests/`, { headers: { 'Authorization': `Bearer ${token}` } }); if(res.ok) quests.value = await res.json(); updateInfo(); };
+            // 🔥 修正：使用正確的 Quest API 複數路徑 🔥
+            const fetchQuests = async () => { 
+                const res = await fetch(`${API_URL}/quests/`, { headers: { 'Authorization': `Bearer ${token}` } }); 
+                if(res.ok) quests.value = await res.json(); 
+                updateInfo(); 
+            };
             
             const checkRaid = async () => { const res = await fetch(`${API_URL.replace('/items','')}/shop/raid/status`); if(res.ok) raidState.value = await res.json(); };
             const initAdmin = async () => { try { const res = await fetch(`${API_URL}/social/admin/init`); const d = await res.json(); alert(d.message); } catch(e) {} };
@@ -742,7 +763,7 @@
                         const d = await res.json(); 
                         battleResultMsg.value = `造成 ${dmg} 傷害\n${d.message}`;
                         showBattleResult.value = true;
-                        battle.value.active = false; updateInfo(); fetchQuests();
+                        battle.value.active = false; updateInfo(); fetchQuests(); // 🔥 戰鬥後刷新任務
                     } else { setTimeout(() => { enemyAttackPhase(); }, 1200); }
                 }
             };
@@ -822,10 +843,29 @@
             const addFriend = async (uid) => { const res = await fetch(`${API_URL}/social/add/${uid}`, { method: 'POST', headers: { 'Authorization': `Bearer ${token}` } }); const d = await res.json(); alert(d.message); };
             const sendGift = async (fid) => { const res = await fetch(`${API_URL}/social/gift/send/${fid}`, { method: 'POST', headers: { 'Authorization': `Bearer ${token}` } }); if(res.ok) { alert("禮物已發送！"); fetchFriends(); } else { const d = await res.json(); alert(d.detail); } };
             const joinRaid = async () => { if(confirm("支付 1000G 加入？")) { const res = await fetch(`${API_URL.replace('/items','')}/shop/raid/join`, { method: 'POST', headers: { 'Authorization': `Bearer ${token}` } }); if(res.ok) { battle.value = { active: true, mode: 'raid', target: { name: raidState.value.boss_name, hp: raidState.value.hp, max_hp: raidState.value.max_hp, image_url: '' }, shakeMe: false, shakeTarget: false }; } else { const d = await res.json(); alert(d.detail); } } };
-            // 🔥 修正：使用正確的 Quest API 路徑 🔥
-            const acceptQuest = async (qid) => { await fetch(`${API_URL}/quests/accept/${qid}`, { method: 'POST', headers: { 'Authorization': `Bearer ${token}` } }); fetchQuests(); };
-            const abandonQuest = async (qid) => { if(confirm("放棄需消耗 1000G，確定嗎？")) { await fetch(`${API_URL}/quests/abandon/${qid}`, { method: 'POST', headers: { 'Authorization': `Bearer ${token}` } }); fetchQuests(); } };
-            const claimQuest = async (qid) => { const res = await fetch(`${API_URL}/quests/claim/${qid}`, { method: 'POST', headers: { 'Authorization': `Bearer ${token}` } }); const d = await res.json(); alert(d.message); fetchQuests(); };
+            
+            // 🔥 修正：使用正確的 Quest API (Accept 已移除, 邏輯簡化) 🔥
+            const acceptQuest = async (qid) => { 
+                // 此函式已不再需要，後端自動指派
+                console.warn("Manual accept is deprecated");
+                fetchQuests(); 
+            };
+            
+            const abandonQuest = async (qid) => { 
+                if(confirm("更換任務需消耗 1000G，確定嗎？")) { 
+                    const res = await fetch(`${API_URL}/quests/abandon/${qid}`, { method: 'POST', headers: { 'Authorization': `Bearer ${token}` } }); 
+                    const d = await res.json();
+                    if(res.ok) { alert("任務已刷新！"); fetchQuests(); }
+                    else alert(d.detail);
+                } 
+            };
+            
+            const claimQuest = async (qid) => { 
+                const res = await fetch(`${API_URL}/quests/claim/${qid}`, { method: 'POST', headers: { 'Authorization': `Bearer ${token}` } }); 
+                const d = await res.json(); 
+                alert(d.message); 
+                fetchQuests(); // 領取後會自動補位
+            };
 
             return { user, tab, box, players, friends, selectedMon, currentPetIV, battle, raidState, inLobby, lobbyTimer, dailyCheckin, logout, playGacha, swapMon, releaseMon, useCandy, gambleAmount, doGamble, chatMsgs, chatInput, sendChat, doSkillAttack, useShield, doHeal, buyHeal, promoCode, redeemCode, initAdmin, sendInvite, addFriend, sendGift, joinRaid, playerXpPercent, hpPercent, petXpPercent, currentAtkMe, quests, acceptQuest, abandonQuest, claimQuest, wildList, fetchWildList, startWildBattle, showRates, gachaRates, newsState, closeNews, mySkills, shieldUses, getSkillDesc, selectedWildLevel, viewMon, calcStats, getMonSkills, leaderboardType, leaderboardData, fetchLeaderboard, pokedexList, pokedexPercent, fetchPokedex, turnTimer, isEnemyTurn, getReqXp, showGachaAnim, gachaResult, showBattleResult, battleResultMsg, inventory, canJoinLobby };
         }

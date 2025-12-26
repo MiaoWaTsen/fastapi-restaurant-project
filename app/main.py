@@ -19,7 +19,7 @@ app.add_middleware(
 app.include_router(auth.router, prefix="/api/v1/auth", tags=["auth"])
 app.include_router(shop.router, prefix="/api/v1/shop", tags=["shop"])
 app.include_router(social.router, prefix="/api/v1/social", tags=["social"])
-app.include_router(quest.router, prefix="/api/v1/quest", tags=["quest"]) # 🔥 新增這一行
+app.include_router(quest.router, prefix="/api/v1/quest", tags=["quests"]) # 🔥 新增這一行
 
 @app.get("/")
 def read_root():
