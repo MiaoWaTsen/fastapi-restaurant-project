@@ -14,8 +14,9 @@ from app.common.websocket import manager
 
 router = APIRouter()
 
-# 完整圖鑑
+# 完整數據 (包含野怪與玩家寵)
 POKEDEX_DATA = {
+    # 野怪 (不列入圖鑑)
     "小拉達": {"hp": 90, "atk": 80, "img": "https://img.pokemondb.net/artwork/large/rattata.jpg", "skills": ["抓", "出奇一擊", "撞擊"]},
     "波波":   {"hp": 95, "atk": 85, "img": "https://img.pokemondb.net/artwork/large/pidgey.jpg", "skills": ["抓", "啄", "燕返"]},
     "烈雀":   {"hp": 90, "atk": 90, "img": "https://img.pokemondb.net/artwork/large/spearow.jpg", "skills": ["抓", "啄", "燕返"]},
@@ -34,12 +35,14 @@ POKEDEX_DATA = {
     "蚊香勇士": {"hp": 160, "atk": 130, "img": "https://img.pokemondb.net/artwork/large/poliwrath.jpg", "skills": ["雙倍奉還", "冰凍光束", "水槍"]},
     "暴鯉龍": {"hp": 180, "atk": 150, "img": "https://img.pokemondb.net/artwork/large/gyarados.jpg", "skills": ["水流尾", "咬碎", "破壞光線"]},
 
+    # 玩家可獲得 (24隻)
     "妙蛙種子": {"hp": 130, "atk": 112, "img": "https://img.pokemondb.net/artwork/large/bulbasaur.jpg", "skills": ["藤鞭", "種子炸彈", "污泥炸彈"]},
     "小火龍": {"hp": 112, "atk": 130, "img": "https://img.pokemondb.net/artwork/large/charmander.jpg", "skills": ["火花", "噴射火焰", "大字爆炎"]},
     "傑尼龜": {"hp": 121, "atk": 121, "img": "https://img.pokemondb.net/artwork/large/squirtle.jpg", "skills": ["水槍", "水流噴射", "水流尾"]},
     "妙蛙花": {"hp": 152, "atk": 130, "img": "https://img.pokemondb.net/artwork/large/venusaur.jpg", "skills": ["藤鞭", "種子炸彈", "污泥炸彈"]},
     "噴火龍": {"hp": 130, "atk": 152, "img": "https://img.pokemondb.net/artwork/large/charizard.jpg", "skills": ["火花", "噴射火焰", "大字爆炎"]},
     "水箭龜": {"hp": 141, "atk": 141, "img": "https://img.pokemondb.net/artwork/large/blastoise.jpg", "skills": ["水槍", "水流噴射", "水流尾"]},
+    
     "毛辮羊": {"hp": 120, "atk": 120, "img": "https://img.pokemondb.net/artwork/large/wooloo.jpg", "skills": ["撞擊", "撒嬌", "電擊"]},
     "皮卡丘": {"hp": 125, "atk": 125, "img": "https://img.pokemondb.net/artwork/large/pikachu.jpg", "skills": ["電光", "放電", "電擊"]},
     "伊布":   {"hp": 125, "atk": 125, "img": "https://img.pokemondb.net/artwork/large/eevee.jpg", "skills": ["撞擊", "挖洞", "高速星星"]},
@@ -48,11 +51,13 @@ POKEDEX_DATA = {
     "大蔥鴨": {"hp": 120, "atk": 130, "img": "https://img.pokemondb.net/artwork/large/farfetchd.jpg", "skills": ["啄", "葉刃", "勇鳥猛攻"]},
     "呆呆獸": {"hp": 122, "atk": 122, "img": "https://img.pokemondb.net/artwork/large/slowpoke.jpg", "skills": ["水槍", "幻象光線", "水流噴射"]},
     "可達鴨": {"hp": 122, "atk": 122, "img": "https://img.pokemondb.net/artwork/large/psyduck.jpg", "skills": ["水槍", "幻象光線", "水流噴射"]},
+    
     "卡比獸": {"hp": 175, "atk": 112, "img": "https://img.pokemondb.net/artwork/large/snorlax.jpg", "skills": ["泰山壓頂", "地震", "撞擊"]},
     "吉利蛋": {"hp": 220, "atk": 90, "img": "https://img.pokemondb.net/artwork/large/chansey.jpg", "skills": ["抓", "精神強念", "撞擊"]},
     "幸福蛋": {"hp": 230, "atk": 90, "img": "https://img.pokemondb.net/artwork/large/blissey.jpg", "skills": ["抓", "精神強念", "撞擊"]},
     "拉普拉斯": {"hp": 165, "atk": 140, "img": "https://img.pokemondb.net/artwork/large/lapras.jpg", "skills": ["水槍", "水流噴射", "冰凍光束"]},
     "快龍":   {"hp": 150, "atk": 148, "img": "https://img.pokemondb.net/artwork/large/dragonite.jpg", "skills": ["抓", "逆鱗", "勇鳥猛攻"]},
+    
     "急凍鳥": {"hp": 150, "atk": 150, "img": "https://img.pokemondb.net/artwork/large/articuno.jpg", "skills": ["冰礫", "冰凍光束", "勇鳥猛攻"]},
     "火焰鳥": {"hp": 150, "atk": 150, "img": "https://img.pokemondb.net/artwork/large/moltres.jpg", "skills": ["噴射火焰", "大字爆炎", "勇鳥猛攻"]},
     "閃電鳥": {"hp": 150, "atk": 150, "img": "https://img.pokemondb.net/artwork/large/zapdos.jpg", "skills": ["電光", "瘋狂伏特", "勇鳥猛攻"]},
@@ -60,7 +65,14 @@ POKEDEX_DATA = {
     "夢幻":   {"hp": 155, "atk": 150, "img": "https://img.pokemondb.net/artwork/large/mew.jpg", "skills": ["念力", "精神強念", "精神撃破"]},
 }
 
-# 技能數據庫
+# 玩家可收集的 24 隻
+OBTAINABLE_MONS = [
+    "妙蛙種子", "小火龍", "傑尼龜", "妙蛙花", "噴火龍", "水箭龜",
+    "毛辮羊", "皮卡丘", "伊布", "胖丁", "皮皮", "大蔥鴨", "呆呆獸", "可達鴨",
+    "卡比獸", "吉利蛋", "幸福蛋", "拉普拉斯", "快龍",
+    "急凍鳥", "火焰鳥", "閃電鳥", "超夢", "夢幻"
+]
+
 SKILL_DB = {
     "水槍": {"dmg": 14, "effect": "heal", "prob": 0.5, "val": 0.15, "desc": "50%回血15%"},
     "撒嬌": {"dmg": 14, "effect": "heal", "prob": 0.5, "val": 0.15, "desc": "50%回血15%"},
@@ -110,7 +122,6 @@ WILD_UNLOCK_LEVELS = {
     12: ["小磁怪"], 14: ["卡拉卡拉"], 16: ["喵喵"], 18: ["瑪瑙水母"], 20: ["海刺龍"]
 }
 
-# 扭蛋池
 GACHA_HIGH = [{"name": "卡比獸", "rate": 20}, {"name": "吉利蛋", "rate": 24}, {"name": "幸福蛋", "rate": 10}, {"name": "拉普拉斯", "rate": 10}, {"name": "妙蛙花", "rate": 10}, {"name": "噴火龍", "rate": 10}, {"name": "水箭龜", "rate": 10}, {"name": "快龍", "rate": 6}]
 GACHA_GOLDEN = [{"name": "卡比獸", "rate": 30}, {"name": "吉利蛋", "rate": 35}, {"name": "幸福蛋", "rate": 20}, {"name": "拉普拉斯", "rate": 10}, {"name": "快龍", "rate": 5}]
 GACHA_NORMAL = [{"name": "妙蛙種子", "rate": 5}, {"name": "小火龍", "rate": 5}, {"name": "傑尼龜", "rate": 5}, {"name": "伊布", "rate": 8}, {"name": "皮卡丘", "rate": 8}, {"name": "皮皮", "rate": 10}, {"name": "胖丁", "rate": 10}, {"name": "毛辮羊", "rate": 8}, {"name": "大蔥鴨", "rate": 12}, {"name": "呆呆獸", "rate": 12}, {"name": "可達鴨", "rate": 12}, {"name": "卡比獸", "rate": 2}, {"name": "吉利蛋", "rate": 2}]
@@ -136,9 +147,15 @@ def apply_iv_stats(base_val, iv, level, is_player=True):
 def get_skill_data():
     return SKILL_DB
 
+# 🔥 修正：只回傳 24 隻可獲得的寶可夢 🔥
 @router.get("/pokedex/all")
 def get_all_pokedex():
-    return [{"name": name, "img": data["img"], "hp": data["hp"], "atk": data["atk"]} for name, data in POKEDEX_DATA.items()]
+    result = []
+    for name in OBTAINABLE_MONS:
+        if name in POKEDEX_DATA:
+            data = POKEDEX_DATA[name]
+            result.append({"name": name, "img": data["img"], "hp": data["hp"], "atk": data["atk"]})
+    return result
 
 @router.get("/wild/list")
 def get_wild_list(level: int, current_user: User = Depends(get_current_user)):
@@ -222,37 +239,28 @@ def abandon_quest(qid: str, db: Session = Depends(get_db), current_user: User = 
     current_user.quests = json.dumps(new_quests); db.commit()
     return {"message": "任務已刪除並刷新 (-1000G)"}
 
-# 🔥 任務領取修正：確保 ID 比對正確 🔥
+# 🔥 任務領取修正 🔥
 @router.post("/quests/claim/{qid}")
 def claim_quest(qid: str, db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
     quests = json.loads(current_user.quests)
     inv = json.loads(current_user.inventory)
     
-    # 查找並驗證
-    target_q = next((q for q in quests if q["id"] == qid and q["status"] == "COMPLETED"), None)
-    if not target_q:
-        raise HTTPException(status_code=400, detail="無法領取：任務不存在或未完成")
+    target_q = None
+    # 確保只找到一個
+    for q in quests:
+        if q["id"] == qid and q["status"] == "COMPLETED": target_q = q; break
+    if not target_q: raise HTTPException(status_code=400, detail="無法領取")
     
-    # 發放獎勵
     msg = ""
-    if target_q["type"] == "GOLDEN":
-        inv["golden_candy"] = inv.get("golden_candy", 0) + 1
-        msg = "獲得 ✨ 黃金糖果 x1"
-    else:
-        current_user.money += target_q["gold"]
-        current_user.exp += target_q["xp"]
-        current_user.pet_exp += target_q["xp"]
-        msg = f"獲得 {target_q['gold']}G, {target_q['xp']} XP"
+    if target_q["type"] == "GOLDEN": inv["golden_candy"] = inv.get("golden_candy", 0) + 1; msg = "獲得 ✨ 黃金糖果 x1"
+    else: current_user.money += target_q["gold"]; current_user.exp += target_q["xp"]; current_user.pet_exp += target_q["xp"]; msg = f"獲得 {target_q['gold']}G, {target_q['xp']} XP"
     
-    # 更新任務列表：保留其他任務，移除當前，補一個新任務
+    # 過濾掉該任務
     quests = [q for q in quests if q["id"] != qid]
     new_q = generate_quests(current_user.level, count=1)[0]
     quests.append(new_q)
     
-    current_user.quests = json.dumps(quests)
-    current_user.inventory = json.dumps(inv)
-    db.commit()
-    
+    current_user.quests = json.dumps(quests); current_user.inventory = json.dumps(inv); db.commit()
     return {"message": msg}
 
 @router.post("/wild/attack")
@@ -424,31 +432,20 @@ async def pvp_attack(target_id: int, damage: int = Query(0), heal: int = Query(0
     await manager.broadcast(msg)
     return {"message": "攻擊成功", "result": result_type, "reward": reward_msg, "user": current_user}
 
-# 🔥 團體戰時間修正：開放大廳 🔥
 @router.get("/raid/status")
 def get_raid_status():
     now = datetime.now()
     hour = now.hour
     minute = now.minute
-    # 開放時間：整點前 1 分鐘 到 整點 30 分
-    # 例如 7:59, 8:00~8:30
+    # 🔥 修正：大廳開放時間 (59分) 🔥
     is_raid_time = (hour in [7, 17, 21] and minute >= 59) or (hour in [8, 18, 22] and minute < 30)
     
     if is_raid_time and not RAID_STATE["active"]:
-        # 決定 Boss
-        bosses = ["急凍鳥", "火焰鳥", "閃電鳥"]
-        # 使用下一個整點來決定 Boss，避免 7:59 算成 7 點的
         target_hour = hour + 1 if minute >= 59 else hour
+        bosses = ["急凍鳥", "火焰鳥", "閃電鳥"]
         name = bosses[target_hour % 3]
-        
-        RAID_STATE["active"] = True
-        RAID_STATE["boss_name"] = name
-        RAID_STATE["max_hp"] = 3000
-        RAID_STATE["hp"] = 3000
-        RAID_STATE["players"] = {}
-    elif not is_raid_time:
-        RAID_STATE["active"] = False
-        
+        RAID_STATE["active"] = True; RAID_STATE["boss_name"] = name; RAID_STATE["max_hp"] = 3000; RAID_STATE["hp"] = 3000; RAID_STATE["players"] = {}
+    elif not is_raid_time: RAID_STATE["active"] = False
     return RAID_STATE
 
 @router.post("/raid/join")

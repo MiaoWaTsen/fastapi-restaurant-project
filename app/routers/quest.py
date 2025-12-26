@@ -4,185 +4,173 @@ from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 import random
 import json
+import uuid
+
 from app.db.session import get_db
 from app.models.user import User
 from app.common.deps import get_current_user
-from app.common.websocket import manager
+from app.routers.shop import WILD_UNLOCK_LEVELS  # 引用解鎖表
+# 為了避免循環引用，我們在這裡重新定義或從 common 引用簡單的配置
+# 這裡簡單起見，我們再次定義解鎖表，或者您應該將這些配置移到 app/core/config.py
 
 router = APIRouter()
 
-WILD_DB_REF = [
-    { "min_lv": 1, "name": "小拉達" }, { "min_lv": 2, "name": "波波" },
-    { "min_lv": 3, "name": "烈雀" }, { "min_lv": 4, "name": "阿柏蛇" },
-    { "min_lv": 5, "name": "瓦斯彈" }, { "min_lv": 6, "name": "海星星" },
-    { "min_lv": 7, "name": "角金魚" }, { "min_lv": 8, "name": "走路草" },
-    { "min_lv": 9, "name": "穿山鼠" }, { "min_lv": 10, "name": "蚊香勇士", "is_boss": True },
-    { "min_lv": 12, "name": "小磁怪" }, { "min_lv": 14, "name": "卡拉卡拉" },
-    { "min_lv": 16, "name": "喵喵" }, { "min_lv": 18, "name": "瑪瑙水母" },
-    { "min_lv": 20, "name": "暴鯉龍", "is_boss": True }
-]
-
-LEVEL_XP = { 
-    1: 50, 2: 150, 3: 300, 4: 500, 5: 800, 
-    6: 1300, 7: 2000, 8: 3000, 9: 5000 
+# 為了方便，這裡保留一份解鎖表副本，實際專案應放在 config.py
+WILD_UNLOCK_LEVELS_REF = {
+    1: ["小拉達"], 2: ["波波"], 3: ["烈雀"], 4: ["阿柏蛇"], 5: ["瓦斯彈"],
+    6: ["海星星"], 7: ["角金魚"], 8: ["走路草"], 9: ["穿山鼠"], 10: ["蚊香蝌蚪"],
+    12: ["小磁怪"], 14: ["卡拉卡拉"], 16: ["喵喵"], 18: ["瑪瑙水母"], 20: ["海刺龍"]
 }
 
-def get_req_xp(lv):
-    if lv >= 25: return 999999999
-    if lv < 10: return LEVEL_XP.get(lv, 5000)
-    return 5000 + (lv - 9) * 2000
-
-# 獨立出任務生成函式，供 get_quests 和 abandon_quest 共用
-def generate_single_quest(user: User):
-    defeated = user.defeated_bosses.split(',') if user.defeated_bosses else []
-    # 根據「寶可夢等級」篩選可出現的怪，避免 1 級寵物接到 20 級任務
-    valid_targets = [
-        m for m in WILD_DB_REF 
-        if m["min_lv"] <= user.pet_level and (not m.get("is_boss") or m["name"] not in defeated)
-    ]
+def generate_quests(user_level, count=3):
+    new_quests = []
+    targets_pool = []
+    # 根據 user_level 找出所有可解鎖的怪
+    for u_lv, species in WILD_UNLOCK_LEVELS_REF.items():
+        if u_lv <= user_level:
+            targets_pool.extend(species)
+            
+    if not targets_pool:
+        targets_pool = ["小拉達"]
     
-    # 如果寵物等級太低沒怪打，就給小拉達
-    if not valid_targets:
-        target = WILD_DB_REF[0]
-    else:
-        target = random.choice(valid_targets)
-    
-    is_golden = random.random() < 0.03
-    # 🔥 修改：任務等級依照「當前寶可夢等級」 🔥
-    target_lv = user.pet_level
-    
-    if is_golden:
-        count = 5; reward_gold = 0; reward_xp = 0; q_type = "GOLDEN"
-    else:
-        count = 1 if target.get("is_boss") else random.randint(1, 3)
-        reward_base = 100 if target.get("is_boss") else 50
-        count_bonus = 1 + (count - 1) * 0.1
-        reward_gold = int(reward_base * count * count_bonus * (target_lv/2 + 1))
-        reward_xp = int(reward_base * count * count_bonus * (target_lv/2 + 1))
-        q_type = "NORMAL"
-    
-    return {
-        "id": random.randint(10000, 99999),
-        "target": target["name"],
-        "target_lv": target_lv,
-        "req": count, "now": 0, "gold": reward_gold, "xp": reward_xp,
-        "status": "WAITING", "type": q_type
-    }
-
-async def check_levelup_dual(user: User):
-    msg_list = []
-    
-    req_xp_player = get_req_xp(user.level)
-    if user.exp >= req_xp_player and user.level < 25:
-        user.level += 1
-        user.exp -= req_xp_player
-        msg_list.append(f"訓練師升級(Lv.{user.level})")
-        await manager.broadcast(f"📢 恭喜玩家 [{user.username}] 提升到了 訓練師等級 {user.level}！")
+    for _ in range(count):
+        target = random.choice(targets_pool)
+        # 數量隨機 1 ~ 3 + (等級/3)
+        req_count = random.randint(1, 3) + int(user_level/3)
+        is_golden = random.random() < 0.03 # 3% 黃金任務
         
-    if (user.pet_level < user.level or (user.level == 1 and user.pet_level == 1)) and user.pet_level < 25:
-        req_xp_pet = get_req_xp(user.pet_level)
-        while user.pet_exp >= req_xp_pet:
-            if user.pet_level >= user.level and user.level > 1: break
-            if user.pet_level >= 25: break 
+        if is_golden:
+            q = {
+                "id": str(uuid.uuid4()),
+                "type": "GOLDEN",
+                "target": "野怪",
+                "target_display": "Lv.? 野怪",
+                "target_lv": user_level,
+                "req": 5,
+                "now": 0,
+                "gold": 0,
+                "xp": 0,
+                "status": "WAITING"
+            }
+        else:
+            # 獎勵係數 V2.0.2 設定: Gold * 50, XP * 30
+            gold_reward = req_count * 50
+            xp_reward = req_count * 30
             
-            user.pet_level += 1
-            user.pet_exp -= req_xp_pet
-            
-            user.max_hp = int(user.max_hp * 1.08)
-            user.hp = user.max_hp
-            user.attack = int(user.attack * 1.06)
-            
-            msg_list.append(f"{user.pokemon_name}升級(Lv.{user.pet_level})")
-            req_xp_pet = get_req_xp(user.pet_level)
-            
-    return " & ".join(msg_list) if msg_list else None
+            q = {
+                "id": str(uuid.uuid4()),
+                "type": "NORMAL",
+                "target": target,
+                "target_display": f"Lv.{user_level} {target}",
+                "target_lv": user_level,
+                "req": req_count,
+                "now": 0,
+                "gold": gold_reward,
+                "xp": xp_reward,
+                "status": "WAITING"
+            }
+        new_quests.append(q)
+    return new_quests
 
 @router.get("/")
 def get_quests(db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
-    try: quest_list = json.loads(current_user.quests) if current_user.quests else []
-    except: quest_list = []
-
-    changed = False
-    # 補滿 3 個任務
-    while len(quest_list) < 3:
-        new_quest = generate_single_quest(current_user)
-        quest_list.append(new_quest)
-        changed = True
+    quests = json.loads(current_user.quests) if current_user.quests else []
     
-    if changed:
-        current_user.quests = json.dumps(quest_list)
+    # 檢查是否為舊格式 (沒有 target_display) -> 強制重置
+    need_reset = False
+    if not quests:
+        need_reset = True
+    else:
+        for q in quests:
+            if "target_display" not in q:
+                need_reset = True
+                break
+    
+    if need_reset:
+        quests = generate_quests(current_user.level, count=3)
+        current_user.quests = json.dumps(quests)
         db.commit()
-    return quest_list
+        return quests
 
-@router.post("/accept/{quest_id}")
-def accept_quest(quest_id: int, db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
-    quest_list = json.loads(current_user.quests)
-    active_quests = [q for q in quest_list if q["status"] == "ACTIVE"]
-    if len(active_quests) >= 1:
-        raise HTTPException(status_code=400, detail="一次只能進行一個任務！")
+    # 補齊任務到 3 個
+    active_or_waiting = [q for q in quests if q["status"] in ["ACTIVE", "WAITING"]]
+    needed = 3 - len(active_or_waiting)
+    
+    if needed > 0:
+        new_qs = generate_quests(current_user.level, count=needed)
+        # 只保留有效任務 + 新任務
+        final_list = active_or_waiting + new_qs
+        current_user.quests = json.dumps(final_list)
+        db.commit()
+        return final_list
+        
+    return active_or_waiting
 
-    for q in quest_list:
-        if q["id"] == quest_id and q["status"] == "WAITING":
+@router.post("/accept/{qid}")
+def accept_quest(qid: str, db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
+    quests = json.loads(current_user.quests)
+    for q in quests:
+        if q["id"] == qid and q["status"] == "WAITING":
             q["status"] = "ACTIVE"
-            current_user.quests = json.dumps(quest_list)
+            current_user.quests = json.dumps(quests)
             db.commit()
             return {"message": "任務已接受"}
-            
-    raise HTTPException(status_code=400, detail="任務不存在")
+    raise HTTPException(status_code=400, detail="無法接受此任務")
 
-# 🔥 修改：放棄後直接換新任務 🔥
-@router.post("/abandon/{quest_id}")
-def abandon_quest(quest_id: int, db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
-    quest_list = json.loads(current_user.quests)
-    new_list = []
-    found = False
+@router.post("/abandon/{qid}")
+def abandon_quest(qid: str, db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
+    if current_user.money < 1000:
+        raise HTTPException(status_code=400, detail="刪除任務需 1000 Gold")
     
-    for q in quest_list:
-        if q["id"] == quest_id and q["status"] == "ACTIVE":
-            found = True
-            continue # 跳過舊任務 (等於刪除)
-        new_list.append(q)
-            
-    if not found:
-        raise HTTPException(status_code=400, detail="無法放棄該任務")
+    quests = json.loads(current_user.quests)
+    # 移除目標任務
+    new_quests = [q for q in quests if q["id"] != qid]
     
-    # 立即生成一個新任務補上
-    replacement_quest = generate_single_quest(current_user)
-    new_list.append(replacement_quest)
-        
-    current_user.quests = json.dumps(new_list)
+    if len(new_quests) == len(quests):
+        raise HTTPException(status_code=404, detail="找不到任務")
+    
+    current_user.money -= 1000
+    # 補一個新任務
+    new_q = generate_quests(current_user.level, count=1)[0]
+    new_quests.append(new_q)
+    
+    current_user.quests = json.dumps(new_quests)
     db.commit()
-    return {"message": "已放棄並更換新任務"}
+    return {"message": "任務已刪除並刷新 (-1000G)"}
 
-@router.post("/claim/{quest_id}")
-async def claim_quest(quest_id: int, db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
-    quest_list = json.loads(current_user.quests)
-    new_list = []
-    claimed = False
+@router.post("/claim/{qid}")
+def claim_quest(qid: str, db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
+    quests = json.loads(current_user.quests)
+    inv = json.loads(current_user.inventory)
+    
+    target_q = None
+    # 尋找已完成的任務
+    for q in quests:
+        if q["id"] == qid and q["status"] == "COMPLETED":
+            target_q = q
+            break
+            
+    if not target_q:
+        raise HTTPException(status_code=400, detail="無法領取：任務不存在或未完成")
+    
     msg = ""
+    if target_q["type"] == "GOLDEN":
+        inv["golden_candy"] = inv.get("golden_candy", 0) + 1
+        msg = "獲得 ✨ 黃金糖果 x1"
+    else:
+        current_user.money += target_q["gold"]
+        current_user.exp += target_q["xp"]
+        current_user.pet_exp += target_q["xp"]
+        msg = f"獲得 {target_q['gold']}G, {target_q['xp']} XP"
     
-    for q in quest_list:
-        if q["id"] == quest_id and q["status"] == "COMPLETED":
-            if q.get("type") == "GOLDEN":
-                inventory = json.loads(current_user.inventory) if current_user.inventory else {}
-                inventory["golden_candy"] = inventory.get("golden_candy", 0) + 1
-                current_user.inventory = json.dumps(inventory)
-                msg = "領取成功！獲得 🍬 黃金糖果！"
-            else:
-                current_user.money += q["gold"]
-                current_user.exp += q["xp"]
-                current_user.pet_exp += q["xp"]
-                msg = f"領取成功！獲得 {q['gold']} G, {q['xp']} XP"
-            
-            claimed = True
-            continue 
-        new_list.append(q)
-        
-    if not claimed: raise HTTPException(status_code=400, detail="無法領取")
+    # 移除該任務
+    quests = [q for q in quests if q["id"] != qid]
+    # 補一個新任務
+    new_q = generate_quests(current_user.level, count=1)[0]
+    quests.append(new_q)
     
-    lvl_msg = await check_levelup_dual(current_user)
-    if lvl_msg: msg += f" 🎉 {lvl_msg}！"
-
-    current_user.quests = json.dumps(new_list)
+    current_user.quests = json.dumps(quests)
+    current_user.inventory = json.dumps(inv)
     db.commit()
-    return {"message": msg, "user": current_user}
+    
+    return {"message": msg}

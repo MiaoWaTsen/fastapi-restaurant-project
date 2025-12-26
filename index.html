@@ -46,7 +46,7 @@
         .btn-small { width: 48%; padding: 5px; font-size: 0.9em; margin-top: 5px; border: none; border-radius: 5px; cursor: pointer; color: white; }
         .btn-disabled { background: #555 !important; cursor: not-allowed; opacity: 0.6; pointer-events: none; }
 
-        /* Gacha Buttons */
+        /* 🔥 Gacha Buttons 🔥 */
         .btn-gacha { width: 100%; padding: 15px; margin-bottom: 10px; border: none; border-radius: 10px; color: white; font-weight: bold; font-size: 1.1em; cursor: pointer; display: flex; justify-content: space-between; align-items: center; transition: transform 0.2s; box-shadow: 0 4px 6px rgba(0,0,0,0.3); }
         .btn-gacha:hover { transform: translateY(-3px); }
         .gacha-normal { background: linear-gradient(90deg, #3498db, #2980b9); }
@@ -87,8 +87,10 @@
         .modal-title { font-size: 1.5em; color: #f1c40f; margin-bottom: 20px; }
         .btn-yes { background: #27ae60; padding: 10px 20px; border:none; color:white; border-radius:5px; cursor:pointer; margin:5px; }
         
-        .chat-panel { position: fixed; bottom: 0; left: 0; width: 100%; height: 120px; background: rgba(0,0,0,0.95); z-index: 9999; padding: 10px; display: flex; flex-direction: column; border-top: 1px solid #333; }
-        .chat-msgs { flex: 1; overflow-y: auto; font-size: 0.9em; margin-bottom: 5px; color: #ccc; }
+        /* Chat - New Layout */
+        .chat-container { display: flex; flex-direction: column; height: 500px; background: #0f3460; border-radius: 10px; overflow: hidden; }
+        .chat-msgs { flex: 1; overflow-y: auto; padding: 10px; font-size: 0.9em; color: #ccc; display: flex; flex-direction: column; gap: 5px; }
+        .chat-input-area { padding: 10px; background: #16213e; display: flex; gap: 5px; }
         .chat-input { flex: 1; padding: 8px; border-radius: 5px; border: none; background: #333; color: white; }
         
         .lobby-bar { position: fixed; bottom: 130px; left: 0; width: 100%; background: rgba(22, 33, 62, 0.95); border-top: 3px solid #f1c40f; padding: 10px; z-index: 6000; display: flex; justify-content: center; align-items: center; }
@@ -417,7 +419,17 @@
             </div>
 
             <div v-if="tab=='social'">
-                <h3>💬 好友與管理</h3>
+                <div class="chat-container">
+                    <div class="chat-msgs" id="chat-box">
+                        <div v-for="m in chatMsgs" style="margin-bottom:2px;">{{ m }}</div>
+                    </div>
+                    <div class="chat-input-area">
+                        <input v-model="chatInput" class="chat-input" placeholder="說點什麼..." @keyup.enter="sendChat">
+                        <button @click="sendChat" style="padding:0 15px; border-radius:5px; border:none;">送出</button>
+                    </div>
+                </div>
+                
+                <h3 style="margin-top:20px;">👥 好友與管理</h3>
                 <div v-if="friends.length > 0">
                     <h4>我的好友</h4>
                     <div class="card-grid">
@@ -500,20 +512,10 @@
         </div>
     </div>
 
-    <div v-if="user" class="chat-panel">
-        <div class="chat-msgs" id="chat-box">
-            <div v-for="m in chatMsgs" style="margin-bottom:2px;">{{ m }}</div>
-        </div>
-        <div class="chat-input-area">
-            <input v-model="chatInput" class="chat-input" placeholder="說點什麼..." @keyup.enter="sendChat">
-            <button @click="sendChat" style="padding:0 15px; border-radius:5px; border:none;">送出</button>
-        </div>
-    </div>
-
 </div>
 
 <script>
-    const { createApp, ref, onMounted, computed, watch } = Vue;
+    const { createApp, ref, onMounted, computed, watch, updated } = Vue;
     const API_URL = `https://mwtpokemons.zeabur.app/api/v1`;
     const WS_URL = `wss://mwtpokemons.zeabur.app/ws`;
 
@@ -572,11 +574,9 @@
             const lobbyTimer = ref(15);
             let lobbyInterval = null;
 
-            // 🔥 新增：判斷是否能進入大廳 (時間判斷) 🔥
             const canJoinLobby = computed(() => {
                 const now = new Date();
                 const m = now.getMinutes();
-                // XX:59 分時可以進入 (Raid 在 XX:00 開始)
                 return m >= 59;
             });
 
@@ -587,8 +587,6 @@
             const selectedWildLevel = ref(1);
             const wildList = ref([]);
             const showRates = ref(false);
-            
-            // 🔥 完整扭蛋機率表 (V2.0.8) 🔥
             const gachaRates = {
                 "🔮 初級扭蛋 (1500G)": [ {name: "妙蛙種子/小火龍/傑尼龜", rate: 5}, {name: "伊布/皮卡丘/毛辮羊", rate: 8}, {name: "皮皮/胖丁", rate: 10}, {name: "大蔥鴨/呆呆獸/可達鴨", rate: 12}, {name: "卡比獸/吉利蛋", rate: 2} ],
                 "🔵 中級扭蛋 (3000G)": [ {name: "御三家/伊布/皮卡丘/呆呆獸/可達鴨/毛辮羊", rate: 10}, {name: "卡比獸", rate: 5}, {name: "吉利蛋/拉普拉斯/御三家進化", rate: 3} ],
@@ -660,6 +658,12 @@
             
             const getMonSkills = (name) => SKILL_MAP[name] || ["撞擊", "撞擊", "撞擊"];
 
+            // Auto-scroll chat
+            updated(() => {
+                const chatBox = document.getElementById('chat-box');
+                if(chatBox) chatBox.scrollTop = chatBox.scrollHeight;
+            });
+
             onMounted(async () => {
                 document.getElementById('loading').style.display = 'none'; 
                 if(!token) return window.location.href = 'login.html';
@@ -669,7 +673,7 @@
                 const ws = new WebSocket(`${WS_URL}?token=${token}`);
                 ws.onmessage = (e) => {
                     const msg = e.data;
-                    if(msg.startsWith("CHAT|")) { chatMsgs.value.push(msg.split("|")[1]); setTimeout(() => { const b = document.getElementById('chat-box'); if(b) b.scrollTop = b.scrollHeight; }, 100); }
+                    if(msg.startsWith("CHAT|")) { chatMsgs.value.push(msg.split("|")[1]); }
                     if(msg.startsWith("EVENT:DUEL_INVITE")) { const parts = msg.split("|"); if(parseInt(parts[3]) === user.value.id) { if(confirm(`${parts[2]} 邀請你決鬥！接受嗎？`)) acceptDuel(parts[1]); } }
                     if(msg.startsWith("EVENT:DUEL_START")) { startLobby({id: 0, name: "對手", hp: 100, max_hp: 100, image_url: ''}); }
                     if(msg.startsWith("EVENT:PVP_SWAP") || msg.startsWith("EVENT:PVP_MOVE")) updateInfo();
@@ -788,13 +792,16 @@
                 }, 2000); 
             };
 
-            // 🔥 防護盾修復：直接進入敵人回合，不再卡住 🔥
+            // 🔥 防護盾修復：確保進入下一回合 🔥
             const useShield = () => { 
                 if(shieldUses.value <= 0) return; 
                 shieldUses.value--; 
                 battle.value.shieldActive = true; 
                 showFloatingText("🛡️ 防護盾開啟", 'gold');
-                // 暫停一下再觸發敵人攻擊
+                
+                // 停止計時器並進入敵人回合
+                clearInterval(timerInterval);
+                isEnemyTurn.value = true;
                 setTimeout(() => {
                     enemyAttackPhase();
                 }, 1000); 
