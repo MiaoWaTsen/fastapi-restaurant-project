@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>⚡️ 寶可夢大亂鬥 V2.0.12 (Raid + Quest 完整版) ⚡️</title>
+    <title>⚡️ 寶可夢大亂鬥 V2.0.13 (穩定修正版) ⚡️</title>
     <script src="https://unpkg.com/vue@3/dist/vue.global.js"></script>
     <style>
         [v-cloak] { display: none; }
@@ -113,9 +113,11 @@
 
 <div id="app" class="container" v-cloak>
     <div v-if="!user" style="text-align:center; padding-top:100px;">
-        <h1 style="color:#e94560">寶可夢大亂鬥 V2.0.12</h1>
-        <p>完整版</p>
+        <h1 style="color:#e94560">寶可夢大亂鬥 V2.0.13</h1>
+        <p>穩定修正版</p>
         <button class="btn-action" @click="logout">前往登入頁面</button>
+        <br><br>
+        <button style="background:transparent; border:1px solid #aaa; color:#aaa; padding:5px;" @click="initAdmin">👑 初始化管理員</button>
     </div>
 
     <div v-else>
@@ -150,10 +152,30 @@
                 <div class="detail-row"><span>❤️ 最大血量</span><b>{{ calcStats(viewMon).hp }}</b></div>
                 <div class="detail-row"><span>⚔️ 攻擊力</span><b>{{ calcStats(viewMon).atk }}</b></div>
                 <div class="detail-row"><span>✨ 經驗值</span><span>{{ viewMon.exp }}</span></div>
+                <div style="margin-top:15px; text-align:left;">
+                    <h4>⚡ 技能組</h4>
+                    <div v-for="skill in getMonSkills(viewMon.name)" :key="skill" style="background:#222; padding:5px; margin-bottom:5px; border-radius:5px;">
+                        <b style="color:#3498db">{{ skill }}</b> <small style="color:#aaa;">{{ getSkillDesc(skill) }}</small>
+                    </div>
+                </div>
                 <div style="display:flex; gap:10px; margin-top:20px;">
                     <button class="btn-yes" style="flex:1; background:#7f8c8d" @click="viewMon=null">關閉</button>
                     <button class="btn-yes" style="flex:1; background:#e67e22;" @click="useCandy(viewMon.uid)">🍬 餵糖 ({{ inventory.growth_candy || 0 }})</button>
                     <button class="btn-yes" style="flex:1;" @click="swapMon(viewMon.uid); viewMon=null;">出戰</button>
+                </div>
+            </div>
+        </div>
+        
+        <div v-if="newsState.show" class="modal-overlay">
+            <div class="modal-box" style="text-align:left;">
+                <div class="modal-title" style="text-align:center;">📢 V2.0.13 更新公告</div>
+                <ul>
+                    <li><b>📜 任務修正</b>：任務現在會依據您的寶可夢等級來派發。</li>
+                    <li><b>🔥 團體戰優化</b>：每日 8, 18, 22 點準時開打。</li>
+                    <li><b>🐞 錯誤修復</b>：修復了前端崩潰問題。</li>
+                </ul>
+                <div style="text-align:center; margin-top:15px;">
+                    <button class="btn-yes" @click="closeNews">我知道了</button>
                 </div>
             </div>
         </div>
@@ -173,9 +195,13 @@
                         <div class="bar-text"><span>Trainer XP</span><span>{{ user.exp }}/{{ getReqXp(user.level) }}</span></div>
                     </div>
                     <div class="stat-block">
-                        <div class="stat-title"><span>{{ user.pokemon_name }} (Lv.{{ user.pet_level }})</span><span class="atk-val">ATK: {{ currentAtkMe }}</span></div>
+                        <div class="stat-title">
+                            <span>{{ user.pokemon_name }} (Lv.{{ user.pet_level }})</span>
+                            <span class="atk-val">ATK: {{ currentAtkMe }} (IV: {{ currentPetIV }})</span>
+                        </div>
                         <div class="bar-container"><div class="bar-fill hp-fill" :style="{ width: hpPercent(user) + '%' }"></div></div>
                         <div class="bar-text"><span>HP: {{ user.hp }}/{{ user.max_hp }}</span></div>
+                        <div class="bar-container" style="margin-top:4px;"><div class="bar-fill pet-xp-fill" :style="{ width: petXpPercent(user) + '%' }"></div></div>
                     </div>
                 </div>
             </div>
@@ -187,6 +213,12 @@
 
         <div v-if="battle.active && !inLobby" class="battle-overlay">
             <h2 style="color:#f1c40f">{{ battle.mode === 'raid' ? '🔥 團體戰' : (battle.mode === 'wild' ? '🌲 ' + battle.target.name : '⚔️ PVP 對決') }}</h2>
+            <div v-if="battle.mode === 'wild'" style="width:100%; max-width:600px; margin-bottom:10px; display:flex; justify-content:space-between; color:#aaa; font-size:0.8em;">
+                <span>⏳ 回合倒數: {{ turnTimer }}s</span>
+            </div>
+            <div v-if="battle.mode === 'wild'" class="timer-bar" style="width:100%; max-width:600px;">
+                <div class="timer-fill" :style="{width: (turnTimer/10)*100 + '%', background: turnTimer < 3 ? '#e74c3c' : '#f1c40f'}"></div>
+            </div>
             <div class="battle-arena">
                 <div class="fighter" id="player-fighter">
                     <img :src="user.pokemon_image">
@@ -208,6 +240,9 @@
                 <button v-if="battle.mode === 'wild'" class="btn-skill btn-shield" :class="{'btn-disabled': isEnemyTurn}" @click="useShield" :disabled="shieldUses <= 0">
                     🛡️ 防護盾 <small>剩 {{ shieldUses }} 次</small>
                 </button>
+                <button v-else class="btn-skill" style="background:#27ae60" @click="doHeal" :class="{'btn-disabled': isEnemyTurn}">
+                    💊 醫療包 <small>回復20%</small>
+                </button>
                 <div style="grid-column: 1 / -1; text-align: center;">
                     <button @click="battle.active=false" style="background:none; border:none; color:#7f8c8d; cursor:pointer; font-size:0.9em;">(逃跑)</button>
                 </div>
@@ -220,6 +255,7 @@
             <button class="tab-btn" :class="{active: tab=='box'}" @click="tab='box'">📦 盒子</button>
             <button class="tab-btn" :class="{active: tab=='bag'}" @click="tab='bag'">🎒 背包</button>
             <button class="tab-btn" :class="{active: tab=='pokedex'}" @click="tab='pokedex'">📖 圖鑑</button>
+            <button class="tab-btn" :class="{active: tab=='leaderboard'}" @click="tab='leaderboard'">🏆 排行</button>
             <button class="tab-btn" :class="{active: tab=='raid'}" @click="tab='raid'">🔥 團體戰</button>
             <button class="tab-btn" :class="{active: tab=='quest'}" @click="tab='quest'">📜 任務</button>
             <button class="tab-btn" :class="{active: tab=='shop'}" @click="tab='shop'">🛒 商店</button>
@@ -260,7 +296,8 @@
                         <div class="bar-container" style="height:20px;"><div class="hp-fill" :style="{width: (raidState.hp/raidState.max_hp)*100 + '%'}"></div></div>
                         <p>HP: {{ raidState.hp }} / {{ raidState.max_hp }}</p>
                     </div>
-                    <button class="btn-action" @click="joinRaid">加入戰鬥 (1000G)</button>
+                    <button v-if="canJoinLobby || raidState.status=='FIGHTING'" class="btn-action" @click="joinRaid">加入戰鬥 (1000G)</button>
+                    <button v-else class="btn-disabled btn-action">尚未開放</button>
                 </div>
                 <div v-else class="card">
                     目前沒有團體戰
@@ -354,6 +391,35 @@
                     <button @click="redeemCode" style="padding:5px;">兌換</button>
                 </div>
             </div>
+
+            <div v-if="tab=='leaderboard'">
+                <div class="card">
+                    <h3>🏆 全服排行榜</h3>
+                    <div style="margin-bottom:10px;">
+                        <label>排序方式：</label>
+                        <select v-model="leaderboardType" @change="fetchLeaderboard" style="padding:5px; background:#16213e; color:white; border:none;">
+                            <option value="level">等級 (Level)</option>
+                            <option value="collection">圖鑑完成率 (Collection)</option>
+                            <option value="money">財富 (Gold)</option>
+                        </select>
+                    </div>
+                    <table style="width:100%; border-collapse:collapse; margin-top:10px;">
+                        <tr style="border-bottom:1px solid #555; text-align:left;">
+                            <th style="padding:5px;">排名</th>
+                            <th>玩家</th>
+                            <th>數值</th>
+                        </tr>
+                        <tr v-for="r in leaderboardData" :key="r.rank" style="border-bottom:1px solid #333;">
+                            <td style="padding:8px;">
+                                <span v-if="r.rank==1">🥇</span><span v-else-if="r.rank==2">🥈</span><span v-else-if="r.rank==3">🥉</span><span v-else>{{ r.rank }}</span>
+                            </td>
+                            <td><img :src="r.img" style="width:20px; height:20px; vertical-align:middle; border-radius:50%;"> {{ r.username }}</td>
+                            <td>{{ r.value }}</td>
+                        </tr>
+                    </table>
+                </div>
+            </div>
+
             <div v-if="tab=='pokedex'">
                 <div class="card">
                     <h3>📖 寶可夢圖鑑</h3>
@@ -364,6 +430,25 @@
                     <div class="pokedex-grid">
                         <div v-for="p in pokedexList" :key="p.name" class="pokedex-item" :class="{'pokedex-owned': p.owned}">
                             <img :src="p.img" class="pokedex-img" :class="{'pokedex-unknown': !p.owned}">
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div v-if="tab=='arena'">
+                <h3>🏟️ 線上玩家</h3>
+                <div class="card-grid">
+                    <div v-for="p in players" :key="p.id" class="card" :style="{opacity: p.is_online ? 1 : 0.5}">
+                        <img :src="p.pokemon_image" class="card-img">
+                        <div style="margin-top:5px;">
+                            <b>{{ p.username }}</b>
+                            <span v-if="p.is_online" style="color:#2ecc71; font-size:0.8em;">● 在線</span>
+                            <span v-else style="color:#95a5a6; font-size:0.8em;">● 離線</span>
+                            <div style="display:flex; gap:5px; margin-top:5px;">
+                                <button v-if="p.is_online" class="btn-small" style="background:#c0392b" @click="sendInvite(p)">決鬥</button>
+                                <button v-else class="btn-small btn-disabled" disabled>決鬥</button>
+                                <button class="btn-small" style="background:#27ae60" @click="addFriend(p.id)">加好友</button>
+                            </div>
                         </div>
                     </div>
                 </div>
@@ -399,7 +484,8 @@
 </div>
 
 <script>
-    const { createApp, ref, onMounted, computed, watch, updated } = Vue;
+    // 🔥 修復：Vue Destructuring 加上 onUpdated 🔥
+    const { createApp, ref, onMounted, computed, watch, onUpdated } = Vue;
     const API_URL = `https://mwtpokemons.zeabur.app/api/v1`;
     const WS_URL = `wss://mwtpokemons.zeabur.app/ws`;
 
@@ -437,15 +523,25 @@
             const isEnemyTurn = ref(false);
             let timerInterval = null;
 
+            const currentPetIV = computed(() => {
+                if(!user.value) return 0;
+                const p = box.value.find(x => x.uid === user.value.active_pokemon_uid);
+                return p ? p.iv : 50;
+            });
             const playerXpPercent = computed(() => user.value ? Math.min(100, (user.value.exp / getReqXp(user.value.level)) * 100) : 0);
             const hpPercent = (u) => (u.hp / u.max_hp) * 100;
+            const petXpPercent = (u) => Math.min(100, (u.pet_exp / (u.next_pet_level_exp || 9999)) * 100);
             const currentAtkMe = computed(() => user.value ? user.value.attack : 0);
 
             const battle = ref({ active: false, mode: 'wild', target: null, shakeMe: false, shakeTarget: false, atkBuff: 1.0, shieldActive: false });
-            const raidState = ref({ active: false, hp: 0, max_hp: 0, boss_name: '' });
+            const raidState = ref({ active: false, hp: 0, max_hp: 0, boss_name: '', status: 'IDLE', image: '' });
             const inLobby = ref(false);
             const lobbyTimer = ref(15);
             let lobbyInterval = null;
+            
+            const leaderboardData = ref([]);
+            const leaderboardType = ref("level");
+            const newsState = ref({ show: false });
 
             const chatMsgs = ref([]);
             const chatInput = ref("");
@@ -484,10 +580,12 @@
             const fetchPlayers = async () => { const res = await fetch(`${API_URL}/auth/all`, { headers: { 'Authorization': `Bearer ${token}` } }); if(res.ok) players.value = await res.json(); };
             const fetchFriends = async () => { const res = await fetch(`${API_URL}/social/list`, { headers: { 'Authorization': `Bearer ${token}` } }); if(res.ok) friends.value = await res.json(); };
             const fetchQuests = async () => { const res = await fetch(`${API_URL}/quests/`, { headers: { 'Authorization': `Bearer ${token}` } }); if(res.ok) quests.value = await res.json(); updateInfo(); };
+            const fetchLeaderboard = async () => { const res = await fetch(`${API_URL}/social/leaderboard?type=${leaderboardType.value}`, { headers: { 'Authorization': `Bearer ${token}` } }); if(res.ok) leaderboardData.value = await res.json(); };
             
             const checkRaid = async () => { const res = await fetch(`${API_URL.replace('/items','')}/shop/raid/status`); if(res.ok) raidState.value = await res.json(); };
             const fetchWildList = async () => { const res = await fetch(`${API_URL.replace('/items','')}/shop/wild/list?level=${selectedWildLevel.value}`, { headers: { 'Authorization': `Bearer ${token}` } }); if(res.ok) wildList.value = await res.json(); };
             const fetchSkillData = async () => { const res = await fetch(`${API_URL.replace('/items','')}/shop/data/skills`); if(res.ok) skillData.value = await res.json(); };
+            const initAdmin = async () => { try { const res = await fetch(`${API_URL}/social/admin/init`); const d = await res.json(); alert(d.message); } catch(e) {} };
             
             const fetchPokedex = async () => { 
                 const res = await fetch(`${API_URL.replace('/items','')}/shop/pokedex/all`, { headers: { 'Authorization': `Bearer ${token}` } }); 
@@ -517,8 +615,10 @@
             };
             
             const getMonSkills = (name) => SKILL_MAP[name] || ["撞擊", "撞擊", "撞擊"];
+            const closeNews = () => { newsState.value.show = false; sessionStorage.setItem('seenNews_v2013', 'true'); };
 
-            updated(() => {
+            // 🔥 修復：使用 onUpdated 🔥
+            onUpdated(() => {
                 const chatBox = document.getElementById('chat-box');
                 if(chatBox) chatBox.scrollTop = chatBox.scrollHeight;
             });
@@ -526,6 +626,7 @@
             onMounted(async () => {
                 document.getElementById('loading').style.display = 'none'; 
                 if(!token) return window.location.href = 'login.html';
+                if (!sessionStorage.getItem('seenNews_v2013')) newsState.value.show = true;
                 await updateInfo(); await fetchSkillData(); updateMySkills(); await fetchPokedex(); 
                 fetchPlayers(); checkRaid(); setInterval(checkRaid, 5000); fetchQuests(); fetchWildList();
                 const ws = new WebSocket(`${WS_URL}?token=${token}`);
@@ -537,21 +638,33 @@
             
             watch(tab, (n) => { 
                 if(n==='arena') fetchPlayers(); if(n==='social') fetchFriends(); if(n==='quest') fetchQuests(); 
-                if(n==='wild') fetchWildList(); if(n==='pokedex') fetchPokedex();
+                if(n==='wild') fetchWildList(); if(n==='pokedex') fetchPokedex(); if(n==='leaderboard') fetchLeaderboard();
             });
             watch(user, () => updateMySkills());
 
             const startWildBattle = (target) => {
                 shieldUses.value = 2; updateMySkills();
                 battle.value = { active: true, mode: 'wild', target: JSON.parse(JSON.stringify(target)), shakeMe: false, shakeTarget: false, atkBuff: 1.0, shieldActive: false };
-                isEnemyTurn.value = false;
+                turnTimer.value = 10; isEnemyTurn.value = false;
+                startTurnTimer();
             };
             
+            const startTurnTimer = () => {
+                clearInterval(timerInterval);
+                turnTimer.value = 10;
+                if (battle.value.mode !== 'wild') return; 
+                timerInterval = setInterval(() => {
+                    turnTimer.value--;
+                    if(turnTimer.value <= 0) { clearInterval(timerInterval); isEnemyTurn.value = true; setTimeout(enemyAttackPhase, 1000); }
+                }, 1000);
+            };
+
             const getSkillDesc = (name) => { const s = skillData.value[name]; return s ? `${s.dmg}傷 ${s.desc || ''}` : ''; };
 
             const doSkillAttack = async (skillName) => {
                 if(isEnemyTurn.value) return; 
                 if(!skillData.value[skillName]) return;
+                clearInterval(timerInterval);
                 const skill = skillData.value[skillName];
                 let dmg = Math.floor((user.value.attack / 100) * skill.dmg * battle.value.atkBuff);
                 if (dmg < 1) dmg = 1;
@@ -573,11 +686,12 @@
                         battle.value.active = false; updateInfo(); fetchQuests();
                     } else { setTimeout(() => { enemyAttackPhase(); }, 1200); }
                 }
-                // B. 團體戰邏輯 (修正版)
+                // 🔥 B. 團體戰邏輯 (補上) 🔥
                 else if (battle.value.mode === 'raid') {
                     battle.value.shakeTarget = true; setTimeout(()=>battle.value.shakeTarget=false, 500);
                     const res = await fetch(`${API_URL.replace('/items','')}/shop/raid/attack?damage=${dmg}`, { method: 'POST', headers: { 'Authorization': `Bearer ${token}` } });
                     const d = await res.json();
+                    if(d.message.includes("尚未開始")) showFloatingText("尚未開始", "gold");
                     if(d.boss_hp !== undefined) battle.value.target.hp = d.boss_hp;
                     isEnemyTurn.value = true; setTimeout(() => isEnemyTurn.value = false, 800);
                 }
@@ -586,7 +700,7 @@
             const enemyAttackPhase = () => {
                 if(battle.value.shieldActive) {
                     alert(`🛡️ 擋下傷害！`);
-                    battle.value.shieldActive = false; isEnemyTurn.value = false;
+                    battle.value.shieldActive = false; isEnemyTurn.value = false; startTurnTimer();
                 } else {
                     const enemyDmg = Math.floor(((battle.value.target.attack / 100) * 20));
                     user.value.hp = Math.max(0, user.value.hp - enemyDmg);
@@ -596,7 +710,7 @@
                         alert("你被打敗了..."); battle.value.active = false; 
                         fetch(`${API_URL.replace('/items','')}/shop/wild/attack?is_win=false`, { method: 'POST', headers: { 'Authorization': `Bearer ${token}` } });
                         buyHeal(); 
-                    } else { isEnemyTurn.value = false; }
+                    } else { isEnemyTurn.value = false; startTurnTimer(); }
                 }
             };
             
@@ -631,8 +745,9 @@
             const buyHeal = async () => { const res = await fetch(`${API_URL.replace('/items','')}/shop/heal`, { method: 'POST', headers: { 'Authorization': `Bearer ${token}` } }); if(res.ok) { alert("補血成功"); updateInfo(); } else alert("金幣不足"); };
             const redeemCode = async () => { const res = await fetch(`${API_URL}/social/redeem?code=${promoCode.value}`, { method: 'POST', headers: { 'Authorization': `Bearer ${token}` } }); const d = await res.json(); alert(d.message || d.detail); updateInfo(); };
             const sendGift = async (fid) => { const res = await fetch(`${API_URL}/social/gift/send/${fid}`, { method: 'POST', headers: { 'Authorization': `Bearer ${token}` } }); if(res.ok) { alert("禮物已發送！"); fetchFriends(); } else { const d = await res.json(); alert(d.detail); } };
+            const sendInvite = async (p) => { await fetch(`${API_URL.replace('/items','')}/shop/duel/invite/${p.id}`, { method: 'POST', headers: { 'Authorization': `Bearer ${token}` } }); alert("已邀請"); };
+            const addFriend = async (uid) => { const res = await fetch(`${API_URL}/social/add/${uid}`, { method: 'POST', headers: { 'Authorization': `Bearer ${token}` } }); const d = await res.json(); alert(d.message); };
             
-            // 🔥 Raid 加入 (檢查 Lobby) 🔥
             const joinRaid = async () => { 
                 if(confirm("支付 1000G 加入？")) { 
                     const res = await fetch(`${API_URL.replace('/items','')}/shop/raid/join`, { method: 'POST', headers: { 'Authorization': `Bearer ${token}` } }); 
@@ -641,11 +756,12 @@
                     } else { const d = await res.json(); alert(d.detail); } 
                 } 
             };
-            
+
+            const canJoinLobby = computed(() => raidState.value.status === 'LOBBY');
             const abandonQuest = async (qid) => { if(confirm("放棄需消耗 1000G，確定嗎？")) { await fetch(`${API_URL}/quests/abandon/${qid}`, { method: 'POST', headers: { 'Authorization': `Bearer ${token}` } }); fetchQuests(); } };
             const claimQuest = async (qid) => { const res = await fetch(`${API_URL}/quests/claim/${qid}`, { method: 'POST', headers: { 'Authorization': `Bearer ${token}` } }); const d = await res.json(); alert(d.message); fetchQuests(); };
 
-            return { user, tab, box, players, friends, selectedMon, battle, raidState, inLobby, lobbyTimer, dailyCheckin, logout, playGacha, swapMon, useCandy, gambleAmount, doGamble, chatMsgs, chatInput, sendChat, doSkillAttack, useShield, doHeal, buyHeal, promoCode, redeemCode, sendGift, joinRaid, playerXpPercent, hpPercent, currentAtkMe, quests, abandonQuest, claimQuest, wildList, fetchWildList, startWildBattle, showRates, gachaRates, mySkills, shieldUses, getSkillDesc, selectedWildLevel, viewMon, calcStats, pokedexList, pokedexPercent, getReqXp, showGachaAnim, gachaResult, showBattleResult, battleResultMsg, inventory };
+            return { user, tab, box, players, friends, selectedMon, battle, raidState, inLobby, lobbyTimer, dailyCheckin, logout, playGacha, swapMon, useCandy, gambleAmount, doGamble, chatMsgs, chatInput, sendChat, doSkillAttack, useShield, doHeal, buyHeal, promoCode, redeemCode, sendGift, joinRaid, playerXpPercent, hpPercent, petXpPercent, currentAtkMe, quests, abandonQuest, claimQuest, wildList, fetchWildList, startWildBattle, showRates, gachaRates, mySkills, shieldUses, getSkillDesc, selectedWildLevel, viewMon, calcStats, pokedexList, pokedexPercent, getReqXp, showGachaAnim, gachaResult, showBattleResult, battleResultMsg, inventory, leaderboardData, leaderboardType, fetchLeaderboard, initAdmin, newsState, closeNews, currentPetIV, addFriend, sendInvite, canJoinLobby };
         }
     }).mount('#app');
 </script>
