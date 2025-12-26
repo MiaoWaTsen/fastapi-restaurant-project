@@ -82,43 +82,48 @@ async def admin_action(action: str, target_id: str, content: str = "", db: Sessi
     return {"message": "未知指令"}
 
 DAILY_REWARDS = [300, 500, "candy:3", 1000, "growth:1", 2500, "golden:1"]
+
+# 🔥 每日簽到時區修正 (台灣時間 UTC+8) 🔥
 @router.post("/daily_checkin")
 def daily_checkin(db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
-    today = datetime.utcnow().date()
-    if current_user.last_daily_claim == today: raise HTTPException(status_code=400, detail="今天已經簽到過了")
-    if current_user.last_daily_claim == today - timedelta(days=1): current_user.login_days = (current_user.login_days % 7) + 1
-    else: current_user.login_days = 1
+    # 台灣時間 = UTC + 8
+    taiwan_now = datetime.utcnow() + timedelta(hours=8)
+    today = taiwan_now.date()
+    
+    if current_user.last_daily_claim == today:
+        raise HTTPException(status_code=400, detail="今天已經簽到過了")
+        
+    if current_user.last_daily_claim == today - timedelta(days=1):
+        current_user.login_days = (current_user.login_days % 7) + 1
+    else:
+        current_user.login_days = 1
+        
     reward = DAILY_REWARDS[current_user.login_days - 1]
     inv = json.loads(current_user.inventory)
     msg = ""
-    if isinstance(reward, int): current_user.money += reward; msg = f"獲得 {reward} Gold"
+    if isinstance(reward, int):
+        current_user.money += reward
+        msg = f"獲得 {reward} Gold"
     else:
         type_, qty = reward.split(":")
         key = "candy" if type_ == "candy" else ("growth_candy" if type_ == "growth" else "golden_candy")
         inv[key] = inv.get(key, 0) + int(qty)
         msg = f"獲得 {key} x{qty}"
+        
     current_user.inventory = json.dumps(inv)
     current_user.last_daily_claim = today
     db.commit()
     return {"message": f"Day {current_user.login_days} 簽到成功！{msg}", "user": current_user}
 
-# 🔥 代碼領取邏輯 (限領一次) 🔥
 @router.post("/redeem")
 def redeem_code(code: str, db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
     inv = json.loads(current_user.inventory)
-    
-    # 檢查是否已領取 (儲存在 inventory["_redeemed_codes"] 中)
     redeemed_list = inv.get("_redeemed_codes", [])
-    if code in redeemed_list:
-        raise HTTPException(status_code=400, detail="此代碼已領取過")
-        
+    if code in redeemed_list: raise HTTPException(status_code=400, detail="此代碼已領取過")
     msg = ""
-    if code == "compensation_gold":
-        current_user.money += 30000; msg = "補償領取：30000 Gold"
-    elif code == "compensation_candy":
-        inv["candy"] = inv.get("candy", 0) + 30; msg = "補償領取：30 顆神奇糖果"
-    elif code == "compensation_goldencandy":
-        inv["golden_candy"] = inv.get("golden_candy", 0) + 5; msg = "補償領取：5 顆黃金糖果"
+    if code == "compensation_gold": current_user.money += 30000; msg = "補償領取：30000 Gold"
+    elif code == "compensation_candy": inv["candy"] = inv.get("candy", 0) + 30; msg = "補償領取：30 顆神奇糖果"
+    elif code == "compensation_goldencandy": inv["golden_candy"] = inv.get("golden_candy", 0) + 5; msg = "補償領取：5 顆黃金糖果"
     elif code == "conmoenstion_snorlax":
         box = json.loads(current_user.pokemon_storage)
         if len(box) >= 25: raise HTTPException(status_code=400, detail="盒子已滿")
@@ -129,11 +134,8 @@ def redeem_code(code: str, db: Session = Depends(get_db), current_user: User = D
         if "卡比獸" not in unlocked: unlocked.append("卡比獸"); current_user.unlocked_monsters = ",".join(unlocked)
         msg = "補償領取：IV 80 卡比獸！"
     else: raise HTTPException(status_code=400, detail="無效的序號")
-    
-    # 記錄已領取代碼
     redeemed_list.append(code)
     inv["_redeemed_codes"] = redeemed_list
-    
     current_user.inventory = json.dumps(inv)
     db.commit()
     return {"message": msg}
