@@ -3,11 +3,11 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>⚡️ 寶可夢大亂鬥 V2.0.14 (聊天室獨立版) ⚡️</title>
+    <title>⚡️ 寶可夢大亂鬥 V2.0.15 (穩定修正版) ⚡️</title>
     <script src="https://unpkg.com/vue@3/dist/vue.global.js"></script>
     <style>
         [v-cloak] { display: none; }
-        body { font-family: 'Segoe UI', sans-serif; background-color: #1a1a2e; color: #fff; padding: 20px; padding-bottom: 50px; user-select: none; }
+        body { font-family: 'Segoe UI', sans-serif; background-color: #1a1a2e; color: #fff; padding: 20px; padding-bottom: 120px; user-select: none; }
         .container { max-width: 900px; margin: 0 auto; position: relative; }
         .navbar { display: flex; justify-content: space-between; align-items: center; background: #16213e; padding: 15px; border-radius: 10px; margin-bottom: 20px; border: 1px solid #0f3460; }
         .user-info { display: flex; gap: 15px; width: 100%; }
@@ -57,7 +57,6 @@
         .fighter { width: 45%; text-align: center; position: relative; transition: 0.1s; }
         .fighter img { width: 100%; height: 200px; object-fit: contain; drop-shadow: 0 10px 10px rgba(0,0,0,0.5); }
         
-        /* 戰鬥特效 */
         .shake-hit { animation: shake 0.4s; }
         .flash-red { animation: flashRed 0.3s; }
         .flash-heal { animation: flashGreen 0.5s; }
@@ -76,50 +75,27 @@
         .modal-title { font-size: 1.5em; color: #f1c40f; margin-bottom: 20px; }
         .btn-yes { background: #27ae60; padding: 10px 20px; border:none; color:white; border-radius:5px; cursor:pointer; margin:5px; }
         
+        .chat-room { background: #1e2a38; border-radius: 10px; padding: 15px; height: 65vh; display: flex; flex-direction: column; border: 1px solid #333; }
+        .chat-msgs { flex: 1; overflow-y: auto; margin-bottom: 10px; padding: 10px; background: rgba(0,0,0,0.2); border-radius: 5px; text-align: left; }
+        .chat-msg-item { margin-bottom: 5px; font-size: 0.95em; border-bottom: 1px solid rgba(255,255,255,0.05); padding-bottom: 3px; }
+        .chat-input-area { display: flex; gap: 10px; }
+        .chat-input { flex: 1; padding: 12px; border-radius: 5px; border: none; background: #333; color: white; }
+        
         .rate-table { width: 100%; border-collapse: collapse; margin-top: 10px; }
         .rate-table th, .rate-table td { border: 1px solid #444; padding: 5px; font-size: 0.9em; text-align:left; }
-        
         .skills-grid { width:100%; max-width:600px; margin-top:20px; display:grid; grid-template-columns:1fr 1fr; gap:15px; }
         .btn-skill { padding: 15px; font-size: 1.1em; background: #3498db; color: white; border: none; border-radius: 10px; cursor: pointer; transition: 0.2s; position:relative; }
         .btn-skill:active { transform: scale(0.95); }
         .btn-shield { background: #f1c40f; color: black; font-weight: bold; }
         .btn-skill small { display: block; font-size: 0.7em; opacity: 0.8; }
-        
         .detail-row { display: flex; justify-content: space-between; padding: 5px 0; border-bottom: 1px solid #333; }
-        
-        /* Pokedex */
         .pokedex-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(100px, 1fr)); gap: 10px; }
         .pokedex-item { background: #222; border-radius: 8px; padding: 10px; text-align: center; }
         .pokedex-img { width: 100%; height: 80px; object-fit: contain; }
         .pokedex-unknown { filter: brightness(0); opacity: 0.7; }
         .pokedex-owned { border: 2px solid #f1c40f; }
-
-        /* Gacha Animation */
         .gacha-anim { font-size: 5em; animation: bounce 1s infinite; margin-bottom: 20px; }
         @keyframes bounce { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-20px); } }
-
-        /* 🔥 Chat Room 獨立樣式 🔥 */
-        .chat-room {
-            background: #1e2a38;
-            border-radius: 10px;
-            padding: 15px;
-            height: 65vh; /* 固定高度 */
-            display: flex;
-            flex-direction: column;
-            border: 1px solid #333;
-        }
-        .chat-msgs {
-            flex: 1;
-            overflow-y: auto;
-            margin-bottom: 10px;
-            padding: 10px;
-            background: rgba(0,0,0,0.2);
-            border-radius: 5px;
-            text-align: left;
-        }
-        .chat-msg-item { margin-bottom: 5px; font-size: 0.95em; border-bottom: 1px solid rgba(255,255,255,0.05); padding-bottom: 3px; }
-        .chat-input-area { display: flex; gap: 10px; }
-        .chat-input { flex: 1; padding: 12px; border-radius: 5px; border: none; background: #333; color: white; }
     </style>
 </head>
 <body>
@@ -128,8 +104,8 @@
 
 <div id="app" class="container" v-cloak>
     <div v-if="!user" style="text-align:center; padding-top:100px;">
-        <h1 style="color:#e94560">寶可夢大亂鬥 V2.0.14</h1>
-        <p>獨立聊天室版</p>
+        <h1 style="color:#e94560">寶可夢大亂鬥 V2.0.15</h1>
+        <p>穩定修正版</p>
         <button class="btn-action" @click="logout">前往登入頁面</button>
         <br><br>
         <button style="background:transparent; border:1px solid #aaa; color:#aaa; padding:5px;" @click="initAdmin">👑 初始化管理員</button>
@@ -183,10 +159,10 @@
         
         <div v-if="newsState.show" class="modal-overlay">
             <div class="modal-box" style="text-align:left;">
-                <div class="modal-title" style="text-align:center;">📢 V2.0.14 更新公告</div>
+                <div class="modal-title" style="text-align:center;">📢 V2.0.15 更新公告</div>
                 <ul>
-                    <li><b>💬 聊天室升級</b>：現在聊天室擁有獨立的分頁，不會擋到畫面了！</li>
-                    <li><b>🐞 任務修復</b>：任務系統現在運作正常。</li>
+                    <li><b>💬 聊天室</b>：已移至獨立分頁，不再遮擋視線。</li>
+                    <li><b>🐞 錯誤修正</b>：修復了查看部分寶可夢時導致的死當問題。</li>
                 </ul>
                 <div style="text-align:center; margin-top:15px;">
                     <button class="btn-yes" @click="closeNews">我知道了</button>
@@ -623,6 +599,7 @@
             };
             
             const calcStats = (mon) => {
+                // 🔥 防呆：如果 pokedexMap 還沒載入或資料缺失，回傳預設值防止當機
                 const base = pokedexMap.value[mon.name];
                 if (!base) return { hp: "???", atk: "???" };
                 const ivMult = 0.9 + (mon.iv / 100) * 0.2;
@@ -633,7 +610,7 @@
             };
             
             const getMonSkills = (name) => SKILL_MAP[name] || ["撞擊", "撞擊", "撞擊"];
-            const closeNews = () => { newsState.value.show = false; sessionStorage.setItem('seenNews_v2014', 'true'); };
+            const closeNews = () => { newsState.value.show = false; sessionStorage.setItem('seenNews_v2015', 'true'); };
 
             onUpdated(() => {
                 const chatBox = document.getElementById('chat-box');
@@ -643,7 +620,7 @@
             onMounted(async () => {
                 document.getElementById('loading').style.display = 'none'; 
                 if(!token) return window.location.href = 'login.html';
-                if (!sessionStorage.getItem('seenNews_v2014')) newsState.value.show = true;
+                if (!sessionStorage.getItem('seenNews_v2015')) newsState.value.show = true;
                 await updateInfo(); await fetchSkillData(); updateMySkills(); await fetchPokedex(); 
                 fetchPlayers(); checkRaid(); setInterval(checkRaid, 5000); fetchQuests(); fetchWildList();
                 

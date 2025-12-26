@@ -15,7 +15,7 @@ from app.common.websocket import manager
 router = APIRouter()
 
 # ==========================================
-# 1. 遊戲數據資料庫 (保留完整內容)
+# 1. 完整遊戲數據 (包含所有野怪與神獸)
 # ==========================================
 POKEDEX_DATA = {
     "小拉達": {"hp": 90, "atk": 80, "img": "https://img.pokemondb.net/artwork/large/rattata.jpg", "skills": ["抓", "出奇一擊", "撞擊"]},
@@ -62,12 +62,8 @@ POKEDEX_DATA = {
     "夢幻":   {"hp": 155, "atk": 150, "img": "https://img.pokemondb.net/artwork/large/mew.jpg", "skills": ["念力", "精神強念", "精神撃破"]},
 }
 
-OBTAINABLE_MONS = [
-    "妙蛙種子", "小火龍", "傑尼龜", "妙蛙花", "噴火龍", "水箭龜",
-    "毛辮羊", "皮卡丘", "伊布", "胖丁", "皮皮", "大蔥鴨", "呆呆獸", "可達鴨",
-    "卡比獸", "吉利蛋", "幸福蛋", "拉普拉斯", "快龍",
-    "急凍鳥", "火焰鳥", "閃電鳥", "超夢", "夢幻"
-]
+# 🔥 修正：OBTAINABLE_MONS 必須包含 POKEDEX_DATA 所有 key，否則前端點擊會找不到資料而崩潰
+OBTAINABLE_MONS = list(POKEDEX_DATA.keys())
 
 SKILL_DB = {
     "水槍": {"dmg": 14, "effect": "heal", "prob": 0.5, "val": 0.15, "desc": "50%回血15%"},
@@ -128,7 +124,7 @@ ACTIVE_BATTLES = {}
 LEVEL_XP = { 1: 50, 2: 150, 3: 300, 4: 500, 5: 800, 6: 1300, 7: 2000, 8: 3000, 9: 5000 }
 
 # --- 團體戰設定 ---
-RAID_SCHEDULE = [8, 18, 22] # 開放時間
+RAID_SCHEDULE = [8, 18, 22] 
 RAID_STATE = {
     "active": False,
     "status": "IDLE",
@@ -158,17 +154,11 @@ def apply_iv_stats(base_val, iv, level, is_player=True):
     return int(base_val * iv_mult * (growth ** (level - 1)))
 
 def update_raid_logic():
-    """
-    更新團體戰狀態：
-    - 59分: 進入 LOBBY (預先生成 Boss)
-    - 00分~15分: FIGHTING (開打)
-    - 其他: IDLE
-    """
     now = datetime.now()
     current_hour = now.hour
     current_min = now.minute
     
-    # 1. 檢查是否為 59 分 (LOBBY 準備期)
+    # 1. 59 分 (LOBBY)
     next_hour = current_hour + 1
     if current_min == 59 and next_hour in RAID_SCHEDULE:
         if RAID_STATE["status"] != "LOBBY":
@@ -181,12 +171,11 @@ def update_raid_logic():
             RAID_STATE["players"] = {}
         return
 
-    # 2. 檢查是否為開放時段 (FIGHTING 戰鬥期)
+    # 2. 開放時段 (FIGHTING)
     if current_hour in RAID_SCHEDULE and 0 <= current_min < 30:
         if RAID_STATE["status"] == "LOBBY":
              RAID_STATE["status"] = "FIGHTING"
         elif RAID_STATE["status"] == "IDLE":
-             # 錯過 59 分補救
              boss_template = random.choice(LEGENDARY_BIRDS)
              RAID_STATE["active"] = True
              RAID_STATE["status"] = "FIGHTING"
@@ -200,7 +189,7 @@ def update_raid_logic():
             RAID_STATE["active"] = False
         return
 
-    # 3. 其他時間 (IDLE)
+    # 3. 其他 (IDLE)
     if RAID_STATE["status"] != "IDLE":
         RAID_STATE["active"] = False
         RAID_STATE["status"] = "IDLE"
@@ -217,6 +206,7 @@ def get_skill_data():
 @router.get("/pokedex/all")
 def get_all_pokedex():
     result = []
+    # 🔥 確保前端能拿到所有怪的資料
     for name in OBTAINABLE_MONS:
         if name in POKEDEX_DATA:
             data = POKEDEX_DATA[name]
@@ -425,7 +415,6 @@ async def pvp_attack(target_id: int, damage: int = Query(0), heal: int = Query(0
     await manager.broadcast(msg)
     return {"message": "攻擊成功", "result": result_type, "reward": reward_msg, "user": current_user}
 
-# 🔥 新版 Raid 邏輯 (Lobby @ :59, Fight @ :00) 🔥
 @router.get("/raid/status")
 def get_raid_status():
     update_raid_logic()
