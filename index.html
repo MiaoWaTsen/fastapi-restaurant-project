@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>⚡️ 寶可夢大亂鬥 V2.0.30 (Loading 修復版) ⚡️</title>
+    <title>⚡️ 寶可夢大亂鬥 V2.1.0 (團體戰完整版) ⚡️</title>
     <script src="https://unpkg.com/vue@3/dist/vue.global.js"></script>
     <style>
         [v-cloak] { display: none; }
@@ -112,8 +112,8 @@
 
 <div id="app" class="container" v-cloak>
     <div v-if="!user" style="text-align:center; padding-top:100px;">
-        <h1 style="color:#e94560">寶可夢大亂鬥 V2.0.30</h1>
-        <p>Loading 修復版</p>
+        <h1 style="color:#e94560">寶可夢大亂鬥 V2.1.0</h1>
+        <p>團體戰完全體</p>
         <button class="btn-action" @click="logout">前往登入頁面</button>
         <br><br>
         <button style="background:transparent; border:1px solid #aaa; color:#aaa; padding:5px;" @click="initAdmin">👑 初始化管理員</button>
@@ -139,6 +139,30 @@
                 <div class="modal-title">🏆 戰鬥勝利！</div>
                 <p style="white-space: pre-wrap; line-height: 1.6; font-size:1.2em;">{{ battleResultMsg }}</p>
                 <div style="margin-top:20px;"><button class="btn-yes" @click="showBattleResult=false">確定</button></div>
+            </div>
+        </div>
+
+        <div v-if="raidVictory" class="modal-overlay">
+            <div class="modal-box">
+                <div class="modal-title">🎉 團體戰勝利！ 🎉</div>
+                <p>請選擇您的獎勵 (三選一)：</p>
+                <div style="display:flex; justify-content:center; gap:20px; margin-top:20px;">
+                    <div v-for="i in 3" :key="i" @click="claimRaidReward(i)" style="cursor:pointer; transition:0.2s; background:#2c3e50; padding:15px; border-radius:10px;">
+                        <div style="font-size:3em;">🔴</div>
+                        <div>點擊開啟</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div v-if="isRaidDead" class="modal-overlay" style="background:rgba(50,0,0,0.9);">
+            <div class="modal-box" style="border: 3px solid #e74c3c;">
+                <div class="modal-title" style="color:#e74c3c;">💀 你已經死亡</div>
+                <h2 style="font-size:4em; margin:10px 0; color:#fff;">{{ raidDeadTimer }}</h2>
+                <p>秒後將被踢出大廳...</p>
+                <button class="btn-action" style="background:#27ae60; margin-top:20px; padding:15px;" @click="reviveRaid">
+                    💊 購買復活 (500G)
+                </button>
             </div>
         </div>
 
@@ -179,11 +203,11 @@
         
         <div v-if="newsState.show" class="modal-overlay">
             <div class="modal-box" style="text-align:left;">
-                <div class="modal-title" style="text-align:center;">📢 V2.0.30 更新公告</div>
+                <div class="modal-title" style="text-align:center;">📢 V2.1.0 更新公告</div>
                 <ul>
-                    <li><b>🐞 介面修復</b>：已排除 Loading 卡住的問題，請重新整理頁面。</li>
-                    <li><b>⚔️ 技能修正</b>：卡比獸等寶可夢的技能已修正。</li>
-                    <li><b>🛡️ 特效實裝</b>：回血、加攻、反傷等效果現在會有明顯提示！</li>
+                    <li><b>🔥 團體戰大更新</b>：實裝了 Boss 攻擊、死亡倒數與復活機制。</li>
+                    <li><b>🎁 勝利獎勵</b>：現在打贏 Boss 可以翻牌抽獎品了！</li>
+                    <li><b>💊 醫療包</b>：團體戰中，防護盾將自動切換為醫療包。</li>
                 </ul>
                 <div style="text-align:center; margin-top:15px;">
                     <button class="btn-yes" @click="closeNews">我知道了</button>
@@ -275,17 +299,20 @@
                         :disabled="isEnemyTurn">
                     {{ skill }} <small>{{ getSkillDesc(skill) }}</small>
                 </button>
-                <button v-if="battle.mode === 'wild'" class="btn-skill btn-shield" 
+                
+                <button v-if="battle.mode === 'raid'" class="btn-skill btn-shield" 
+                        style="background:#e91e63;"
+                        :class="{'btn-disabled': isEnemyTurn}" 
+                        @click="useMedKit" 
+                        :disabled="shieldUses <= 0 || isEnemyTurn">
+                    💊 醫療包 <small>剩 {{ shieldUses }} 次</small>
+                </button>
+                
+                <button v-else class="btn-skill btn-shield" 
                         :class="{'btn-disabled': isEnemyTurn}" 
                         @click="useShield" 
                         :disabled="shieldUses <= 0 || isEnemyTurn">
                     🛡️ 防護盾 <small>剩 {{ shieldUses }} 次</small>
-                </button>
-                <button v-else class="btn-skill" style="background:#27ae60" 
-                        @click="doHeal" 
-                        :class="{'btn-disabled': isEnemyTurn}" 
-                        :disabled="isEnemyTurn">
-                    💊 醫療包 <small>回復20%</small>
                 </button>
             </div>
         </div>
@@ -327,18 +354,25 @@
             </div>
             
             <div v-if="tab=='raid'">
-                <h3>🔥 傳說團體戰 (每天 8, 18, 22 點)</h3>
+                <h3>🔥 傳說團體戰 (08/18/22 點)</h3>
                 <div v-if="raidState.active" class="card" style="border:2px solid #e74c3c; background:#2c0b0e;">
                     <h2>Boss: {{ raidState.boss_name }}</h2>
                     <img :src="raidState.image" style="width:120px; height:120px;">
                     <div v-if="raidState.status === 'LOBBY'" style="color:#f1c40f; margin:10px 0;">
-                        ⏳ 準備中... 00分準時開打
+                        ⏳ 準備中... 
                     </div>
                     <div v-else>
                         <div class="bar-container" style="height:20px;"><div class="hp-fill" :style="{width: (raidState.hp/raidState.max_hp)*100 + '%'}"></div></div>
                         <p>HP: {{ raidState.hp }} / {{ raidState.max_hp }}</p>
                     </div>
-                    <button v-if="canJoinLobby || raidState.status=='FIGHTING'" class="btn-action" @click="joinRaid">加入戰鬥 (1000G)</button>
+                    
+                    <button v-if="raidState.status=='ENDED'" class="btn-action" style="background:#f1c40f; color:black;" @click="raidVictory=true">
+                        🎁 領取獎勵
+                    </button>
+                    
+                    <button v-else-if="canJoinLobby || raidState.status=='FIGHTING'" class="btn-action" @click="joinRaid">
+                        加入戰鬥 (1000G)
+                    </button>
                     <button v-else class="btn-disabled btn-action">尚未開放</button>
                 </div>
                 <div v-else class="card">
@@ -553,29 +587,20 @@
 
     createApp({
         setup() {
+            // ... (變數定義) ...
             const user = ref(null);
             const token = localStorage.getItem('token');
             const tab = ref('wild'); 
-            const box = computed(() => {
-                if(!user.value || !user.value.pokemon_storage) return [];
-                try { return JSON.parse(user.value.pokemon_storage); } catch(e) { return []; }
-            });
-            const inventory = computed(() => {
-                if(!user.value) return {};
-                try { return JSON.parse(user.value.inventory); } catch(e) { return {}; }
-            });
-            const currentPetIV = computed(() => {
-                if(!user.value) return 0;
-                const p = box.value.find(x => x.uid === user.value.active_pokemon_uid);
-                return p ? p.iv : 50;
-            });
+            const box = computed(() => { if(!user.value || !user.value.pokemon_storage) return []; try { return JSON.parse(user.value.pokemon_storage); } catch(e) { return []; } });
+            const inventory = computed(() => { if(!user.value) return {}; try { return JSON.parse(user.value.inventory); } catch(e) { return {}; } });
+            const currentPetIV = computed(() => { if(!user.value) return 0; const p = box.value.find(x => x.uid === user.value.active_pokemon_uid); return p ? p.iv : 50; });
             const playerXpPercent = computed(() => user.value ? Math.min(100, (user.value.exp / getReqXp(user.value.level)) * 100) : 0);
             const hpPercent = (u) => { if (!u || !u.max_hp) return 0; return Math.min(100, (u.hp / u.max_hp) * 100); };
             const petXpPercent = (u) => { if (!u) return 0; const req = getReqXp(u.pet_level); return Math.min(100, (u.pet_exp / req) * 100); };
             const currentAtkMe = computed(() => user.value ? user.value.attack : 0);
             
             const battle = ref({ active: false, mode: 'wild', target: null, shakeMe: false, shakeTarget: false, atkBuff: 1.0, shieldActive: false });
-            const raidState = ref({ active: false, hp: 0, max_hp: 0, boss_name: '', status: 'IDLE', image: '' });
+            const raidState = ref({ active: false, hp: 0, max_hp: 0, boss_name: '', status: 'IDLE', image: '', my_status: {} });
             const inLobby = ref(false);
             const lobbyTimer = ref(15);
             
@@ -608,22 +633,27 @@
             const turnTimer = ref(10);
             const isEnemyTurn = ref(false);
             let timerInterval = null;
+            
+            // 🔥 新增：團體戰相關變數 🔥
+            const raidVictory = ref(false);
+            const isRaidDead = ref(false);
+            const raidDeadTimer = ref(5);
+            let deadInterval = null;
 
             const gachaRates = { "🔮 初級": [], "🔵 中級": [] };
-            
-            // 🔥 更新：完整的 Frontend SKILL_MAP，包含卡比獸與所有新技能 🔥
             const SKILL_MAP = {
-                "小拉達": ["抓", "出奇一擊", "撞擊"], "波波": ["抓", "啄", "燕返"], 
-                "妙蛙種子": ["藤鞭", "種子炸彈", "污泥炸彈"], "小火龍": ["火花", "噴射火焰", "大字爆炎"], "傑尼龜": ["水槍", "水流噴射", "水流尾"],
-                "卡比獸": ["泰山壓頂", "地震", "撞擊"], "皮卡丘": ["電光", "放電", "電擊"], "快龍": ["抓", "逆鱗", "勇鳥猛攻"],
-                "急凍鳥": ["冰礫", "冰凍光束", "勇鳥猛攻"], "火焰鳥": ["噴射火焰", "大字爆炎", "勇鳥猛攻"], "閃電鳥": ["電光", "瘋狂伏特", "勇鳥猛攻"]
+                "小拉達": ["抓", "出奇一擊", "撞擊"], "波波": ["抓", "啄", "燕返"], "烈雀": ["抓", "啄", "燕返"], "阿柏蛇": ["毒針", "毒擊", "緊束"], "瓦斯彈": ["毒針", "毒針", "撞擊"], "海星星": ["水槍", "幻象光線", "撞擊"], "角金魚": ["水槍", "幻象光線", "泥巴射擊"], "走路草": ["種子炸彈", "撞擊", "毒擊"], "穿山鼠": ["抓", "泥巴射擊", "泥巴炸彈"], "蚊香蝌蚪": ["雙倍奉還", "冰凍光束", "水槍"], "小磁怪": ["電擊", "放電", "撞擊"], "卡拉卡拉": ["泥巴射擊", "泥巴炸彈", "挖洞"], "喵喵": ["抓", "出奇一擊", "撞擊"], "瑪瑙水母": ["水槍", "水流尾", "緊束"], "海刺龍": ["水槍", "水流尾", "逆鱗"], "蚊香勇士": ["雙倍奉還", "冰凍光束", "水槍"], "暴鯉龍": ["水流尾", "咬碎", "破壞光線"],
+                "妙蛙種子": ["藤鞭", "種子炸彈", "污泥炸彈"], "小火龍": ["火花", "噴射火焰", "大字爆炎"], "傑尼龜": ["水槍", "水流噴射", "水流尾"], "妙蛙花": ["藤鞭", "種子炸彈", "污泥炸彈"], "噴火龍": ["火花", "噴射火焰", "大字爆炎"], "水箭龜": ["水槍", "水流噴射", "水流尾"], "毛辮羊": ["撞擊", "撒嬌", "電擊"], "皮卡丘": ["電光", "放電", "電擊"], "伊布": ["撞擊", "挖洞", "高速星星"], "胖丁": ["撞擊", "撒嬌", "精神強念"], "皮皮": ["撞擊", "撒嬌", "精神強念"], "大蔥鴨": ["啄", "葉刃", "勇鳥猛攻"], "呆呆獸": ["水槍", "幻象光線", "水流噴射"], "可達鴨": ["水槍", "幻象光線", "水流噴射"],
+                "卡比獸": ["泰山壓頂", "地震", "撞擊"],
+                "吉利蛋": ["抓", "精神強念", "撞擊"], "幸福蛋": ["抓", "精神強念", "撞擊"], "拉普拉斯": ["水槍", "水流噴射", "冰凍光束"], "快龍": ["抓", "逆鱗", "勇鳥猛攻"],
+                "急凍鳥": ["冰礫", "冰凍光束", "勇鳥猛攻"], "火焰鳥": ["噴射火焰", "大字爆炎", "勇鳥猛攻"], "閃電鳥": ["電光", "瘋狂伏特", "勇鳥猛攻"], "超夢": ["念力", "精神強念", "精神撃破"], "夢幻": ["念力", "精神強念", "精神撃破"]
             };
 
             const getReqXp = (lv) => 100 * Math.pow(1.5, lv - 1);
             const logout = () => { localStorage.clear(); window.location.href = 'login.html'; };
             const getSkillDesc = (name) => { const s = skillData.value[name]; return s ? `${s.dmg}傷 ${s.desc || ''}` : ''; };
             const getMonSkills = (name) => SKILL_MAP[name] || ["撞擊", "撞擊", "撞擊"];
-            const closeNews = () => { newsState.value.show = false; sessionStorage.setItem('seenNews_v2030', 'true'); };
+            const closeNews = () => { newsState.value.show = false; sessionStorage.setItem('seenNews_v2100', 'true'); };
             const calcStats = (mon) => { const base = pokedexMap.value[mon.name] || { hp: 100, atk: 10 }; const ivMult = 0.9 + ((mon.iv || 50) / 100) * 0.2; const growth = Math.pow(1.06, (mon.lv || 1) - 1); return { hp: Math.floor(base.hp * ivMult * growth), atk: Math.floor(base.atk * ivMult * growth) }; };
             const viewBoxMon = (p) => { const base = pokedexMap.value[p.name]; if (!base) { alert(`警告：找不到 [${p.name}] 的資料`); return; } const stats = calcStats(p); viewMon.value = { ...p, hp_val: stats.hp, atk_val: stats.atk, img_src: base.img, is_demo: false }; };
             const viewPokedexEntry = (p) => { const base = pokedexMap.value[p.name]; viewMon.value = { name: p.name, iv: null, lv: null, exp: null, hp_val: base.hp, atk_val: base.atk, img_src: base.img, is_demo: true }; };
@@ -637,7 +667,41 @@
             const fetchFriends = async () => { const res = await fetch(`${API_URL}/social/list`, { headers: { 'Authorization': `Bearer ${token}` } }); if(res.ok) friends.value = await res.json(); const res2 = await fetch(`${API_URL}/social/requests`, { headers: { 'Authorization': `Bearer ${token}` } }); if(res2.ok) friendRequests.value = await res2.json(); };
             const fetchQuests = async () => { const res = await fetch(`${API_URL}/quests/`, { headers: { 'Authorization': `Bearer ${token}` } }); if(res.ok) quests.value = await res.json(); updateInfo(); };
             const fetchLeaderboard = async () => { const res = await fetch(`${API_URL}/social/leaderboard?type=${leaderboardType.value}`, { headers: { 'Authorization': `Bearer ${token}` } }); if(res.ok) leaderboardData.value = await res.json(); };
-            const checkRaid = async () => { const res = await fetch(`${API_URL.replace('/items','')}/shop/raid/status`); if(res.ok) raidState.value = await res.json(); };
+            
+            // 🔥 Raid Status: 檢查是否死亡 🔥
+            const checkRaid = async () => {
+                const res = await fetch(`${API_URL.replace('/items','')}/shop/raid/status`, { headers: { 'Authorization': `Bearer ${token}` } });
+                if(res.ok) {
+                    const data = await res.json();
+                    raidState.value = data;
+                    
+                    if (data.my_status && data.my_status.dead_at) {
+                        if (!isRaidDead.value) {
+                            isRaidDead.value = true;
+                            raidDeadTimer.value = 5;
+                            deadInterval = setInterval(() => {
+                                raidDeadTimer.value--;
+                                if(raidDeadTimer.value <= 0) {
+                                    clearInterval(deadInterval);
+                                    alert("你已被踢出團體戰");
+                                    isRaidDead.value = false;
+                                    battle.value.active = false;
+                                }
+                            }, 1000);
+                        }
+                    } else {
+                        if (isRaidDead.value) {
+                            isRaidDead.value = false;
+                            clearInterval(deadInterval);
+                        }
+                    }
+                    
+                    if (data.status === 'ENDED' && data.my_status && !data.my_status.claimed && !raidVictory.value) {
+                        raidVictory.value = true;
+                    }
+                }
+            };
+            
             const fetchWildList = async () => { const res = await fetch(`${API_URL.replace('/items','')}/shop/wild/list?level=${selectedWildLevel.value}`, { headers: { 'Authorization': `Bearer ${token}` } }); if(res.ok) wildList.value = await res.json(); };
             const fetchSkillData = async () => { const res = await fetch(`${API_URL.replace('/items','')}/shop/data/skills`); if(res.ok) skillData.value = await res.json(); };
             const initAdmin = async () => { try { const res = await fetch(`${API_URL}/social/admin/init`); const d = await res.json(); alert(d.message); } catch(e) {} };
@@ -646,56 +710,7 @@
             const startWildBattle = (target) => { shieldUses.value = 2; updateMySkills(); battle.value = { active: true, mode: 'wild', target: JSON.parse(JSON.stringify(target)), shakeMe: false, shakeTarget: false, atkBuff: 1.0, shieldActive: false }; turnTimer.value = 10; isEnemyTurn.value = false; startTurnTimer(); };
             const startTurnTimer = () => { clearInterval(timerInterval); turnTimer.value = 10; if (battle.value.mode !== 'wild') return; timerInterval = setInterval(() => { turnTimer.value--; if(turnTimer.value <= 0) { clearInterval(timerInterval); isEnemyTurn.value = true; showFloatingText("逾時!", "red"); setTimeout(enemyAttackPhase, 1000); } }, 1000); };
             const enemyAttackPhase = () => { if(battle.value.shieldActive) { alert(`🛡️ 擋下傷害！`); battle.value.shieldActive = false; isEnemyTurn.value = false; startTurnTimer(); } else { const enemyDmg = Math.floor(((battle.value.target.attack / 100) * 20)); user.value.hp = Math.max(0, user.value.hp - enemyDmg); if(user.value.hp <= 0) { alert("你被打敗了..."); battle.value.active = false; fetch(`${API_URL.replace('/items','')}/shop/wild/attack?is_win=false`, { method: 'POST', headers: { 'Authorization': `Bearer ${token}` } }); buyHeal(); } else { isEnemyTurn.value = false; startTurnTimer(); } } };
-            
-            const doSkillAttack = async (skillName) => {
-                if(isEnemyTurn.value) return; 
-                if(!skillData.value[skillName]) return;
-                
-                try {
-                    isEnemyTurn.value = true;
-                    clearInterval(timerInterval);
-
-                    const skill = skillData.value[skillName];
-                    
-                    if (skill.effect === 'buff_atk' && Math.random() < skill.prob) {
-                        battle.value.atkBuff = 1 + skill.val;
-                        showFloatingText(`ATK UP!`, 'gold');
-                    } else if (skill.effect === 'heal' && Math.random() < skill.prob) {
-                        const healAmt = Math.floor(user.value.max_hp * skill.val);
-                        user.value.hp = Math.min(user.value.max_hp, user.value.hp + healAmt);
-                        showFloatingText(`+${healAmt}`, 'green');
-                    }
-                    
-                    if (skill.effect === 'recoil') {
-                        const recoilDmg = Math.floor(user.value.max_hp * skill.val);
-                        user.value.hp = Math.max(0, user.value.hp - recoilDmg);
-                        showFloatingText(`反傷 -${recoilDmg}`, 'red');
-                    }
-
-                    let dmg = Math.floor((user.value.attack / 100) * skill.dmg * battle.value.atkBuff);
-                    if (dmg < 1) dmg = 1;
-                    showFloatingText(`-${dmg}`, 'red', true); 
-
-                    if(battle.value.mode === 'wild') {
-                        battle.value.target.hp = Math.max(0, battle.value.target.hp - dmg); 
-                        if(battle.value.target.hp <= 0) {
-                            const safeName = encodeURIComponent(battle.value.target.raw_name);
-                            // 🔥 補上 target_level 參數
-                            const tLv = battle.value.target.level; 
-                            const res = await fetch(`${API_URL.replace('/items','')}/shop/wild/attack?is_win=true&is_powerful=${battle.value.target.is_powerful||false}&target_name=${safeName}&target_level=${tLv}`, { method: 'POST', headers: { 'Authorization': `Bearer ${token}` } });
-                            const d = await res.json();
-                            battleResultMsg.value = d.message; showBattleResult.value = true;
-                            battle.value.active = false; updateInfo(); setTimeout(fetchQuests, 500);
-                        } else { setTimeout(enemyAttackPhase, 1200); }
-                    }
-                    else if (battle.value.mode === 'raid') {
-                        const res = await fetch(`${API_URL.replace('/items','')}/shop/raid/attack?damage=${dmg}`, { method: 'POST', headers: { 'Authorization': `Bearer ${token}` } });
-                        const d = await res.json();
-                        if(d.boss_hp !== undefined) battle.value.target.hp = d.boss_hp;
-                        setTimeout(() => { isEnemyTurn.value = false; startTurnTimer(); }, 800);
-                    }
-                } catch (e) { console.error(e); battle.value.active = false; }
-            };
+            const doSkillAttack = async (skillName) => { if(isEnemyTurn.value) return; if(!skillData.value[skillName]) return; try { isEnemyTurn.value = true; clearInterval(timerInterval); const skill = skillData.value[skillName]; let dmg = Math.floor((user.value.attack / 100) * skill.dmg * battle.value.atkBuff); if (dmg < 1) dmg = 1; if(battle.value.mode === 'wild') { battle.value.target.hp = Math.max(0, battle.value.target.hp - dmg); if(battle.value.target.hp <= 0) { const safeName = encodeURIComponent(battle.value.target.raw_name); const tLv = battle.value.target.level; const res = await fetch(`${API_URL.replace('/items','')}/shop/wild/attack?is_win=true&is_powerful=${battle.value.target.is_powerful||false}&target_name=${safeName}&target_level=${tLv}`, { method: 'POST', headers: { 'Authorization': `Bearer ${token}` } }); const d = await res.json(); battleResultMsg.value = d.message; showBattleResult.value = true; battle.value.active = false; updateInfo(); setTimeout(fetchQuests, 500); } else { setTimeout(enemyAttackPhase, 1200); } } else if (battle.value.mode === 'raid') { const res = await fetch(`${API_URL.replace('/items','')}/shop/raid/attack?damage=${dmg}`, { method: 'POST', headers: { 'Authorization': `Bearer ${token}` } }); const d = await res.json(); if(d.boss_hp !== undefined) battle.value.target.hp = d.boss_hp; setTimeout(() => { isEnemyTurn.value = false; startTurnTimer(); }, 800); } } catch (e) { console.error(e); battle.value.active = false; } };
 
             const playGacha = async (type) => { showGachaAnim.value = true; const res = await fetch(`${API_URL.replace('/items','')}/shop/gacha/${type}`, { method: 'POST', headers: { 'Authorization': `Bearer ${token}` } }); const d = await res.json(); setTimeout(() => { showGachaAnim.value = false; gachaResult.value = d; updateInfo(); }, 2000); };
             const useShield = () => { if(shieldUses.value <= 0) return; shieldUses.value--; battle.value.shieldActive = true; isEnemyTurn.value = true; clearInterval(timerInterval); setTimeout(enemyAttackPhase, 1200); };
@@ -714,15 +729,34 @@
             const joinRaid = async () => { if(confirm("支付 1000G 加入？")) { const res = await fetch(`${API_URL.replace('/items','')}/shop/raid/join`, { method: 'POST', headers: { 'Authorization': `Bearer ${token}` } }); if(res.ok) { battle.value = { active: true, mode: 'raid', target: { name: raidState.value.boss_name, hp: raidState.value.hp, max_hp: raidState.value.max_hp, image_url: raidState.value.image }, shakeMe: false, shakeTarget: false }; } else { const d = await res.json(); alert(d.detail); } } };
             const abandonQuest = async (qid) => { if(confirm("放棄需消耗 1000G，確定嗎？")) { await fetch(`${API_URL}/quests/abandon/${qid}`, { method: 'POST', headers: { 'Authorization': `Bearer ${token}` } }); fetchQuests(); } };
             const claimQuest = async (qid) => { const res = await fetch(`${API_URL}/quests/claim/${qid}`, { method: 'POST', headers: { 'Authorization': `Bearer ${token}` } }); const d = await res.json(); alert(d.message); fetchQuests(); };
+            
+            // 🔥 新增：團體戰專屬功能 🔥
+            const reviveRaid = async () => {
+                const res = await fetch(`${API_URL.replace('/items','')}/shop/raid/revive`, { method: 'POST', headers: { 'Authorization': `Bearer ${token}` } });
+                if (res.ok) { isRaidDead.value = false; clearInterval(deadInterval); updateInfo(); } else { const d = await res.json(); alert(d.detail); }
+            };
+
+            const claimRaidReward = async (choice) => {
+                const res = await fetch(`${API_URL.replace('/items','')}/shop/raid/claim?choice=${choice}`, { method: 'POST', headers: { 'Authorization': `Bearer ${token}` } });
+                const d = await res.json(); alert(d.message); raidVictory.value = false; updateInfo();
+            };
+
+            const useMedKit = () => {
+                if(shieldUses.value <= 0) return;
+                shieldUses.value--;
+                const healAmt = Math.floor(user.value.max_hp * 0.2);
+                user.value.hp = Math.min(user.value.max_hp, user.value.hp + healAmt);
+                alert(`💊 醫療包回復了 ${healAmt} HP`);
+            };
 
             onUpdated(() => { const chatBox = document.getElementById('chat-box'); if(chatBox) chatBox.scrollTop = chatBox.scrollHeight; });
             onMounted(async () => { 
                 document.getElementById('loading').style.display = 'none'; 
                 if(!token) return window.location.href = 'login.html'; 
-                if (!sessionStorage.getItem('seenNews_v2030')) newsState.value.show = true; 
+                if (!sessionStorage.getItem('seenNews_v2100')) newsState.value.show = true; 
                 
                 await fetchSkillData(); await fetchPokedex(); await updateInfo(); await fetchPokedex(); 
-                updateMySkills(); fetchPlayers(); checkRaid(); setInterval(checkRaid, 5000); fetchQuests(); fetchWildList(); fetchLeaderboard();
+                updateMySkills(); fetchPlayers(); checkRaid(); setInterval(checkRaid, 3000); fetchQuests(); fetchWildList(); fetchLeaderboard();
                 
                 try { const ws = new WebSocket(`${WS_URL}?token=${token}`); ws.onmessage = (e) => { const msg = e.data; if(msg.startsWith("CHAT|")) { chatMsgs.value.push(msg.split("|")[1]); } }; } catch(e) { console.error("WS error", e); } 
             });
@@ -739,7 +773,8 @@
                 showGachaAnim, gachaResult, showBattleResult, battleResultMsg, inventory, 
                 leaderboardData, leaderboardType, fetchLeaderboard, initAdmin, newsState, closeNews, 
                 currentPetIV, addFriend, acceptFriend, sendInvite, canJoinLobby, turnTimer, isEnemyTurn, 
-                viewBoxMon, viewPokedexEntry, getMonSkills, forceCloseBattle 
+                viewBoxMon, viewPokedexEntry, getMonSkills, forceCloseBattle, 
+                raidVictory, isRaidDead, raidDeadTimer, reviveRaid, claimRaidReward, useMedKit
             };
         }
     }).mount('#app');
