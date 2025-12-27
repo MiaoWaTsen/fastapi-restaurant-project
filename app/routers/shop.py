@@ -15,7 +15,7 @@ from app.common.websocket import manager
 router = APIRouter()
 
 # --------------------------------------------------------
-# 1. 完整圖鑑資料庫 (包含所有野怪與神獸)
+# 1. 完整圖鑑資料庫
 # --------------------------------------------------------
 POKEDEX_DATA = {
     # [野怪區]
@@ -69,8 +69,6 @@ POKEDEX_DATA = {
 # --------------------------------------------------------
 # 2. 清單與常數
 # --------------------------------------------------------
-
-# 只有這些會顯示在「圖鑑」中
 OBTAINABLE_MONS = [
     "妙蛙種子", "小火龍", "傑尼龜", "妙蛙花", "噴火龍", "水箭龜",
     "毛辮羊", "皮卡丘", "伊布", "胖丁", "皮皮", "大蔥鴨", "呆呆獸", "可達鴨",
@@ -94,6 +92,7 @@ ACTIVE_BATTLES = {}
 LEVEL_XP = { 1: 50, 2: 150, 3: 300, 4: 500, 5: 800, 6: 1300, 7: 2000, 8: 3000, 9: 5000 }
 
 RAID_SCHEDULE = [8, 18, 22] 
+# 初始化時 boss 為 None
 RAID_STATE = {"active": False, "status": "IDLE", "boss": None, "current_hp": 0, "max_hp": 0, "players": {}}
 LEGENDARY_BIRDS = [
     {"name": "❄️ 急凍鳥", "hp": 50000, "atk": 300, "img": "https://img.pokemondb.net/sprites/home/normal/articuno.png"},
@@ -145,7 +144,7 @@ SKILL_DB = {
 }
 
 # ==========================================
-# 3. API Endpoints
+# 4. API Endpoints
 # ==========================================
 
 @router.get("/data/skills")
@@ -155,20 +154,10 @@ def get_skill_data():
 @router.get("/pokedex/all")
 def get_all_pokedex():
     result = []
-    # 🔥 關鍵：回傳「所有」有資料的怪，但加上 is_collectable 標記
-    # 這樣盒子裡的野怪可以讀取到資料 (不當機)，但圖鑑可以過濾掉它們
-    all_names = POKEDEX_DATA.keys()
-    
-    for name in all_names:
-        data = POKEDEX_DATA[name]
-        is_collectable = name in OBTAINABLE_MONS
-        result.append({
-            "name": name, 
-            "img": data["img"], 
-            "hp": data["hp"], 
-            "atk": data["atk"],
-            "is_collectable": is_collectable # 🔥 前端圖鑑過濾用
-        })
+    for name in OBTAINABLE_MONS:
+        if name in POKEDEX_DATA:
+            data = POKEDEX_DATA[name]
+            result.append({"name": name, "img": data["img"], "hp": data["hp"], "atk": data["atk"]})
     return result
 
 @router.get("/wild/list")
@@ -183,6 +172,7 @@ def get_wild_list(level: int, current_user: User = Depends(get_current_user)):
     for name in available_species:
         if name not in POKEDEX_DATA: continue
         base = POKEDEX_DATA[name]
+        
         mult = 1.0
         wild_hp = int(base["hp"] * 1.3 * mult * (1.09 ** (level - 1)))
         wild_atk = int(base["atk"] * 1.15 * mult * (1.07 ** (level - 1)))
@@ -196,45 +186,36 @@ def get_wild_list(level: int, current_user: User = Depends(get_current_user)):
     return wild_list
 
 @router.post("/wild/attack")
-async def wild_attack_api(
-    is_win: bool = Query(...), 
-    is_powerful: bool = Query(False), 
-    target_name: str = Query("野怪"), # 這邊接收的會是 "小拉達"
-    db: Session = Depends(get_db), 
-    current_user: User = Depends(get_current_user)
-):
+async def wild_attack_api(is_win: bool = Query(...), is_powerful: bool = Query(False), target_name: str = Query("野怪"), db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
     current_user.hp = current_user.max_hp
     if is_win:
         xp = current_user.level * 50; money = current_user.level * 30
         current_user.exp += xp; current_user.pet_exp += xp; current_user.money += money
         msg = f"獲得 {xp} XP, {money} G"
-        
         if is_powerful:
             inv = json.loads(current_user.inventory); inv["growth_candy"] = inv.get("growth_candy", 0) + 1; current_user.inventory = json.dumps(inv); msg += " & 🍬 成長糖果 x1"
-            
+        
         quests = json.loads(current_user.quests) if current_user.quests else []
         quest_updated = False
         
-        # 🔥 任務更新邏輯修正：寬鬆匹配 + 狀態容錯
+        # 容錯匹配：只要目標名稱有包含關鍵字就算
         for q in quests:
-            # 只要不是已完成，且名字有對上 (例如目標 "小拉達" 在 "Lv.1 小拉達" 裡，或是反過來)
-            # 因為前端傳來的 target_name 可能只有 "小拉達"
-            is_target_match = (q.get("target") in target_name) or (target_name in q.get("target"))
-            
-            if q["status"] != "COMPLETED" and is_target_match:
+            is_match = (q.get("target") in target_name) or (target_name in q.get("target"))
+            if q["status"] != "COMPLETED" and is_match:
                 q["now"] += 1
                 quest_updated = True
-                
+        
         if quest_updated: current_user.quests = json.dumps(quests)
         
-        # (以下省略升級邏輯，保持不變)
         req_xp_p = get_req_xp(current_user.level)
         while current_user.exp >= req_xp_p and current_user.level < 25:
             current_user.exp -= req_xp_p; current_user.level += 1; req_xp_p = get_req_xp(current_user.level); msg += f" | 訓練師升級 Lv.{current_user.level}!"
+        
         req_xp_pet = get_req_xp(current_user.pet_level)
         pet_leveled_up = False
         while current_user.pet_exp >= req_xp_pet and current_user.pet_level < 25:
             current_user.pet_exp -= req_xp_pet; current_user.pet_level += 1; req_xp_pet = get_req_xp(current_user.pet_level); pet_leveled_up = True; msg += f" | 寶可夢升級 Lv.{current_user.pet_level}!"
+        
         box = json.loads(current_user.pokemon_storage)
         active_pet = next((p for p in box if p['uid'] == current_user.active_pokemon_uid), None)
         if active_pet:
@@ -250,7 +231,6 @@ async def wild_attack_api(
         return {"message": f"勝利！HP已回復。{msg}"}
     db.commit()
     return {"message": "戰鬥結束，HP已回復。"}
-
 
 @router.post("/gacha/{gacha_type}")
 async def play_gacha(gacha_type: str, db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
@@ -288,7 +268,6 @@ async def play_gacha(gacha_type: str, db: Session = Depends(get_db), current_use
     current_user.pokemon_storage = json.dumps(box)
     current_user.inventory = json.dumps(inventory)
     
-    # 更新圖鑑
     unlocked = current_user.unlocked_monsters.split(',') if current_user.unlocked_monsters else []
     if prize_name not in unlocked: unlocked.append(prize_name); current_user.unlocked_monsters = ",".join(unlocked)
     
@@ -313,7 +292,6 @@ async def swap_active_pokemon(pokemon_uid: str, db: Session = Depends(get_db), c
         return int(base_val * iv_mult * (1.06 ** (level - 1)))
         
     base = POKEDEX_DATA.get(target["name"])
-    # 🔥 防呆：萬一資料庫沒這隻怪，給個預設圖片防止崩潰
     current_user.pokemon_image = base["img"] if base else "https://via.placeholder.com/150"
     
     current_user.pet_level = target["lv"]
@@ -413,12 +391,18 @@ async def pvp_attack(target_id: int, damage: int = Query(0), heal: int = Query(0
     await manager.broadcast(msg)
     return {"message": "攻擊成功", "result": result_type, "reward": reward_msg, "user": current_user}
 
+# 🔥 修正：Raid Status 500 Error 防止 🔥
 @router.get("/raid/status")
 def get_raid_status():
     update_raid_logic()
     if not RAID_STATE["active"] and RAID_STATE["status"] != "LOBBY":
         return {"active": False, "status": "IDLE"}
-    boss = RAID_STATE["boss"]
+    
+    # 確保 boss 不為 None 再讀取
+    boss = RAID_STATE.get("boss")
+    if not boss: 
+        return {"active": False, "status": "IDLE"}
+        
     return {
         "active": True,
         "status": RAID_STATE["status"],
