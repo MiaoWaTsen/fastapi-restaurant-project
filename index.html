@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>⚡️ 寶可夢大亂鬥 V2.0.19 (極致穩定版) ⚡️</title>
+    <title>⚡️ 寶可夢大亂鬥 V2.0.20 (最終完美版) ⚡️</title>
     <script src="https://unpkg.com/vue@3/dist/vue.global.js"></script>
     <style>
         [v-cloak] { display: none; }
@@ -111,8 +111,8 @@
 
 <div id="app" class="container" v-cloak>
     <div v-if="!user" style="text-align:center; padding-top:100px;">
-        <h1 style="color:#e94560">寶可夢大亂鬥 V2.0.19</h1>
-        <p>極致穩定版</p>
+        <h1 style="color:#e94560">寶可夢大亂鬥 V2.0.20</h1>
+        <p>最終完美版</p>
         <button class="btn-action" @click="logout">前往登入頁面</button>
         <br><br>
         <button style="background:transparent; border:1px solid #aaa; color:#aaa; padding:5px;" @click="initAdmin">👑 初始化管理員</button>
@@ -166,10 +166,9 @@
         
         <div v-if="newsState.show" class="modal-overlay">
             <div class="modal-box" style="text-align:left;">
-                <div class="modal-title" style="text-align:center;">📢 V2.0.19 更新公告</div>
+                <div class="modal-title" style="text-align:center;">📢 V2.0.20 更新公告</div>
                 <ul>
-                    <li><b>🐞 戰鬥修復</b>：解決了戰鬥介面卡住與無法關閉的問題。</li>
-                    <li><b>📖 盒子修復</b>：現在點擊所有寶可夢都能正常查看資訊。</li>
+                    <li><b>🐞 全面修復</b>：圖鑑黑影、盒子點擊、任務進度、Raid 500 Error 全部修復！</li>
                 </ul>
                 <div style="text-align:center; margin-top:15px;">
                     <button class="btn-yes" @click="closeNews">我知道了</button>
@@ -472,7 +471,7 @@
                     <div class="pokedex-grid">
                         <div v-for="p in pokedexList" :key="p.name" class="pokedex-item" 
                              :class="{'pokedex-owned': p.owned}"
-                             v-if="p.is_collectable">
+                             v-if="p.is_obtainable">
                             <img :src="p.img" class="pokedex-img" :class="{'pokedex-unknown': !p.owned}">
                         </div>
                     </div>
@@ -676,7 +675,7 @@
             };
             
             const getMonSkills = (name) => SKILL_MAP[name] || ["撞擊", "撞擊", "撞擊"];
-            const closeNews = () => { newsState.value.show = false; sessionStorage.setItem('seenNews_v2019', 'true'); };
+            const closeNews = () => { newsState.value.show = false; sessionStorage.setItem('seenNews_v2020', 'true'); };
 
             onUpdated(() => {
                 const chatBox = document.getElementById('chat-box');
@@ -686,7 +685,7 @@
             onMounted(async () => {
                 document.getElementById('loading').style.display = 'none'; 
                 if(!token) return window.location.href = 'login.html';
-                if (!sessionStorage.getItem('seenNews_v2019')) newsState.value.show = true;
+                if (!sessionStorage.getItem('seenNews_v2020')) newsState.value.show = true;
                 await updateInfo(); await fetchSkillData(); await fetchPokedex(); 
                 updateMySkills(); 
                 fetchPlayers(); checkRaid(); setInterval(checkRaid, 5000); fetchQuests(); fetchWildList();
@@ -734,7 +733,6 @@
                 if(isEnemyTurn.value) return; 
                 if(!skillData.value[skillName]) return;
                 
-                // 🔥 安全保護：防止重複點擊導致崩潰
                 try {
                     isEnemyTurn.value = true;
                     clearInterval(timerInterval);
@@ -748,16 +746,14 @@
                         battle.value.target.hp = Math.max(0, battle.value.target.hp - dmg); 
                         
                         if(battle.value.target.hp <= 0) {
-                            // 🔥 編碼中文名稱，防止後端無法辨識
                             const safeName = encodeURIComponent(battle.value.target.raw_name);
                             const res = await fetch(`${API_URL.replace('/items','')}/shop/wild/attack?is_win=true&is_powerful=${battle.value.target.is_powerful||false}&target_name=${safeName}`, { 
                                 method: 'POST', headers: { 'Authorization': `Bearer ${token}` } 
                             });
                             
-                            // 強制結束戰鬥
                             battle.value.active = false; 
                             updateInfo(); 
-                            setTimeout(fetchQuests, 500); // 延遲刷新任務
+                            setTimeout(fetchQuests, 500);
                         } else { 
                             setTimeout(enemyAttackPhase, 1200); 
                         }
@@ -770,7 +766,7 @@
                     }
                 } catch (e) {
                     console.error(e);
-                    battle.value.active = false; // 出錯時強制關閉戰鬥
+                    battle.value.active = false;
                 }
             };
             

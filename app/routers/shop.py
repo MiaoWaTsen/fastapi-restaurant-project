@@ -14,9 +14,9 @@ from app.common.websocket import manager
 
 router = APIRouter()
 
-# --------------------------------------------------------
-# 1. 完整圖鑑資料庫
-# --------------------------------------------------------
+# ==========================================
+# 1. 完整圖鑑資料庫 (包含所有野怪與神獸)
+# ==========================================
 POKEDEX_DATA = {
     # [野怪區]
     "小拉達": {"hp": 90, "atk": 80, "img": "https://img.pokemondb.net/artwork/large/rattata.jpg", "skills": ["抓", "出奇一擊", "撞擊"]},
@@ -92,7 +92,6 @@ ACTIVE_BATTLES = {}
 LEVEL_XP = { 1: 50, 2: 150, 3: 300, 4: 500, 5: 800, 6: 1300, 7: 2000, 8: 3000, 9: 5000 }
 
 RAID_SCHEDULE = [8, 18, 22] 
-# 初始化時 boss 為 None
 RAID_STATE = {"active": False, "status": "IDLE", "boss": None, "current_hp": 0, "max_hp": 0, "players": {}}
 LEGENDARY_BIRDS = [
     {"name": "❄️ 急凍鳥", "hp": 50000, "atk": 300, "img": "https://img.pokemondb.net/sprites/home/normal/articuno.png"},
@@ -144,6 +143,59 @@ SKILL_DB = {
 }
 
 # ==========================================
+# 3. 輔助函式
+# ==========================================
+def get_req_xp(lv):
+    if lv >= 25: return 999999999
+    if lv < 10: return LEVEL_XP.get(lv, 5000)
+    return 5000 + (lv - 9) * 2000
+
+def apply_iv_stats(base_val, iv, level, is_player=True):
+    iv_mult = 0.9 + (iv / 100) * 0.2
+    growth = 1.06 if is_player else 1.07
+    if base_val > 500: growth = 1.08 if is_player else 1.09
+    return int(base_val * iv_mult * (growth ** (level - 1)))
+
+def update_raid_logic():
+    now = datetime.now()
+    current_hour = now.hour
+    current_min = now.minute
+    
+    next_hour = current_hour + 1
+    if current_min == 59 and next_hour in RAID_SCHEDULE:
+        if RAID_STATE["status"] != "LOBBY":
+            boss_template = random.choice(LEGENDARY_BIRDS)
+            RAID_STATE["active"] = True
+            RAID_STATE["status"] = "LOBBY"
+            RAID_STATE["boss"] = boss_template
+            RAID_STATE["max_hp"] = boss_template["hp"]
+            RAID_STATE["current_hp"] = boss_template["hp"]
+            RAID_STATE["players"] = {}
+        return
+
+    if current_hour in RAID_SCHEDULE and 0 <= current_min < 30:
+        if RAID_STATE["status"] == "LOBBY":
+             RAID_STATE["status"] = "FIGHTING"
+        elif RAID_STATE["status"] == "IDLE":
+             boss_template = random.choice(LEGENDARY_BIRDS)
+             RAID_STATE["active"] = True
+             RAID_STATE["status"] = "FIGHTING"
+             RAID_STATE["boss"] = boss_template
+             RAID_STATE["max_hp"] = boss_template["hp"]
+             RAID_STATE["current_hp"] = boss_template["hp"]
+             RAID_STATE["players"] = {}
+        
+        if RAID_STATE["current_hp"] <= 0:
+            RAID_STATE["status"] = "ENDED"
+            RAID_STATE["active"] = False
+        return
+
+    if RAID_STATE["status"] != "IDLE":
+        RAID_STATE["active"] = False
+        RAID_STATE["status"] = "IDLE"
+        RAID_STATE["boss"] = None
+
+# ==========================================
 # 4. API Endpoints
 # ==========================================
 
@@ -154,10 +206,16 @@ def get_skill_data():
 @router.get("/pokedex/all")
 def get_all_pokedex():
     result = []
-    for name in OBTAINABLE_MONS:
-        if name in POKEDEX_DATA:
-            data = POKEDEX_DATA[name]
-            result.append({"name": name, "img": data["img"], "hp": data["hp"], "atk": data["atk"]})
+    # 🔥 關鍵：回傳所有資料給盒子使用，但標記 is_obtainable 讓圖鑑過濾
+    for name, data in POKEDEX_DATA.items():
+        is_obtainable = name in OBTAINABLE_MONS
+        result.append({
+            "name": name, 
+            "img": data["img"], 
+            "hp": data["hp"], 
+            "atk": data["atk"],
+            "is_obtainable": is_obtainable # 🔥 前端用這個來過濾黑影
+        })
     return result
 
 @router.get("/wild/list")
@@ -198,7 +256,6 @@ async def wild_attack_api(is_win: bool = Query(...), is_powerful: bool = Query(F
         quests = json.loads(current_user.quests) if current_user.quests else []
         quest_updated = False
         
-        # 容錯匹配：只要目標名稱有包含關鍵字就算
         for q in quests:
             is_match = (q.get("target") in target_name) or (target_name in q.get("target"))
             if q["status"] != "COMPLETED" and is_match:
@@ -391,16 +448,16 @@ async def pvp_attack(target_id: int, damage: int = Query(0), heal: int = Query(0
     await manager.broadcast(msg)
     return {"message": "攻擊成功", "result": result_type, "reward": reward_msg, "user": current_user}
 
-# 🔥 修正：Raid Status 500 Error 防止 🔥
+# 🔥 修正 500 Error: 確保 boss 存在才讀取 🔥
 @router.get("/raid/status")
 def get_raid_status():
     update_raid_logic()
     if not RAID_STATE["active"] and RAID_STATE["status"] != "LOBBY":
         return {"active": False, "status": "IDLE"}
     
-    # 確保 boss 不為 None 再讀取
     boss = RAID_STATE.get("boss")
-    if not boss: 
+    # 如果 boss 為 None (剛啟動時)，直接回傳 IDLE
+    if not boss:
         return {"active": False, "status": "IDLE"}
         
     return {
