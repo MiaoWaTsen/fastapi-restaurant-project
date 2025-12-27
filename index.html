@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>⚡️ 寶可夢大亂鬥 V2.0.16 (全功能修復版) ⚡️</title>
+    <title>⚡️ 寶可夢大亂鬥 V2.0.17 (圖鑑修復版) ⚡️</title>
     <script src="https://unpkg.com/vue@3/dist/vue.global.js"></script>
     <style>
         [v-cloak] { display: none; }
@@ -52,14 +52,12 @@
         .box-item.active { border: 2px solid #f1c40f; }
         .iv-tag { position: absolute; top: 5px; right: 5px; background: #f1c40f; color: black; padding: 2px 5px; border-radius: 3px; font-size: 0.7em; font-weight: bold; }
         
-        /* 🔥 8. 戰鬥 UI 優化 🔥 */
         .battle-overlay { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(15, 15, 30, 0.98); z-index: 2000; padding: 20px; display: flex; flex-direction: column; align-items: center; overflow-y: auto;}
         .battle-header { width: 100%; max-width: 600px; display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px; }
         .battle-arena { display: flex; justify-content: space-between; width: 100%; max-width: 800px; height: 350px; align-items: flex-end; position: relative; margin-top: 20px;}
         .fighter { width: 40%; text-align: center; position: relative; transition: 0.1s; }
         .fighter img { width: 100%; height: 180px; object-fit: contain; drop-shadow: 0 10px 10px rgba(0,0,0,0.5); }
         
-        /* 數值顯示 */
         .fighter-stats { background: rgba(0,0,0,0.6); padding: 5px; border-radius: 5px; margin-top: 5px; text-align: left; border: 1px solid #444; }
         .fighter-name { font-weight: bold; font-size: 1.1em; margin-bottom: 2px; }
         .fighter-val { display: flex; justify-content: space-between; font-size: 0.8em; color: #ccc; }
@@ -75,7 +73,6 @@
         .floating-text { position: absolute; font-size: 2em; font-weight: bold; animation: floatUp 1.5s forwards; pointer-events: none; text-shadow: 2px 2px 0 #000; z-index: 3000; }
         @keyframes floatUp { 0% { transform: translateY(0) scale(1); opacity: 1; } 80% { opacity: 1; } 100% { transform: translateY(-80px) scale(1.1); opacity: 0; } }
         
-        /* 6. 計時器 UI */
         .timer-bar { width: 100%; height: 8px; background: #333; margin-top: 10px; border-radius: 4px; overflow: hidden; position: relative; }
         .timer-fill { height: 100%; background: #f1c40f; transition: width 1s linear; }
         .timer-text { position: absolute; top: -20px; right: 0; font-size: 0.9em; color: #aaa; }
@@ -114,8 +111,8 @@
 
 <div id="app" class="container" v-cloak>
     <div v-if="!user" style="text-align:center; padding-top:100px;">
-        <h1 style="color:#e94560">寶可夢大亂鬥 V2.0.16</h1>
-        <p>全功能修復版</p>
+        <h1 style="color:#e94560">寶可夢大亂鬥 V2.0.17</h1>
+        <p>圖鑑修復版</p>
         <button class="btn-action" @click="logout">前往登入頁面</button>
         <br><br>
         <button style="background:transparent; border:1px solid #aaa; color:#aaa; padding:5px;" @click="initAdmin">👑 初始化管理員</button>
@@ -169,11 +166,10 @@
         
         <div v-if="newsState.show" class="modal-overlay">
             <div class="modal-box" style="text-align:left;">
-                <div class="modal-title" style="text-align:center;">📢 V2.0.16 更新公告</div>
+                <div class="modal-title" style="text-align:center;">📢 V2.0.17 更新公告</div>
                 <ul>
-                    <li><b>💬 聊天修復</b>：解決了訊息被吃掉的問題。</li>
-                    <li><b>⚔️ 戰鬥介面</b>：現在可以看到詳細的血量數值與狀態 Buff！</li>
-                    <li><b>👥 好友邀請</b>：加好友現在需要對方同意。</li>
+                    <li><b>📖 圖鑑修復</b>：現在只要您盒子裡有的寶可夢，圖鑑就會顯示為已收集！</li>
+                    <li><b>🐞 任務修復</b>：任務進度與按鈕現在會更即時地更新。</li>
                 </ul>
                 <div style="text-align:center; margin-top:15px;">
                     <button class="btn-yes" @click="closeNews">我知道了</button>
@@ -248,7 +244,8 @@
                     <img :src="battle.target.image_url || battle.target.pokemon_image">
                     <div class="fighter-stats">
                         <div class="fighter-name" style="color:#e74c3c;">{{ battle.target.name || battle.target.username }}</div>
-                        <div class="fighter-buff"></div> <div class="bar-container"><div class="bar-fill hp-fill" :style="{width: (battle.target.hp/battle.target.max_hp)*100 + '%'}"></div></div>
+                        <div class="fighter-buff"></div>
+                        <div class="bar-container"><div class="bar-fill hp-fill" :style="{width: (battle.target.hp/battle.target.max_hp)*100 + '%'}"></div></div>
                         <div class="fighter-val">
                             <span>HP: {{ battle.target.hp }}/{{ battle.target.max_hp }}</span>
                             <span style="color:#f1c40f;">ATK: {{ battle.target.attack }}</span>
@@ -358,7 +355,7 @@
                                 獎勵：{{ q.type=='GOLDEN' ? '✨ 黃金糖果 x1' : (q.gold + 'G / ' + q.xp + ' XP') }}
                             </p>
                         </div>
-                        <button v-if="q.now >= q.req" class="btn-action" style="width:120px; background:#2ecc71;" @click="claimQuest(q.id)">🎁 領取獎勵</button>
+                        <button v-if="Number(q.now) >= Number(q.req)" class="btn-action" style="width:120px; background:#2ecc71;" @click="claimQuest(q.id)">🎁 領取獎勵</button>
                         <button v-else class="btn-action" style="width:120px; background:#e74c3c; font-size:0.8em; opacity:0.8;" @click="abandonQuest(q.id)">更換 (-1000G)</button>
                     </div>
                 </div>
@@ -413,7 +410,6 @@
 
             <div v-if="tab=='social'">
                 <h3>👥 好友與管理</h3>
-                
                 <div v-if="friendRequests.length > 0" class="card" style="margin-bottom:15px; border:1px solid #f1c40f;">
                     <h4 style="color:#f1c40f;">🔔 好友邀請</h4>
                     <div v-for="req in friendRequests" :key="req.request_id" style="display:flex; justify-content:space-between; align-items:center; border-bottom:1px solid #444; padding:5px;">
@@ -536,7 +532,6 @@
 <script>
     const { createApp, ref, onMounted, computed, watch, onUpdated } = Vue;
     const API_URL = `https://mwtpokemons.zeabur.app/api/v1`;
-    // 🔥 1. 修正 WebSocket URL，確保帶上 Token
     const WS_URL = `wss://mwtpokemons.zeabur.app/ws`;
 
     createApp({
@@ -559,7 +554,7 @@
             const quests = ref([]);
             const players = ref([]);
             const friends = ref([]);
-            const friendRequests = ref([]); // 新增
+            const friendRequests = ref([]);
             const selectedMon = ref(null);
             const viewMon = ref(null);
             
@@ -649,9 +644,19 @@
                 if(res.ok && user.value) { 
                     const allMons = await res.json(); 
                     allMons.forEach(m => pokedexMap.value[m.name] = m);
-                    const unlocked = (user.value.unlocked_monsters || "").split(","); 
-                    pokedexList.value = allMons.map(m => ({ ...m, owned: unlocked.includes(m.name) })); 
-                    pokedexPercent.value = Math.floor((unlocked.length / allMons.length) * 100); 
+                    
+                    // 🔥 圖鑑修復核心：檢查盒子 + 解鎖紀錄
+                    const unlockedStr = (user.value.unlocked_monsters || "").split(","); 
+                    const boxNames = box.value.map(p => p.name);
+                    
+                    pokedexList.value = allMons.map(m => ({ 
+                        ...m, 
+                        owned: unlockedStr.includes(m.name) || boxNames.includes(m.name) 
+                    })); 
+                    
+                    // 重新計算百分比
+                    const ownedCount = pokedexList.value.filter(m => m.owned).length;
+                    pokedexPercent.value = Math.floor((ownedCount / allMons.length) * 100); 
                 } 
             };
 
@@ -672,7 +677,7 @@
             };
             
             const getMonSkills = (name) => SKILL_MAP[name] || ["撞擊", "撞擊", "撞擊"];
-            const closeNews = () => { newsState.value.show = false; sessionStorage.setItem('seenNews_v2016', 'true'); };
+            const closeNews = () => { newsState.value.show = false; sessionStorage.setItem('seenNews_v2017', 'true'); };
 
             onUpdated(() => {
                 const chatBox = document.getElementById('chat-box');
@@ -682,8 +687,9 @@
             onMounted(async () => {
                 document.getElementById('loading').style.display = 'none'; 
                 if(!token) return window.location.href = 'login.html';
-                if (!sessionStorage.getItem('seenNews_v2016')) newsState.value.show = true;
-                await updateInfo(); await fetchSkillData(); updateMySkills(); await fetchPokedex(); 
+                if (!sessionStorage.getItem('seenNews_v2017')) newsState.value.show = true;
+                await updateInfo(); await fetchSkillData(); await fetchPokedex(); // 順序調整，確保 user 有值
+                updateMySkills(); 
                 fetchPlayers(); checkRaid(); setInterval(checkRaid, 5000); fetchQuests(); fetchWildList();
                 
                 try {
@@ -710,7 +716,6 @@
             
             const startTurnTimer = () => {
                 clearInterval(timerInterval);
-                // 🔥 6. 計時器修復：每次呼叫前先清除舊的，並重置時間
                 turnTimer.value = 10;
                 if (battle.value.mode !== 'wild') return; 
                 timerInterval = setInterval(() => {
@@ -730,13 +735,11 @@
                 if(isEnemyTurn.value) return; 
                 if(!skillData.value[skillName]) return;
                 
-                // 🔥 7. 立即凍結
                 isEnemyTurn.value = true;
                 clearInterval(timerInterval);
 
                 const skill = skillData.value[skillName];
                 
-                // 5. Buff 邏輯
                 if (skill.effect === 'buff_atk' && Math.random() < skill.prob) {
                     battle.value.atkBuff = 1 + skill.val;
                     showFloatingText(`ATK UP!`, 'gold');
@@ -761,7 +764,10 @@
                         const d = await res.json(); 
                         battleResultMsg.value = `造成 ${dmg} 傷害\n${d.message}`;
                         showBattleResult.value = true;
-                        battle.value.active = false; updateInfo(); fetchQuests();
+                        battle.value.active = false; 
+                        updateInfo(); 
+                        // 🔥 關鍵修正：延遲更新任務，確保後端寫入完畢
+                        setTimeout(fetchQuests, 500); 
                     } else { setTimeout(() => { enemyAttackPhase(); }, 1200); }
                 }
                 else if (battle.value.mode === 'raid') {
@@ -770,7 +776,7 @@
                     const d = await res.json();
                     if(d.message.includes("尚未開始")) showFloatingText("尚未開始", "gold");
                     if(d.boss_hp !== undefined) battle.value.target.hp = d.boss_hp;
-                    setTimeout(() => { isEnemyTurn.value = false; startTurnTimer(); }, 800); // Raid 不用等敵人回合
+                    setTimeout(() => { isEnemyTurn.value = false; startTurnTimer(); }, 800);
                 }
             };
             
@@ -810,7 +816,6 @@
                 if(shieldUses.value <= 0) return; 
                 shieldUses.value--; battle.value.shieldActive = true; 
                 showFloatingText("🛡️ 防護盾開啟", 'gold');
-                // 凍結直到敵人攻擊完
                 isEnemyTurn.value = true; 
                 clearInterval(timerInterval);
                 setTimeout(() => { enemyAttackPhase(); }, 1200); 
@@ -826,16 +831,8 @@
             const redeemCode = async () => { const res = await fetch(`${API_URL}/social/redeem?code=${promoCode.value}`, { method: 'POST', headers: { 'Authorization': `Bearer ${token}` } }); const d = await res.json(); alert(d.message || d.detail); updateInfo(); };
             const sendGift = async (fid) => { const res = await fetch(`${API_URL}/social/gift/send/${fid}`, { method: 'POST', headers: { 'Authorization': `Bearer ${token}` } }); if(res.ok) { alert("禮物已發送！"); fetchFriends(); } else { const d = await res.json(); alert(d.detail); } };
             const sendInvite = async (p) => { await fetch(`${API_URL.replace('/items','')}/shop/duel/invite/${p.id}`, { method: 'POST', headers: { 'Authorization': `Bearer ${token}` } }); alert("已邀請"); };
-            
-            // 🔥 4. 新增好友 API 串接
-            const addFriend = async (uid) => { 
-                const res = await fetch(`${API_URL}/social/add/${uid}`, { method: 'POST', headers: { 'Authorization': `Bearer ${token}` } }); 
-                const d = await res.json(); alert(d.message || d.detail); 
-            };
-            const acceptFriend = async (reqId) => {
-                await fetch(`${API_URL}/social/accept/${reqId}`, { method: 'POST', headers: { 'Authorization': `Bearer ${token}` } }); 
-                alert("已接受好友！"); fetchFriends();
-            };
+            const addFriend = async (uid) => { const res = await fetch(`${API_URL}/social/add/${uid}`, { method: 'POST', headers: { 'Authorization': `Bearer ${token}` } }); const d = await res.json(); alert(d.message || d.detail); };
+            const acceptFriend = async (reqId) => { await fetch(`${API_URL}/social/accept/${reqId}`, { method: 'POST', headers: { 'Authorization': `Bearer ${token}` } }); alert("已接受好友！"); fetchFriends(); };
             
             const joinRaid = async () => { 
                 if(confirm("支付 1000G 加入？")) { 

@@ -14,11 +14,11 @@ from app.common.websocket import manager
 
 router = APIRouter()
 
-# ==========================================
-# 1. 綜合數據庫 (包含野怪 & 寵物，防止前端查詢不到而崩潰)
-# ==========================================
+# --------------------------------------------------------
+# 1. 完整圖鑑資料庫 (包含所有野怪與神獸，防止前端查詢死當)
+# --------------------------------------------------------
 POKEDEX_DATA = {
-    # --- 野怪區 (不能抓，只會出現在野外) ---
+    # [野怪區] - 即使玩家不該擁有，前端查詢時也需要資料才不會崩潰
     "小拉達": {"hp": 90, "atk": 80, "img": "https://img.pokemondb.net/artwork/large/rattata.jpg", "skills": ["抓", "出奇一擊", "撞擊"]},
     "波波":   {"hp": 95, "atk": 85, "img": "https://img.pokemondb.net/artwork/large/pidgey.jpg", "skills": ["抓", "啄", "燕返"]},
     "烈雀":   {"hp": 90, "atk": 90, "img": "https://img.pokemondb.net/artwork/large/spearow.jpg", "skills": ["抓", "啄", "燕返"]},
@@ -37,7 +37,7 @@ POKEDEX_DATA = {
     "蚊香勇士": {"hp": 160, "atk": 130, "img": "https://img.pokemondb.net/artwork/large/poliwrath.jpg", "skills": ["雙倍奉還", "冰凍光束", "水槍"]},
     "暴鯉龍": {"hp": 180, "atk": 150, "img": "https://img.pokemondb.net/artwork/large/gyarados.jpg", "skills": ["水流尾", "咬碎", "破壞光線"]},
 
-    # --- 寵物區 (可收集，可出戰) ---
+    # [寵物區] - 可收集
     "妙蛙種子": {"hp": 130, "atk": 112, "img": "https://img.pokemondb.net/artwork/large/bulbasaur.jpg", "skills": ["藤鞭", "種子炸彈", "污泥炸彈"]},
     "小火龍": {"hp": 112, "atk": 130, "img": "https://img.pokemondb.net/artwork/large/charmander.jpg", "skills": ["火花", "噴射火焰", "大字爆炎"]},
     "傑尼龜": {"hp": 121, "atk": 121, "img": "https://img.pokemondb.net/artwork/large/squirtle.jpg", "skills": ["水槍", "水流噴射", "水流尾"]},
@@ -58,7 +58,7 @@ POKEDEX_DATA = {
     "拉普拉斯": {"hp": 165, "atk": 140, "img": "https://img.pokemondb.net/artwork/large/lapras.jpg", "skills": ["水槍", "水流噴射", "冰凍光束"]},
     "快龍":   {"hp": 150, "atk": 148, "img": "https://img.pokemondb.net/artwork/large/dragonite.jpg", "skills": ["抓", "逆鱗", "勇鳥猛攻"]},
     
-    # --- 神獸區 (Raid Boss / 夢幻寵物) ---
+    # [神獸區]
     "急凍鳥": {"hp": 150, "atk": 150, "img": "https://img.pokemondb.net/artwork/large/articuno.jpg", "skills": ["冰礫", "冰凍光束", "勇鳥猛攻"]},
     "火焰鳥": {"hp": 150, "atk": 150, "img": "https://img.pokemondb.net/artwork/large/moltres.jpg", "skills": ["噴射火焰", "大字爆炎", "勇鳥猛攻"]},
     "閃電鳥": {"hp": 150, "atk": 150, "img": "https://img.pokemondb.net/artwork/large/zapdos.jpg", "skills": ["電光", "瘋狂伏特", "勇鳥猛攻"]},
@@ -66,11 +66,11 @@ POKEDEX_DATA = {
     "夢幻":   {"hp": 155, "atk": 150, "img": "https://img.pokemondb.net/artwork/large/mew.jpg", "skills": ["念力", "精神強念", "精神撃破"]},
 }
 
-# ==========================================
-# 2. 分類清單 (邏輯區隔)
-# ==========================================
+# --------------------------------------------------------
+# 2. 清單與常數
+# --------------------------------------------------------
 
-# A. 圖鑑 & 扭蛋清單 (只包含寵物，不含野怪)
+# 只有這些會顯示在「圖鑑」中，防止野怪出現黑影
 OBTAINABLE_MONS = [
     "妙蛙種子", "小火龍", "傑尼龜", "妙蛙花", "噴火龍", "水箭龜",
     "毛辮羊", "皮卡丘", "伊布", "胖丁", "皮皮", "大蔥鴨", "呆呆獸", "可達鴨",
@@ -78,21 +78,29 @@ OBTAINABLE_MONS = [
     "急凍鳥", "火焰鳥", "閃電鳥", "超夢", "夢幻"
 ]
 
-# B. 野怪解鎖表 (只包含野怪，任務目標從這裡挑)
 WILD_UNLOCK_LEVELS = {
     1: ["小拉達"], 2: ["波波"], 3: ["烈雀"], 4: ["阿柏蛇"], 5: ["瓦斯彈"],
     6: ["海星星"], 7: ["角金魚"], 8: ["走路草"], 9: ["穿山鼠"], 10: ["蚊香蝌蚪"],
     12: ["小磁怪"], 14: ["卡拉卡拉"], 16: ["喵喵"], 18: ["瑪瑙水母"], 20: ["海刺龍"]
 }
 
-# C. 扭蛋池 (嚴格排除野怪)
+GACHA_HIGH = [{"name": "卡比獸", "rate": 20}, {"name": "吉利蛋", "rate": 24}, {"name": "幸福蛋", "rate": 10}, {"name": "拉普拉斯", "rate": 10}, {"name": "妙蛙花", "rate": 10}, {"name": "噴火龍", "rate": 10}, {"name": "水箭龜", "rate": 10}, {"name": "快龍", "rate": 6}]
+GACHA_GOLDEN = [{"name": "卡比獸", "rate": 30}, {"name": "吉利蛋", "rate": 35}, {"name": "幸福蛋", "rate": 20}, {"name": "拉普拉斯", "rate": 10}, {"name": "快龍", "rate": 5}]
 GACHA_NORMAL = [{"name": "妙蛙種子", "rate": 5}, {"name": "小火龍", "rate": 5}, {"name": "傑尼龜", "rate": 5}, {"name": "伊布", "rate": 8}, {"name": "皮卡丘", "rate": 8}, {"name": "皮皮", "rate": 10}, {"name": "胖丁", "rate": 10}, {"name": "毛辮羊", "rate": 8}, {"name": "大蔥鴨", "rate": 12}, {"name": "呆呆獸", "rate": 12}, {"name": "可達鴨", "rate": 12}, {"name": "卡比獸", "rate": 2}, {"name": "吉利蛋", "rate": 2}]
 GACHA_MEDIUM = [{"name": "妙蛙種子", "rate": 10}, {"name": "小火龍", "rate": 10}, {"name": "傑尼龜", "rate": 10}, {"name": "伊布", "rate": 10}, {"name": "皮卡丘", "rate": 10}, {"name": "呆呆獸", "rate": 10}, {"name": "可達鴨", "rate": 10}, {"name": "毛辮羊", "rate": 10}, {"name": "卡比獸", "rate": 5}, {"name": "吉利蛋", "rate": 3}, {"name": "拉普拉斯", "rate": 3}, {"name": "妙蛙花", "rate": 3}, {"name": "噴火龍", "rate": 3}, {"name": "水箭龜", "rate": 3}]
-GACHA_HIGH = [{"name": "卡比獸", "rate": 20}, {"name": "吉利蛋", "rate": 24}, {"name": "幸福蛋", "rate": 10}, {"name": "拉普拉斯", "rate": 10}, {"name": "妙蛙花", "rate": 10}, {"name": "噴火龍", "rate": 10}, {"name": "水箭龜", "rate": 10}, {"name": "快龍", "rate": 6}]
 GACHA_CANDY = [{"name": "伊布", "rate": 20}, {"name": "皮卡丘", "rate": 20}, {"name": "妙蛙花", "rate": 10}, {"name": "噴火龍", "rate": 10}, {"name": "水箭龜", "rate": 10}, {"name": "卡比獸", "rate": 10}, {"name": "吉利蛋", "rate": 10}, {"name": "幸福蛋", "rate": 4}, {"name": "拉普拉斯", "rate": 3}, {"name": "快龍", "rate": 3}]
-GACHA_GOLDEN = [{"name": "卡比獸", "rate": 30}, {"name": "吉利蛋", "rate": 35}, {"name": "幸福蛋", "rate": 20}, {"name": "拉普拉斯", "rate": 10}, {"name": "快龍", "rate": 5}]
 
-# D. 技能資料 (略為簡化，可依需求擴充)
+ACTIVE_BATTLES = {}
+LEVEL_XP = { 1: 50, 2: 150, 3: 300, 4: 500, 5: 800, 6: 1300, 7: 2000, 8: 3000, 9: 5000 }
+
+RAID_SCHEDULE = [8, 18, 22] 
+RAID_STATE = {"active": False, "status": "IDLE", "boss": None, "current_hp": 0, "max_hp": 0, "players": {}}
+LEGENDARY_BIRDS = [
+    {"name": "❄️ 急凍鳥", "hp": 50000, "atk": 300, "img": "https://img.pokemondb.net/sprites/home/normal/articuno.png"},
+    {"name": "⚡ 閃電鳥", "hp": 50000, "atk": 320, "img": "https://img.pokemondb.net/sprites/home/normal/zapdos.png"},
+    {"name": "🔥 火焰鳥", "hp": 50000, "atk": 350, "img": "https://img.pokemondb.net/sprites/home/normal/moltres.png"}
+]
+
 SKILL_DB = {
     "水槍": {"dmg": 14, "effect": "heal", "prob": 0.5, "val": 0.15, "desc": "50%回血15%"},
     "撒嬌": {"dmg": 14, "effect": "heal", "prob": 0.5, "val": 0.15, "desc": "50%回血15%"},
@@ -136,27 +144,8 @@ SKILL_DB = {
     "勇鳥猛攻": {"dmg": 34, "effect": "recoil", "prob": 1.0, "val": 0.1, "desc": "扣自身10%血"}
 }
 
-ACTIVE_BATTLES = {}
-LEVEL_XP = { 1: 50, 2: 150, 3: 300, 4: 500, 5: 800, 6: 1300, 7: 2000, 8: 3000, 9: 5000 }
-
-# --- 團體戰設定 ---
-RAID_SCHEDULE = [8, 18, 22] 
-RAID_STATE = {
-    "active": False,
-    "status": "IDLE",
-    "boss": None,
-    "current_hp": 0,
-    "max_hp": 0,
-    "players": {} 
-}
-LEGENDARY_BIRDS = [
-    {"name": "❄️ 急凍鳥", "hp": 50000, "atk": 300, "img": "https://img.pokemondb.net/sprites/home/normal/articuno.png"},
-    {"name": "⚡ 閃電鳥", "hp": 50000, "atk": 320, "img": "https://img.pokemondb.net/sprites/home/normal/zapdos.png"},
-    {"name": "🔥 火焰鳥", "hp": 50000, "atk": 350, "img": "https://img.pokemondb.net/sprites/home/normal/moltres.png"}
-]
-
 # ==========================================
-# 輔助函式
+# 3. 輔助函式
 # ==========================================
 def get_req_xp(lv):
     if lv >= 25: return 999999999
@@ -209,7 +198,7 @@ def update_raid_logic():
         RAID_STATE["boss"] = None
 
 # ==========================================
-# API Endpoints
+# 4. API Endpoints
 # ==========================================
 
 @router.get("/data/skills")
@@ -219,7 +208,7 @@ def get_skill_data():
 @router.get("/pokedex/all")
 def get_all_pokedex():
     result = []
-    # 🔥 關鍵：只回傳「可收集」的寵物給前端圖鑑，野怪不回傳，防止小拉達出現黑影
+    # 只回傳可收集的，讓前端生成黑影時不會包含小拉達
     for name in OBTAINABLE_MONS:
         if name in POKEDEX_DATA:
             data = POKEDEX_DATA[name]
@@ -230,7 +219,6 @@ def get_all_pokedex():
 def get_wild_list(level: int, current_user: User = Depends(get_current_user)):
     wild_list = []
     available_species = []
-    # 🔥 關鍵：只從野怪表裡挑選，防止打到妙蛙種子
     for unlock_lv, species_list in WILD_UNLOCK_LEVELS.items():
         if unlock_lv <= level:
             available_species.extend(species_list)
@@ -264,13 +252,12 @@ async def wild_attack_api(is_win: bool = Query(...), is_powerful: bool = Query(F
         quests = json.loads(current_user.quests) if current_user.quests else []
         quest_updated = False
         for q in quests:
-            # 寬鬆比對任務目標 (例如 "討伐 小拉達" 包含 "小拉達")
+            # 寬鬆比對任務目標
             if q["status"] == "IN_PROGRESS" and q.get("target") in target_name:
                 q["now"] += 1
                 quest_updated = True
         if quest_updated: current_user.quests = json.dumps(quests)
         
-        # 升級邏輯
         req_xp_p = get_req_xp(current_user.level)
         while current_user.exp >= req_xp_p and current_user.level < 25:
             current_user.exp -= req_xp_p; current_user.level += 1; req_xp_p = get_req_xp(current_user.level); msg += f" | 訓練師升級 Lv.{current_user.level}!"
