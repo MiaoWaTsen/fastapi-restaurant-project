@@ -19,14 +19,24 @@ WILD_UNLOCK_LEVELS_REF = {
 }
 
 def generate_single_quest(pet_level: int):
-    # 🔥 1. 只從野怪表挑選目標
-    targets_pool = []
-    for lv, names in WILD_UNLOCK_LEVELS_REF.items():
-        if lv <= pet_level:
-            targets_pool.extend(names)
+    # 🔥 1. 嚴格模式：只從該等級的池子裡挑
+    # 如果該等級沒有對應野怪 (例如 Lv.11)，則往下找最近的等級
+    target_pool = WILD_UNLOCK_LEVELS_REF.get(pet_level)
+    target_level = pet_level
     
-    if not targets_pool: targets_pool = ["小拉達"]
-    target = random.choice(targets_pool)
+    if not target_pool:
+        # 找不到對應等級，往下搜尋
+        for lv in sorted(WILD_UNLOCK_LEVELS_REF.keys(), reverse=True):
+            if lv < pet_level:
+                target_pool = WILD_UNLOCK_LEVELS_REF[lv]
+                target_level = lv
+                break
+    
+    if not target_pool: 
+        target_pool = ["小拉達"]
+        target_level = 1
+        
+    target = random.choice(target_pool)
     
     is_golden = random.random() < 0.03
     
@@ -35,7 +45,8 @@ def generate_single_quest(pet_level: int):
             "id": str(uuid.uuid4()),
             "type": "GOLDEN",
             "target": target,
-            "target_display": f"✨ 討伐 {target} (黃金)",
+            "level": target_level, # 🔥 紀錄目標等級
+            "target_display": f"✨ 討伐 Lv.{target_level} {target} (黃金)",
             "req": 5,
             "now": 0,
             "gold": 0, "xp": 0, "item": "golden_candy",
@@ -47,7 +58,8 @@ def generate_single_quest(pet_level: int):
             "id": str(uuid.uuid4()),
             "type": "NORMAL",
             "target": target,
-            "target_display": f"討伐 {target}",
+            "level": target_level, # 🔥 紀錄目標等級
+            "target_display": f"討伐 Lv.{target_level} {target}",
             "req": req,
             "now": 0,
             "gold": req * 50, "xp": req * 30, "item": None,
@@ -61,10 +73,8 @@ def get_quests(db: Session = Depends(get_db), current_user: User = Depends(get_c
     except:
         quests = []
     
-    # 🔥 2. 自動補滿 3 個任務
     if len(quests) < 3:
         needed = 3 - len(quests)
-        # 使用玩家出戰寵物等級來生成
         pet_lv = current_user.pet_level if current_user.pet_level else 1
         for _ in range(needed):
             quests.append(generate_single_quest(pet_lv))
