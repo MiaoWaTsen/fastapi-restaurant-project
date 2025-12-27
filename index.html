@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>⚡️ 寶可夢大亂鬥 V2.0.21 (介面修復版) ⚡️</title>
+    <title>⚡️ 寶可夢大亂鬥 V2.0.22 (介面修復版) ⚡️</title>
     <script src="https://unpkg.com/vue@3/dist/vue.global.js"></script>
     <style>
         [v-cloak] { display: none; }
@@ -113,7 +113,7 @@
 
 <div id="app" class="container" v-cloak>
     <div v-if="!user" style="text-align:center; padding-top:100px;">
-        <h1 style="color:#e94560">寶可夢大亂鬥 V2.0.21</h1>
+        <h1 style="color:#e94560">寶可夢大亂鬥 V2.0.22</h1>
         <p>介面修復版</p>
         <button class="btn-action" @click="logout">前往登入頁面</button>
         <br><br>
@@ -149,6 +149,10 @@
                     <span v-if="viewMon.lv" style="font-size:0.6em; color:#aaa;">(Lv.{{ viewMon.lv }})</span>
                 </div>
                 
+                <div style="text-align:center; margin:10px 0;">
+                    <img :src="getMonImage(viewMon.name)" style="width:120px; height:120px; object-fit:contain;">
+                </div>
+
                 <div v-if="viewMon.iv" style="text-align:center; margin-bottom:15px;">
                     <span style="background:#f1c40f; color:black; padding:2px 8px; border-radius:5px; font-weight:bold;">IV: {{ viewMon.iv }}</span>
                 </div>
@@ -176,9 +180,10 @@
         
         <div v-if="newsState.show" class="modal-overlay">
             <div class="modal-box" style="text-align:left;">
-                <div class="modal-title" style="text-align:center;">📢 V2.0.21 更新公告</div>
+                <div class="modal-title" style="text-align:center;">📢 V2.0.22 更新公告</div>
                 <ul>
-                    <li><b>🐞 介面修復</b>：圖鑑與盒子現在都可以正常點擊查看了！</li>
+                    <li><b>🐞 介面修復</b>：補回了盒子查看詳情時的寶可夢圖片。</li>
+                    <li><b>🛠 防呆機制</b>：如果資料讀取失敗，會彈出提示而不是當機。</li>
                 </ul>
                 <div style="text-align:center; margin-top:15px;">
                     <button class="btn-yes" @click="closeNews">我知道了</button>
@@ -697,11 +702,21 @@
                 return { hp, atk };
             };
             
+            const getMonImage = (name) => {
+                const base = pokedexMap.value[name];
+                return base ? base.img : "https://via.placeholder.com/150";
+            };
+            
             const getMonSkills = (name) => SKILL_MAP[name] || ["撞擊", "撞擊", "撞擊"];
-            const closeNews = () => { newsState.value.show = false; sessionStorage.setItem('seenNews_v2021', 'true'); };
+            const closeNews = () => { newsState.value.show = false; sessionStorage.setItem('seenNews_v2022', 'true'); };
 
-            // 🔥 新增：盒子點擊專用函式 🔥
+            // 🔥 新增：盒子點擊專用函式 (含防呆提示) 🔥
             const viewBoxMon = (p) => {
+                // 如果圖鑑表裡找不到這隻怪的資料，彈出提示
+                if (!pokedexMap.value[p.name]) {
+                    alert(`錯誤：找不到 [${p.name}] 的詳細資料，請重新整理頁面。`);
+                    return;
+                }
                 viewMon.value = { ...p, is_demo: false };
             };
 
@@ -722,7 +737,7 @@
             onMounted(async () => {
                 document.getElementById('loading').style.display = 'none'; 
                 if(!token) return window.location.href = 'login.html';
-                if (!sessionStorage.getItem('seenNews_v2021')) newsState.value.show = true;
+                if (!sessionStorage.getItem('seenNews_v2022')) newsState.value.show = true;
                 
                 // 順序調整：先獲取基本資料，再更新與用戶相關的
                 await fetchSkillData(); 
@@ -879,7 +894,7 @@
             const abandonQuest = async (qid) => { if(confirm("放棄需消耗 1000G，確定嗎？")) { await fetch(`${API_URL}/quests/abandon/${qid}`, { method: 'POST', headers: { 'Authorization': `Bearer ${token}` } }); fetchQuests(); } };
             const claimQuest = async (qid) => { const res = await fetch(`${API_URL}/quests/claim/${qid}`, { method: 'POST', headers: { 'Authorization': `Bearer ${token}` } }); const d = await res.json(); alert(d.message); fetchQuests(); };
 
-            return { user, tab, box, players, friends, friendRequests, selectedMon, battle, raidState, inLobby, lobbyTimer, dailyCheckin, logout, playGacha, swapMon, useCandy, gambleAmount, doGamble, chatMsgs, chatInput, sendChat, doSkillAttack, useShield, doHeal, buyHeal, promoCode, redeemCode, sendGift, joinRaid, playerXpPercent, hpPercent, petXpPercent, currentAtkMe, quests, abandonQuest, claimQuest, wildList, fetchWildList, startWildBattle, showRates, gachaRates, mySkills, shieldUses, getSkillDesc, selectedWildLevel, viewMon, calcStats, pokedexList, pokedexPercent, getReqXp, showGachaAnim, gachaResult, showBattleResult, battleResultMsg, inventory, leaderboardData, leaderboardType, fetchLeaderboard, initAdmin, newsState, closeNews, currentPetIV, addFriend, acceptFriend, sendInvite, canJoinLobby, turnTimer, isEnemyTurn, viewBoxMon, viewPokedexEntry };
+            return { user, tab, box, players, friends, friendRequests, selectedMon, battle, raidState, inLobby, lobbyTimer, dailyCheckin, logout, playGacha, swapMon, useCandy, gambleAmount, doGamble, chatMsgs, chatInput, sendChat, doSkillAttack, useShield, doHeal, buyHeal, promoCode, redeemCode, sendGift, joinRaid, playerXpPercent, hpPercent, petXpPercent, currentAtkMe, quests, abandonQuest, claimQuest, wildList, fetchWildList, startWildBattle, showRates, gachaRates, mySkills, shieldUses, getSkillDesc, selectedWildLevel, viewMon, calcStats, pokedexList, pokedexPercent, getReqXp, showGachaAnim, gachaResult, showBattleResult, battleResultMsg, inventory, leaderboardData, leaderboardType, fetchLeaderboard, initAdmin, newsState, closeNews, currentPetIV, addFriend, acceptFriend, sendInvite, canJoinLobby, turnTimer, isEnemyTurn, viewBoxMon, viewPokedexEntry, getMonImage };
         }
     }).mount('#app');
 </script>
