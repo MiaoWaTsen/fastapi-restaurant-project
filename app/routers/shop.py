@@ -14,20 +14,79 @@ from app.common.websocket import manager
 
 router = APIRouter()
 
-# ==========================================
-# 1. 完整圖鑑資料庫 (包含所有野怪與神獸)
-# ==========================================
+# =================================================================
+# 1. 技能資料庫 (嚴格依照 PDF 附件設定)
+# =================================================================
+SKILL_DB = {
+    # 傷害 14 系列 (50% 機率觸發)
+    "水槍": {"dmg": 14, "effect": "heal", "prob": 0.5, "val": 0.15, "desc": "50%機率回復15%血量"},
+    "撒嬌": {"dmg": 14, "effect": "heal", "prob": 0.5, "val": 0.15, "desc": "50%機率回復15%血量"},
+    "念力": {"dmg": 14, "effect": "heal", "prob": 0.5, "val": 0.15, "desc": "50%機率回復15%血量"},
+    "毒針": {"dmg": 14, "effect": "buff_atk", "prob": 0.5, "val": 0.2, "desc": "50%機率提升20%攻擊力"},
+
+    # 傷害 16 系列 (35% 機率觸發)
+    "藤鞭": {"dmg": 16, "effect": "buff_atk", "prob": 0.35, "val": 0.2, "desc": "35%機率提升20%攻擊力"},
+    "火花": {"dmg": 16, "effect": "buff_atk", "prob": 0.35, "val": 0.2, "desc": "35%機率提升20%攻擊力"},
+    "電光": {"dmg": 16, "effect": "buff_atk", "prob": 0.35, "val": 0.2, "desc": "35%機率提升20%攻擊力"},
+    "挖洞": {"dmg": 16, "effect": "buff_atk", "prob": 0.35, "val": 0.2, "desc": "35%機率提升20%攻擊力"},
+    "地震": {"dmg": 16, "effect": "heal", "prob": 0.35, "val": 0.2, "desc": "35%機率回復20%血量"},
+    "冰礫": {"dmg": 16, "effect": "heal", "prob": 0.35, "val": 0.2, "desc": "35%機率回復20%血量"},
+
+    # 傷害 18 系列 (30% 機率觸發)
+    "泥巴射擊": {"dmg": 18, "effect": "buff_atk", "prob": 0.3, "val": 0.2, "desc": "30%機率提升20%攻擊力"},
+    "污泥炸彈": {"dmg": 18, "effect": "buff_atk", "prob": 0.3, "val": 0.2, "desc": "30%機率提升20%攻擊力"},
+    "噴射火焰": {"dmg": 18, "effect": "buff_atk", "prob": 0.3, "val": 0.2, "desc": "30%機率提升20%攻擊力"},
+    "水流噴射": {"dmg": 18, "effect": "buff_atk", "prob": 0.3, "val": 0.2, "desc": "30%機率提升20%攻擊力"},
+    "精神強念": {"dmg": 18, "effect": "buff_atk", "prob": 0.3, "val": 0.2, "desc": "30%機率提升20%攻擊力"},
+    "電擊":     {"dmg": 18, "effect": "buff_atk", "prob": 0.3, "val": 0.2, "desc": "30%機率提升20%攻擊力"},
+
+    # 傷害 24 系列 (無特效)
+    "撞擊": {"dmg": 24, "effect": None, "prob": 0, "val": 0, "desc": "無特效"},
+    "啄":   {"dmg": 24, "effect": None, "prob": 0, "val": 0, "desc": "無特效"},
+    "緊束": {"dmg": 24, "effect": None, "prob": 0, "val": 0, "desc": "無特效"},
+    "葉刃": {"dmg": 24, "effect": None, "prob": 0, "val": 0, "desc": "無特效"},
+    "咬碎": {"dmg": 24, "effect": None, "prob": 0, "val": 0, "desc": "無特效"},
+
+    # 傷害 26 系列 (無特效)
+    "抓":       {"dmg": 26, "effect": None, "prob": 0, "val": 0, "desc": "無特效"},
+    "放電":     {"dmg": 26, "effect": None, "prob": 0, "val": 0, "desc": "無特效"},
+    "出奇一擊": {"dmg": 26, "effect": None, "prob": 0, "val": 0, "desc": "無特效"},
+    "毒擊":     {"dmg": 26, "effect": None, "prob": 0, "val": 0, "desc": "無特效"},
+    "幻象光線": {"dmg": 26, "effect": None, "prob": 0, "val": 0, "desc": "無特效"},
+    "水流尾":   {"dmg": 26, "effect": None, "prob": 0, "val": 0, "desc": "無特效"},
+    "燕返":     {"dmg": 26, "effect": None, "prob": 0, "val": 0, "desc": "無特效"},
+    "種子炸彈": {"dmg": 26, "effect": None, "prob": 0, "val": 0, "desc": "無特效"},
+    "高速星星": {"dmg": 26, "effect": None, "prob": 0, "val": 0, "desc": "無特效"},
+    "泰山壓頂": {"dmg": 26, "effect": None, "prob": 0, "val": 0, "desc": "無特效"},
+    "大字爆炎": {"dmg": 26, "effect": None, "prob": 0, "val": 0, "desc": "無特效"},
+    "泥巴炸彈": {"dmg": 26, "effect": None, "prob": 0, "val": 0, "desc": "無特效"},
+    "冰凍光束": {"dmg": 26, "effect": None, "prob": 0, "val": 0, "desc": "無特效"},
+    "瘋狂伏特": {"dmg": 26, "effect": None, "prob": 0, "val": 0, "desc": "無特效"},
+
+    # 傷害 28 系列 (無特效)
+    "雙倍奉還": {"dmg": 28, "effect": None, "prob": 0, "val": 0, "desc": "無特效"},
+    "逆鱗":     {"dmg": 28, "effect": None, "prob": 0, "val": 0, "desc": "無特效"},
+    "精神撃破": {"dmg": 28, "effect": None, "prob": 0, "val": 0, "desc": "無特效"},
+    "破壞光線": {"dmg": 28, "effect": None, "prob": 0, "val": 0, "desc": "無特效"},
+
+    # 特殊傷害 34 (反傷)
+    "勇鳥猛攻": {"dmg": 34, "effect": "recoil", "prob": 1.0, "val": 0.1, "desc": "降低自己最大血量的10%"}
+}
+
+# =================================================================
+# [cite_start]2. 完整圖鑑資料庫 (修正卡比獸等數據) [cite: 47, 48, 49, 50, 51]
+# =================================================================
 POKEDEX_DATA = {
-    # [野怪區]
+    # --- 野怪區 ---
     "小拉達": {"hp": 90, "atk": 80, "img": "https://img.pokemondb.net/artwork/large/rattata.jpg", "skills": ["抓", "出奇一擊", "撞擊"]},
-    "波波":   {"hp": 95, "atk": 85, "img": "https://img.pokemondb.net/artwork/large/pidgey.jpg", "skills": ["抓", "啄", "燕返"]},
-    "烈雀":   {"hp": 90, "atk": 90, "img": "https://img.pokemondb.net/artwork/large/spearow.jpg", "skills": ["抓", "啄", "燕返"]},
-    "阿柏蛇": {"hp": 100, "atk": 95, "img": "https://img.pokemondb.net/artwork/large/ekans.jpg", "skills": ["毒針", "毒擊", "緊束"]},
-    "瓦斯彈": {"hp": 110, "atk": 90, "img": "https://img.pokemondb.net/artwork/large/koffing.jpg", "skills": ["毒針", "毒針", "撞擊"]},
-    "海星星": {"hp": 100, "atk": 100, "img": "https://img.pokemondb.net/artwork/large/staryu.jpg", "skills": ["水槍", "幻象光線", "撞擊"]},
-    "角金魚": {"hp": 110, "atk": 95, "img": "https://img.pokemondb.net/artwork/large/goldeen.jpg", "skills": ["水槍", "幻象光線", "泥巴射擊"]},
-    "走路草": {"hp": 100, "atk": 85, "img": "https://img.pokemondb.net/artwork/large/oddish.jpg", "skills": ["種子炸彈", "撞擊", "毒擊"]},
-    "穿山鼠": {"hp": 120, "atk": 90, "img": "https://img.pokemondb.net/artwork/large/sandshrew.jpg", "skills": ["抓", "泥巴射擊", "泥巴炸彈"]},
+    "波波":   {"hp": 94, "atk": 84, "img": "https://img.pokemondb.net/artwork/large/pidgey.jpg", "skills": ["抓", "啄", "燕返"]},
+    "烈雀":   {"hp": 88, "atk": 92, "img": "https://img.pokemondb.net/artwork/large/spearow.jpg", "skills": ["抓", "啄", "燕返"]},
+    "阿柏蛇": {"hp": 98, "atk": 90, "img": "https://img.pokemondb.net/artwork/large/ekans.jpg", "skills": ["毒針", "毒擊", "緊束"]},
+    "瓦斯彈": {"hp": 108, "atk": 100, "img": "https://img.pokemondb.net/artwork/large/koffing.jpg", "skills": ["毒針", "毒針", "撞擊"]},
+    "海星星": {"hp": 120, "atk": 95, "img": "https://img.pokemondb.net/artwork/large/staryu.jpg", "skills": ["水槍", "幻象光線", "撞擊"]},
+    "角金魚": {"hp": 125, "atk": 100, "img": "https://img.pokemondb.net/artwork/large/goldeen.jpg", "skills": ["水槍", "幻象光線", "泥巴射擊"]},
+    "走路草": {"hp": 120, "atk": 110, "img": "https://img.pokemondb.net/artwork/large/oddish.jpg", "skills": ["種子炸彈", "撞擊", "毒擊"]},
+    "穿山鼠": {"hp": 120, "atk": 110, "img": "https://img.pokemondb.net/artwork/large/sandshrew.jpg", "skills": ["抓", "泥巴射擊", "泥巴炸彈"]},
     "蚊香蝌蚪": {"hp": 122, "atk": 108, "img": "https://img.pokemondb.net/artwork/large/poliwag.jpg", "skills": ["雙倍奉還", "冰凍光束", "水槍"]},
     "小磁怪": {"hp": 120, "atk": 114, "img": "https://img.pokemondb.net/artwork/large/magnemite.jpg", "skills": ["電擊", "放電", "撞擊"]},
     "卡拉卡拉": {"hp": 120, "atk": 120, "img": "https://img.pokemondb.net/artwork/large/cubone.jpg", "skills": ["泥巴射擊", "泥巴炸彈", "挖洞"]},
@@ -37,7 +96,7 @@ POKEDEX_DATA = {
     "蚊香勇士": {"hp": 160, "atk": 130, "img": "https://img.pokemondb.net/artwork/large/poliwrath.jpg", "skills": ["雙倍奉還", "冰凍光束", "水槍"]},
     "暴鯉龍": {"hp": 180, "atk": 150, "img": "https://img.pokemondb.net/artwork/large/gyarados.jpg", "skills": ["水流尾", "咬碎", "破壞光線"]},
 
-    # [寵物區]
+    # --- 寵物區 (依照 PDF PAGE 2-3 修正) ---
     "妙蛙種子": {"hp": 130, "atk": 112, "img": "https://img.pokemondb.net/artwork/large/bulbasaur.jpg", "skills": ["藤鞭", "種子炸彈", "污泥炸彈"]},
     "小火龍": {"hp": 112, "atk": 130, "img": "https://img.pokemondb.net/artwork/large/charmander.jpg", "skills": ["火花", "噴射火焰", "大字爆炎"]},
     "傑尼龜": {"hp": 121, "atk": 121, "img": "https://img.pokemondb.net/artwork/large/squirtle.jpg", "skills": ["水槍", "水流噴射", "水流尾"]},
@@ -52,7 +111,10 @@ POKEDEX_DATA = {
     "大蔥鴨": {"hp": 120, "atk": 130, "img": "https://img.pokemondb.net/artwork/large/farfetchd.jpg", "skills": ["啄", "葉刃", "勇鳥猛攻"]},
     "呆呆獸": {"hp": 122, "atk": 122, "img": "https://img.pokemondb.net/artwork/large/slowpoke.jpg", "skills": ["水槍", "幻象光線", "水流噴射"]},
     "可達鴨": {"hp": 122, "atk": 122, "img": "https://img.pokemondb.net/artwork/large/psyduck.jpg", "skills": ["水槍", "幻象光線", "水流噴射"]},
+    
+    # [cite_start]🔥 修正卡比獸技能組 [cite: 47]
     "卡比獸": {"hp": 175, "atk": 112, "img": "https://img.pokemondb.net/artwork/large/snorlax.jpg", "skills": ["泰山壓頂", "地震", "撞擊"]},
+    
     "吉利蛋": {"hp": 220, "atk": 90, "img": "https://img.pokemondb.net/artwork/large/chansey.jpg", "skills": ["抓", "精神強念", "撞擊"]},
     "幸福蛋": {"hp": 230, "atk": 90, "img": "https://img.pokemondb.net/artwork/large/blissey.jpg", "skills": ["抓", "精神強念", "撞擊"]},
     "拉普拉斯": {"hp": 165, "atk": 140, "img": "https://img.pokemondb.net/artwork/large/lapras.jpg", "skills": ["水槍", "水流噴射", "冰凍光束"]},
@@ -98,49 +160,6 @@ LEGENDARY_BIRDS = [
     {"name": "⚡ 閃電鳥", "hp": 50000, "atk": 320, "img": "https://img.pokemondb.net/sprites/home/normal/zapdos.png"},
     {"name": "🔥 火焰鳥", "hp": 50000, "atk": 350, "img": "https://img.pokemondb.net/sprites/home/normal/moltres.png"}
 ]
-
-SKILL_DB = {
-    "水槍": {"dmg": 14, "effect": "heal", "prob": 0.5, "val": 0.15, "desc": "50%回血15%"},
-    "撒嬌": {"dmg": 14, "effect": "heal", "prob": 0.5, "val": 0.15, "desc": "50%回血15%"},
-    "念力": {"dmg": 14, "effect": "heal", "prob": 0.5, "val": 0.15, "desc": "50%回血15%"},
-    "毒針": {"dmg": 14, "effect": "buff_atk", "prob": 0.5, "val": 0.2, "desc": "50%加攻20%"},
-    "藤鞭": {"dmg": 16, "effect": "buff_atk", "prob": 0.35, "val": 0.2, "desc": "35%加攻20%"},
-    "火花": {"dmg": 16, "effect": "buff_atk", "prob": 0.35, "val": 0.2, "desc": "35%加攻20%"},
-    "電光": {"dmg": 16, "effect": "buff_atk", "prob": 0.35, "val": 0.2, "desc": "35%加攻20%"},
-    "挖洞": {"dmg": 16, "effect": "buff_atk", "prob": 0.35, "val": 0.2, "desc": "35%加攻20%"},
-    "地震": {"dmg": 16, "effect": "heal", "prob": 0.35, "val": 0.2, "desc": "35%回血20%"},
-    "冰礫": {"dmg": 16, "effect": "heal", "prob": 0.35, "val": 0.2, "desc": "35%回血20%"},
-    "泥巴射擊": {"dmg": 18, "effect": "buff_atk", "prob": 0.3, "val": 0.2, "desc": "30%加攻20%"},
-    "污泥炸彈": {"dmg": 18, "effect": "buff_atk", "prob": 0.3, "val": 0.2, "desc": "30%加攻20%"},
-    "噴射火焰": {"dmg": 18, "effect": "buff_atk", "prob": 0.3, "val": 0.2, "desc": "30%加攻20%"},
-    "水流噴射": {"dmg": 18, "effect": "buff_atk", "prob": 0.3, "val": 0.2, "desc": "30%加攻20%"},
-    "精神強念": {"dmg": 18, "effect": "buff_atk", "prob": 0.3, "val": 0.2, "desc": "30%加攻20%"},
-    "電擊":     {"dmg": 18, "effect": "buff_atk", "prob": 0.3, "val": 0.2, "desc": "30%加攻20%"},
-    "撞擊": {"dmg": 24, "effect": None, "prob": 0, "val": 0, "desc": "無特效"},
-    "啄":   {"dmg": 24, "effect": None, "prob": 0, "val": 0, "desc": "無特效"},
-    "緊束": {"dmg": 24, "effect": None, "prob": 0, "val": 0, "desc": "無特效"},
-    "葉刃": {"dmg": 24, "effect": None, "prob": 0, "val": 0, "desc": "無特效"},
-    "咬碎": {"dmg": 24, "effect": None, "prob": 0, "val": 0, "desc": "無特效"},
-    "抓":       {"dmg": 26, "effect": None, "prob": 0, "val": 0, "desc": "無特效"},
-    "放電":     {"dmg": 26, "effect": None, "prob": 0, "val": 0, "desc": "無特效"},
-    "出奇一擊": {"dmg": 26, "effect": None, "prob": 0, "val": 0, "desc": "無特效"},
-    "毒擊":     {"dmg": 26, "effect": None, "prob": 0, "val": 0, "desc": "無特效"},
-    "幻象光線": {"dmg": 26, "effect": None, "prob": 0, "val": 0, "desc": "無特效"},
-    "水流尾":   {"dmg": 26, "effect": None, "prob": 0, "val": 0, "desc": "無特效"},
-    "燕返":     {"dmg": 26, "effect": None, "prob": 0, "val": 0, "desc": "無特效"},
-    "種子炸彈": {"dmg": 26, "effect": None, "prob": 0, "val": 0, "desc": "無特效"},
-    "高速星星": {"dmg": 26, "effect": None, "prob": 0, "val": 0, "desc": "無特效"},
-    "泰山壓頂": {"dmg": 26, "effect": None, "prob": 0, "val": 0, "desc": "無特效"},
-    "大字爆炎": {"dmg": 26, "effect": None, "prob": 0, "val": 0, "desc": "無特效"},
-    "泥巴炸彈": {"dmg": 26, "effect": None, "prob": 0, "val": 0, "desc": "無特效"},
-    "冰凍光束": {"dmg": 26, "effect": None, "prob": 0, "val": 0, "desc": "無特效"},
-    "瘋狂伏特": {"dmg": 26, "effect": None, "prob": 0, "val": 0, "desc": "無特效"},
-    "雙倍奉還": {"dmg": 28, "effect": None, "prob": 0, "val": 0, "desc": "無特效"},
-    "逆鱗":     {"dmg": 28, "effect": None, "prob": 0, "val": 0, "desc": "無特效"},
-    "精神撃破": {"dmg": 28, "effect": None, "prob": 0, "val": 0, "desc": "無特效"},
-    "破壞光線": {"dmg": 28, "effect": None, "prob": 0, "val": 0, "desc": "無特效"},
-    "勇鳥猛攻": {"dmg": 34, "effect": "recoil", "prob": 1.0, "val": 0.1, "desc": "扣自身10%血"}
-}
 
 # ==========================================
 # 3. 輔助函式
@@ -214,7 +233,7 @@ def get_all_pokedex():
             "img": data["img"], 
             "hp": data["hp"], 
             "atk": data["atk"],
-            "is_obtainable": is_obtainable # 🔥 前端用這個來過濾黑影
+            "is_obtainable": is_obtainable 
         })
     return result
 
@@ -456,8 +475,7 @@ def get_raid_status():
         return {"active": False, "status": "IDLE"}
     
     boss = RAID_STATE.get("boss")
-    # 如果 boss 為 None (剛啟動時)，直接回傳 IDLE
-    if not boss:
+    if not boss: 
         return {"active": False, "status": "IDLE"}
         
     return {
