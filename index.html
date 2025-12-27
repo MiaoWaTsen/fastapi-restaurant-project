@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>⚡️ 寶可夢大亂鬥 V2.0.29 (技能完美修正版) ⚡️</title>
+    <title>⚡️ 寶可夢大亂鬥 V2.0.30 (Loading 修復版) ⚡️</title>
     <script src="https://unpkg.com/vue@3/dist/vue.global.js"></script>
     <style>
         [v-cloak] { display: none; }
@@ -70,7 +70,6 @@
         @keyframes flashRed { 0% { filter: sepia(1) hue-rotate(-50deg) saturate(5); } 100% { filter: none; } }
         @keyframes flashGreen { 0% { filter: sepia(1) hue-rotate(90deg) saturate(3); } 100% { filter: none; } }
         
-        /* 🔥 確保浮動文字可見且動畫順暢 🔥 */
         .floating-text { position: absolute; font-size: 2.5em; font-weight: bold; animation: floatUp 1.5s forwards; pointer-events: none; text-shadow: 2px 2px 0 #000; z-index: 3000; white-space: nowrap; }
         @keyframes floatUp { 0% { transform: translateY(0) scale(1); opacity: 1; } 80% { opacity: 1; } 100% { transform: translateY(-80px) scale(1.1); opacity: 0; } }
         
@@ -113,8 +112,8 @@
 
 <div id="app" class="container" v-cloak>
     <div v-if="!user" style="text-align:center; padding-top:100px;">
-        <h1 style="color:#e94560">寶可夢大亂鬥 V2.0.29</h1>
-        <p>技能完美修正版</p>
+        <h1 style="color:#e94560">寶可夢大亂鬥 V2.0.30</h1>
+        <p>Loading 修復版</p>
         <button class="btn-action" @click="logout">前往登入頁面</button>
         <br><br>
         <button style="background:transparent; border:1px solid #aaa; color:#aaa; padding:5px;" @click="initAdmin">👑 初始化管理員</button>
@@ -180,8 +179,9 @@
         
         <div v-if="newsState.show" class="modal-overlay">
             <div class="modal-box" style="text-align:left;">
-                <div class="modal-title" style="text-align:center;">📢 V2.0.29 更新公告</div>
+                <div class="modal-title" style="text-align:center;">📢 V2.0.30 更新公告</div>
                 <ul>
+                    <li><b>🐞 介面修復</b>：已排除 Loading 卡住的問題，請重新整理頁面。</li>
                     <li><b>⚔️ 技能修正</b>：卡比獸等寶可夢的技能已修正。</li>
                     <li><b>🛡️ 特效實裝</b>：回血、加攻、反傷等效果現在會有明顯提示！</li>
                 </ul>
@@ -553,7 +553,6 @@
 
     createApp({
         setup() {
-            // ... (Variable defs same as V2.0.27) ...
             const user = ref(null);
             const token = localStorage.getItem('token');
             const tab = ref('wild'); 
@@ -612,7 +611,7 @@
 
             const gachaRates = { "🔮 初級": [], "🔵 中級": [] };
             
-            [cite_start]// 🔥 更新：完整的 Frontend SKILL_MAP，包含卡比獸與所有新技能 [cite: 47] 🔥
+            // 🔥 更新：完整的 Frontend SKILL_MAP，包含卡比獸與所有新技能 🔥
             const SKILL_MAP = {
                 "小拉達": ["抓", "出奇一擊", "撞擊"], "波波": ["抓", "啄", "燕返"], 
                 "妙蛙種子": ["藤鞭", "種子炸彈", "污泥炸彈"], "小火龍": ["火花", "噴射火焰", "大字爆炎"], "傑尼龜": ["水槍", "水流噴射", "水流尾"],
@@ -624,7 +623,7 @@
             const logout = () => { localStorage.clear(); window.location.href = 'login.html'; };
             const getSkillDesc = (name) => { const s = skillData.value[name]; return s ? `${s.dmg}傷 ${s.desc || ''}` : ''; };
             const getMonSkills = (name) => SKILL_MAP[name] || ["撞擊", "撞擊", "撞擊"];
-            const closeNews = () => { newsState.value.show = false; sessionStorage.setItem('seenNews_v2029', 'true'); };
+            const closeNews = () => { newsState.value.show = false; sessionStorage.setItem('seenNews_v2030', 'true'); };
             const calcStats = (mon) => { const base = pokedexMap.value[mon.name] || { hp: 100, atk: 10 }; const ivMult = 0.9 + ((mon.iv || 50) / 100) * 0.2; const growth = Math.pow(1.06, (mon.lv || 1) - 1); return { hp: Math.floor(base.hp * ivMult * growth), atk: Math.floor(base.atk * ivMult * growth) }; };
             const viewBoxMon = (p) => { const base = pokedexMap.value[p.name]; if (!base) { alert(`警告：找不到 [${p.name}] 的資料`); return; } const stats = calcStats(p); viewMon.value = { ...p, hp_val: stats.hp, atk_val: stats.atk, img_src: base.img, is_demo: false }; };
             const viewPokedexEntry = (p) => { const base = pokedexMap.value[p.name]; viewMon.value = { name: p.name, iv: null, lv: null, exp: null, hp_val: base.hp, atk_val: base.atk, img_src: base.img, is_demo: true }; };
@@ -658,7 +657,6 @@
 
                     const skill = skillData.value[skillName];
                     
-                    // Buff 觸發判定 (前後端一致)
                     if (skill.effect === 'buff_atk' && Math.random() < skill.prob) {
                         battle.value.atkBuff = 1 + skill.val;
                         showFloatingText(`ATK UP!`, 'gold');
@@ -668,7 +666,6 @@
                         showFloatingText(`+${healAmt}`, 'green');
                     }
                     
-                    // 🔥 實裝反傷 (Recoil) 邏輯 🔥
                     if (skill.effect === 'recoil') {
                         const recoilDmg = Math.floor(user.value.max_hp * skill.val);
                         user.value.hp = Math.max(0, user.value.hp - recoilDmg);
@@ -683,7 +680,9 @@
                         battle.value.target.hp = Math.max(0, battle.value.target.hp - dmg); 
                         if(battle.value.target.hp <= 0) {
                             const safeName = encodeURIComponent(battle.value.target.raw_name);
-                            const res = await fetch(`${API_URL.replace('/items','')}/shop/wild/attack?is_win=true&is_powerful=${battle.value.target.is_powerful||false}&target_name=${safeName}`, { method: 'POST', headers: { 'Authorization': `Bearer ${token}` } });
+                            // 🔥 補上 target_level 參數
+                            const tLv = battle.value.target.level; 
+                            const res = await fetch(`${API_URL.replace('/items','')}/shop/wild/attack?is_win=true&is_powerful=${battle.value.target.is_powerful||false}&target_name=${safeName}&target_level=${tLv}`, { method: 'POST', headers: { 'Authorization': `Bearer ${token}` } });
                             const d = await res.json();
                             battleResultMsg.value = d.message; showBattleResult.value = true;
                             battle.value.active = false; updateInfo(); setTimeout(fetchQuests, 500);
@@ -717,7 +716,16 @@
             const claimQuest = async (qid) => { const res = await fetch(`${API_URL}/quests/claim/${qid}`, { method: 'POST', headers: { 'Authorization': `Bearer ${token}` } }); const d = await res.json(); alert(d.message); fetchQuests(); };
 
             onUpdated(() => { const chatBox = document.getElementById('chat-box'); if(chatBox) chatBox.scrollTop = chatBox.scrollHeight; });
-            onMounted(async () => { document.getElementById('loading').style.display = 'none'; if(!token) return window.location.href = 'login.html'; if (!sessionStorage.getItem('seenNews_v2028')) newsState.value.show = true; await fetchSkillData(); await fetchPokedex(); await updateInfo(); await fetchPokedex(); updateMySkills(); fetchPlayers(); checkRaid(); setInterval(checkRaid, 5000); fetchQuests(); fetchWildList(); try { const ws = new WebSocket(`${WS_URL}?token=${token}`); ws.onmessage = (e) => { const msg = e.data; if(msg.startsWith("CHAT|")) { chatMsgs.value.push(msg.split("|")[1]); } }; } catch(e) { console.error("WS error", e); } });
+            onMounted(async () => { 
+                document.getElementById('loading').style.display = 'none'; 
+                if(!token) return window.location.href = 'login.html'; 
+                if (!sessionStorage.getItem('seenNews_v2030')) newsState.value.show = true; 
+                
+                await fetchSkillData(); await fetchPokedex(); await updateInfo(); await fetchPokedex(); 
+                updateMySkills(); fetchPlayers(); checkRaid(); setInterval(checkRaid, 5000); fetchQuests(); fetchWildList(); fetchLeaderboard();
+                
+                try { const ws = new WebSocket(`${WS_URL}?token=${token}`); ws.onmessage = (e) => { const msg = e.data; if(msg.startsWith("CHAT|")) { chatMsgs.value.push(msg.split("|")[1]); } }; } catch(e) { console.error("WS error", e); } 
+            });
 
             const canJoinLobby = computed(() => raidState.value.status === 'LOBBY');
 
