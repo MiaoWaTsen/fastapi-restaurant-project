@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>⚡️ 寶可夢大亂鬥 V2.0.25 (函式修復版) ⚡️</title>
+    <title>⚡️ 寶可夢大亂鬥 V2.0.26 (緊急修復版) ⚡️</title>
     <script src="https://unpkg.com/vue@3/dist/vue.global.js"></script>
     <style>
         [v-cloak] { display: none; }
@@ -113,8 +113,8 @@
 
 <div id="app" class="container" v-cloak>
     <div v-if="!user" style="text-align:center; padding-top:100px;">
-        <h1 style="color:#e94560">寶可夢大亂鬥 V2.0.25</h1>
-        <p>函式修復版</p>
+        <h1 style="color:#e94560">寶可夢大亂鬥 V2.0.26</h1>
+        <p>緊急修復版</p>
         <button class="btn-action" @click="logout">前往登入頁面</button>
         <br><br>
         <button style="background:transparent; border:1px solid #aaa; color:#aaa; padding:5px;" @click="initAdmin">👑 初始化管理員</button>
@@ -180,10 +180,10 @@
         
         <div v-if="newsState.show" class="modal-overlay">
             <div class="modal-box" style="text-align:left;">
-                <div class="modal-title" style="text-align:center;">📢 V2.0.25 更新公告</div>
+                <div class="modal-title" style="text-align:center;">📢 V2.0.26 更新公告</div>
                 <ul>
-                    <li><b>🐞 介面修復</b>：現在點擊寶可夢不會再報錯消失了！</li>
-                    <li><b>🛡️ 戰鬥優化</b>：新增強制逃跑功能，防止卡在戰鬥畫面。</li>
+                    <li><b>🐞 錯誤修復</b>：修復了登入後卡在 Loading 的問題。</li>
+                    <li><b>⚔️ 技能修正</b>：寶可夢技能與數值已依照官方設定校正。</li>
                 </ul>
                 <div style="text-align:center; margin-top:15px;">
                     <button class="btn-yes" @click="closeNews">我知道了</button>
@@ -553,7 +553,7 @@
 
     createApp({
         setup() {
-            // 🔥 將所有關鍵變數與函式定義移到最上方，確保不會有 ReferenceError 🔥
+            // 🔥 定義所有關鍵函式與變數，確保不發生 ReferenceError 🔥
             const user = ref(null);
             const token = localStorage.getItem('token');
             const tab = ref('wild'); 
@@ -570,6 +570,7 @@
             const gachaResult = ref(null);
             const showBattleResult = ref(false);
             const battleResultMsg = ref("");
+
             const quests = ref([]);
             const players = ref([]);
             const friends = ref([]);
@@ -585,10 +586,12 @@
             const turnTimer = ref(10);
             const isEnemyTurn = ref(false);
             let timerInterval = null;
+
             const battle = ref({ active: false, mode: 'wild', target: null, shakeMe: false, shakeTarget: false, atkBuff: 1.0, shieldActive: false });
             const raidState = ref({ active: false, hp: 0, max_hp: 0, boss_name: '', status: 'IDLE', image: '' });
             const inLobby = ref(false);
             const lobbyTimer = ref(15);
+            
             const leaderboardData = ref([]);
             const leaderboardType = ref("level");
             const newsState = ref({ show: false });
@@ -613,6 +616,29 @@
             };
 
             const getReqXp = (lv) => 100 * Math.pow(1.5, lv - 1);
+
+            // 🔥 這裡是被遺漏的輔助函式，現在補回來了！ 🔥
+            const hpPercent = (u) => {
+                if (!u || !u.max_hp) return 0;
+                return Math.min(100, (u.hp / u.max_hp) * 100);
+            };
+
+            const petXpPercent = (u) => {
+                if (!u) return 0;
+                // 簡易計算：當前經驗 / 升級所需經驗
+                const req = getReqXp(u.pet_level);
+                return Math.min(100, (u.pet_exp / req) * 100);
+            };
+
+            const currentAtkMe = computed(() => user.value ? user.value.attack : 0);
+            const currentPetIV = computed(() => {
+                if(!user.value) return 0;
+                const p = box.value.find(x => x.uid === user.value.active_pokemon_uid);
+                return p ? p.iv : 50;
+            });
+            const playerXpPercent = computed(() => user.value ? Math.min(100, (user.value.exp / getReqXp(user.value.level)) * 100) : 0);
+            const canJoinLobby = computed(() => raidState.value.status === 'LOBBY');
+
             const logout = () => { localStorage.clear(); window.location.href = 'login.html'; };
 
             const updateInfo = async () => {
@@ -675,7 +701,7 @@
                 clearInterval(timerInterval);
             };
 
-            // ... (其他 API 呼叫函式保持不變，省略以節省空間) ...
+            // ... API Calls ...
             const fetchPlayers = async () => { const res = await fetch(`${API_URL}/auth/all`, { headers: { 'Authorization': `Bearer ${token}` } }); if(res.ok) players.value = await res.json(); };
             const fetchFriends = async () => { const res = await fetch(`${API_URL}/social/list`, { headers: { 'Authorization': `Bearer ${token}` } }); if(res.ok) friends.value = await res.json(); const res2 = await fetch(`${API_URL}/social/requests`, { headers: { 'Authorization': `Bearer ${token}` } }); if(res2.ok) friendRequests.value = await res2.json(); };
             const fetchQuests = async () => { const res = await fetch(`${API_URL}/quests/`, { headers: { 'Authorization': `Bearer ${token}` } }); if(res.ok) quests.value = await res.json(); updateInfo(); };
@@ -684,18 +710,14 @@
             const fetchWildList = async () => { const res = await fetch(`${API_URL.replace('/items','')}/shop/wild/list?level=${selectedWildLevel.value}`, { headers: { 'Authorization': `Bearer ${token}` } }); if(res.ok) wildList.value = await res.json(); };
             const fetchSkillData = async () => { const res = await fetch(`${API_URL.replace('/items','')}/shop/data/skills`); if(res.ok) skillData.value = await res.json(); };
             const initAdmin = async () => { try { const res = await fetch(`${API_URL}/social/admin/init`); const d = await res.json(); alert(d.message); } catch(e) {} };
-            const updateMySkills = () => { if(!user.value || !box.value) return; const active = box.value.find(p => p.uid === user.value.active_pokemon_uid); if(active) mySkills.value = SKILL_MAP[active.name] || ["撞擊", "撞擊", "撞擊"]; };
-            const closeNews = () => { newsState.value.show = false; sessionStorage.setItem('seenNews_v2025', 'true'); };
+            const closeNews = () => { newsState.value.show = false; sessionStorage.setItem('seenNews_v2026', 'true'); };
 
-            // ... (戰鬥邏輯 startWildBattle, startTurnTimer, doSkillAttack 等保持不變，直接沿用) ...
-            // 為了完整性，這裡列出戰鬥核心
+            // ... 戰鬥邏輯 ...
             const startWildBattle = (target) => { shieldUses.value = 2; updateMySkills(); battle.value = { active: true, mode: 'wild', target: JSON.parse(JSON.stringify(target)), shakeMe: false, shakeTarget: false, atkBuff: 1.0, shieldActive: false }; turnTimer.value = 10; isEnemyTurn.value = false; startTurnTimer(); };
             const startTurnTimer = () => { clearInterval(timerInterval); turnTimer.value = 10; if (battle.value.mode !== 'wild') return; timerInterval = setInterval(() => { turnTimer.value--; if(turnTimer.value <= 0) { clearInterval(timerInterval); isEnemyTurn.value = true; setTimeout(enemyAttackPhase, 1000); } }, 1000); };
             const enemyAttackPhase = () => { if(battle.value.shieldActive) { alert(`🛡️ 擋下傷害！`); battle.value.shieldActive = false; isEnemyTurn.value = false; startTurnTimer(); } else { const enemyDmg = Math.floor(((battle.value.target.attack / 100) * 20)); user.value.hp = Math.max(0, user.value.hp - enemyDmg); if(user.value.hp <= 0) { alert("你被打敗了..."); battle.value.active = false; fetch(`${API_URL.replace('/items','')}/shop/wild/attack?is_win=false`, { method: 'POST', headers: { 'Authorization': `Bearer ${token}` } }); buyHeal(); } else { isEnemyTurn.value = false; startTurnTimer(); } } };
             const doSkillAttack = async (skillName) => { if(isEnemyTurn.value) return; if(!skillData.value[skillName]) return; try { isEnemyTurn.value = true; clearInterval(timerInterval); const skill = skillData.value[skillName]; let dmg = Math.floor((user.value.attack / 100) * skill.dmg * battle.value.atkBuff); if (dmg < 1) dmg = 1; if(battle.value.mode === 'wild') { battle.value.target.hp = Math.max(0, battle.value.target.hp - dmg); if(battle.value.target.hp <= 0) { const safeName = encodeURIComponent(battle.value.target.raw_name); await fetch(`${API_URL.replace('/items','')}/shop/wild/attack?is_win=true&is_powerful=${battle.value.target.is_powerful||false}&target_name=${safeName}`, { method: 'POST', headers: { 'Authorization': `Bearer ${token}` } }); battle.value.active = false; updateInfo(); setTimeout(fetchQuests, 500); } else { setTimeout(enemyAttackPhase, 1200); } } else if (battle.value.mode === 'raid') { const res = await fetch(`${API_URL.replace('/items','')}/shop/raid/attack?damage=${dmg}`, { method: 'POST', headers: { 'Authorization': `Bearer ${token}` } }); const d = await res.json(); if(d.boss_hp !== undefined) battle.value.target.hp = d.boss_hp; setTimeout(() => { isEnemyTurn.value = false; startTurnTimer(); }, 800); } } catch (e) { console.error(e); battle.value.active = false; } };
             
-            // ... (其他雜項函式：playGacha, useShield, doHeal, dailyCheckin, swapMon, useCandy, doGamble, sendChat, buyHeal, redeemCode, sendGift, sendInvite, addFriend, acceptFriend, joinRaid, abandonQuest, claimQuest) ...
-            // (請保留您原有的這些函式，它們邏輯正確)
             const playGacha = async (type) => { showGachaAnim.value = true; const res = await fetch(`${API_URL.replace('/items','')}/shop/gacha/${type}`, { method: 'POST', headers: { 'Authorization': `Bearer ${token}` } }); const d = await res.json(); setTimeout(() => { showGachaAnim.value = false; gachaResult.value = d; updateInfo(); }, 2000); };
             const useShield = () => { if(shieldUses.value <= 0) return; shieldUses.value--; battle.value.shieldActive = true; isEnemyTurn.value = true; clearInterval(timerInterval); setTimeout(enemyAttackPhase, 1200); };
             const doHeal = async () => { const heal = Math.floor(user.value.max_hp * 0.2); user.value.hp = Math.min(user.value.max_hp, user.value.hp + heal); alert(`回復了 ${heal} HP`); };
@@ -715,13 +737,9 @@
             const claimQuest = async (qid) => { const res = await fetch(`${API_URL}/quests/claim/${qid}`, { method: 'POST', headers: { 'Authorization': `Bearer ${token}` } }); const d = await res.json(); alert(d.message); fetchQuests(); };
 
             onUpdated(() => { const chatBox = document.getElementById('chat-box'); if(chatBox) chatBox.scrollTop = chatBox.scrollHeight; });
-            onMounted(async () => { document.getElementById('loading').style.display = 'none'; if(!token) return window.location.href = 'login.html'; if (!sessionStorage.getItem('seenNews_v2025')) newsState.value.show = true; await fetchSkillData(); await fetchPokedex(); await updateInfo(); await fetchPokedex(); updateMySkills(); fetchPlayers(); checkRaid(); setInterval(checkRaid, 5000); fetchQuests(); fetchWildList(); try { const ws = new WebSocket(`${WS_URL}?token=${token}`); ws.onmessage = (e) => { const msg = e.data; if(msg.startsWith("CHAT|")) { chatMsgs.value.push(msg.split("|")[1]); } }; } catch(e) { console.error("WS error", e); } });
+            onMounted(async () => { document.getElementById('loading').style.display = 'none'; if(!token) return window.location.href = 'login.html'; if (!sessionStorage.getItem('seenNews_v2026')) newsState.value.show = true; await fetchSkillData(); await fetchPokedex(); await updateInfo(); await fetchPokedex(); updateMySkills(); fetchPlayers(); checkRaid(); setInterval(checkRaid, 5000); fetchQuests(); fetchWildList(); try { const ws = new WebSocket(`${WS_URL}?token=${token}`); ws.onmessage = (e) => { const msg = e.data; if(msg.startsWith("CHAT|")) { chatMsgs.value.push(msg.split("|")[1]); } }; } catch(e) { console.error("WS error", e); } });
 
-            const currentPetIV = computed(() => { if(!user.value) return 0; const p = box.value.find(x => x.uid === user.value.active_pokemon_uid); return p ? p.iv : 50; });
-            const playerXpPercent = computed(() => user.value ? Math.min(100, (user.value.exp / getReqXp(user.value.level)) * 100) : 0);
-            const canJoinLobby = computed(() => raidState.value.status === 'LOBBY');
-
-            // 🔥 確保所有變數都回傳 🔥
+            // 🔥 最後檢查：回傳所有變數，包含剛剛補上的 helper functions 🔥
             return { 
                 user, tab, box, players, friends, friendRequests, selectedMon, viewMon, battle, raidState, inLobby, lobbyTimer, 
                 dailyCheckin, logout, playGacha, swapMon, useCandy, gambleAmount, doGamble, chatMsgs, chatInput, sendChat, 
