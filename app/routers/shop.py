@@ -15,10 +15,10 @@ from app.common.websocket import manager
 router = APIRouter()
 
 # --------------------------------------------------------
-# 1. 完整圖鑑資料庫 (包含所有野怪與神獸，防止前端查詢死當)
+# 1. 完整圖鑑資料庫 (包含所有野怪與神獸)
 # --------------------------------------------------------
 POKEDEX_DATA = {
-    # [野怪區] - 即使玩家不該擁有，前端查詢時也需要資料才不會崩潰
+    # [野怪區]
     "小拉達": {"hp": 90, "atk": 80, "img": "https://img.pokemondb.net/artwork/large/rattata.jpg", "skills": ["抓", "出奇一擊", "撞擊"]},
     "波波":   {"hp": 95, "atk": 85, "img": "https://img.pokemondb.net/artwork/large/pidgey.jpg", "skills": ["抓", "啄", "燕返"]},
     "烈雀":   {"hp": 90, "atk": 90, "img": "https://img.pokemondb.net/artwork/large/spearow.jpg", "skills": ["抓", "啄", "燕返"]},
@@ -37,7 +37,7 @@ POKEDEX_DATA = {
     "蚊香勇士": {"hp": 160, "atk": 130, "img": "https://img.pokemondb.net/artwork/large/poliwrath.jpg", "skills": ["雙倍奉還", "冰凍光束", "水槍"]},
     "暴鯉龍": {"hp": 180, "atk": 150, "img": "https://img.pokemondb.net/artwork/large/gyarados.jpg", "skills": ["水流尾", "咬碎", "破壞光線"]},
 
-    # [寵物區] - 可收集
+    # [寵物區]
     "妙蛙種子": {"hp": 130, "atk": 112, "img": "https://img.pokemondb.net/artwork/large/bulbasaur.jpg", "skills": ["藤鞭", "種子炸彈", "污泥炸彈"]},
     "小火龍": {"hp": 112, "atk": 130, "img": "https://img.pokemondb.net/artwork/large/charmander.jpg", "skills": ["火花", "噴射火焰", "大字爆炎"]},
     "傑尼龜": {"hp": 121, "atk": 121, "img": "https://img.pokemondb.net/artwork/large/squirtle.jpg", "skills": ["水槍", "水流噴射", "水流尾"]},
@@ -70,7 +70,7 @@ POKEDEX_DATA = {
 # 2. 清單與常數
 # --------------------------------------------------------
 
-# 只有這些會顯示在「圖鑑」中，防止野怪出現黑影
+# 只有這些會顯示在「圖鑑」中
 OBTAINABLE_MONS = [
     "妙蛙種子", "小火龍", "傑尼龜", "妙蛙花", "噴火龍", "水箭龜",
     "毛辮羊", "皮卡丘", "伊布", "胖丁", "皮皮", "大蔥鴨", "呆呆獸", "可達鴨",
@@ -145,60 +145,7 @@ SKILL_DB = {
 }
 
 # ==========================================
-# 3. 輔助函式
-# ==========================================
-def get_req_xp(lv):
-    if lv >= 25: return 999999999
-    if lv < 10: return LEVEL_XP.get(lv, 5000)
-    return 5000 + (lv - 9) * 2000
-
-def apply_iv_stats(base_val, iv, level, is_player=True):
-    iv_mult = 0.9 + (iv / 100) * 0.2
-    growth = 1.06 if is_player else 1.07
-    if base_val > 500: growth = 1.08 if is_player else 1.09
-    return int(base_val * iv_mult * (growth ** (level - 1)))
-
-def update_raid_logic():
-    now = datetime.now()
-    current_hour = now.hour
-    current_min = now.minute
-    
-    next_hour = current_hour + 1
-    if current_min == 59 and next_hour in RAID_SCHEDULE:
-        if RAID_STATE["status"] != "LOBBY":
-            boss_template = random.choice(LEGENDARY_BIRDS)
-            RAID_STATE["active"] = True
-            RAID_STATE["status"] = "LOBBY"
-            RAID_STATE["boss"] = boss_template
-            RAID_STATE["max_hp"] = boss_template["hp"]
-            RAID_STATE["current_hp"] = boss_template["hp"]
-            RAID_STATE["players"] = {}
-        return
-
-    if current_hour in RAID_SCHEDULE and 0 <= current_min < 30:
-        if RAID_STATE["status"] == "LOBBY":
-             RAID_STATE["status"] = "FIGHTING"
-        elif RAID_STATE["status"] == "IDLE":
-             boss_template = random.choice(LEGENDARY_BIRDS)
-             RAID_STATE["active"] = True
-             RAID_STATE["status"] = "FIGHTING"
-             RAID_STATE["boss"] = boss_template
-             RAID_STATE["max_hp"] = boss_template["hp"]
-             RAID_STATE["current_hp"] = boss_template["hp"]
-             RAID_STATE["players"] = {}
-        
-        if RAID_STATE["current_hp"] <= 0:
-            RAID_STATE["status"] = "ENDED"
-            RAID_STATE["active"] = False
-        return
-
-    if RAID_STATE["status"] != "IDLE":
-        RAID_STATE["active"] = False
-        RAID_STATE["status"] = "IDLE"
-        RAID_STATE["boss"] = None
-
-# ==========================================
-# 4. API Endpoints
+# 3. API Endpoints
 # ==========================================
 
 @router.get("/data/skills")
@@ -208,11 +155,20 @@ def get_skill_data():
 @router.get("/pokedex/all")
 def get_all_pokedex():
     result = []
-    # 只回傳可收集的，讓前端生成黑影時不會包含小拉達
-    for name in OBTAINABLE_MONS:
-        if name in POKEDEX_DATA:
-            data = POKEDEX_DATA[name]
-            result.append({"name": name, "img": data["img"], "hp": data["hp"], "atk": data["atk"]})
+    # 🔥 關鍵：回傳「所有」有資料的怪，但加上 is_collectable 標記
+    # 這樣盒子裡的野怪可以讀取到資料 (不當機)，但圖鑑可以過濾掉它們
+    all_names = POKEDEX_DATA.keys()
+    
+    for name in all_names:
+        data = POKEDEX_DATA[name]
+        is_collectable = name in OBTAINABLE_MONS
+        result.append({
+            "name": name, 
+            "img": data["img"], 
+            "hp": data["hp"], 
+            "atk": data["atk"],
+            "is_collectable": is_collectable # 🔥 前端圖鑑過濾用
+        })
     return result
 
 @router.get("/wild/list")
@@ -227,7 +183,6 @@ def get_wild_list(level: int, current_user: User = Depends(get_current_user)):
     for name in available_species:
         if name not in POKEDEX_DATA: continue
         base = POKEDEX_DATA[name]
-        
         mult = 1.0
         wild_hp = int(base["hp"] * 1.3 * mult * (1.09 ** (level - 1)))
         wild_atk = int(base["atk"] * 1.15 * mult * (1.07 ** (level - 1)))
@@ -241,32 +196,45 @@ def get_wild_list(level: int, current_user: User = Depends(get_current_user)):
     return wild_list
 
 @router.post("/wild/attack")
-async def wild_attack_api(is_win: bool = Query(...), is_powerful: bool = Query(False), target_name: str = Query("野怪"), db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
+async def wild_attack_api(
+    is_win: bool = Query(...), 
+    is_powerful: bool = Query(False), 
+    target_name: str = Query("野怪"), # 這邊接收的會是 "小拉達"
+    db: Session = Depends(get_db), 
+    current_user: User = Depends(get_current_user)
+):
     current_user.hp = current_user.max_hp
     if is_win:
         xp = current_user.level * 50; money = current_user.level * 30
         current_user.exp += xp; current_user.pet_exp += xp; current_user.money += money
         msg = f"獲得 {xp} XP, {money} G"
+        
         if is_powerful:
             inv = json.loads(current_user.inventory); inv["growth_candy"] = inv.get("growth_candy", 0) + 1; current_user.inventory = json.dumps(inv); msg += " & 🍬 成長糖果 x1"
+            
         quests = json.loads(current_user.quests) if current_user.quests else []
         quest_updated = False
+        
+        # 🔥 任務更新邏輯修正：寬鬆匹配 + 狀態容錯
         for q in quests:
-            # 寬鬆比對任務目標
-            if q["status"] == "IN_PROGRESS" and q.get("target") in target_name:
+            # 只要不是已完成，且名字有對上 (例如目標 "小拉達" 在 "Lv.1 小拉達" 裡，或是反過來)
+            # 因為前端傳來的 target_name 可能只有 "小拉達"
+            is_target_match = (q.get("target") in target_name) or (target_name in q.get("target"))
+            
+            if q["status"] != "COMPLETED" and is_target_match:
                 q["now"] += 1
                 quest_updated = True
+                
         if quest_updated: current_user.quests = json.dumps(quests)
         
+        # (以下省略升級邏輯，保持不變)
         req_xp_p = get_req_xp(current_user.level)
         while current_user.exp >= req_xp_p and current_user.level < 25:
             current_user.exp -= req_xp_p; current_user.level += 1; req_xp_p = get_req_xp(current_user.level); msg += f" | 訓練師升級 Lv.{current_user.level}!"
-        
         req_xp_pet = get_req_xp(current_user.pet_level)
         pet_leveled_up = False
         while current_user.pet_exp >= req_xp_pet and current_user.pet_level < 25:
             current_user.pet_exp -= req_xp_pet; current_user.pet_level += 1; req_xp_pet = get_req_xp(current_user.pet_level); pet_leveled_up = True; msg += f" | 寶可夢升級 Lv.{current_user.pet_level}!"
-        
         box = json.loads(current_user.pokemon_storage)
         active_pet = next((p for p in box if p['uid'] == current_user.active_pokemon_uid), None)
         if active_pet:
@@ -282,6 +250,7 @@ async def wild_attack_api(is_win: bool = Query(...), is_powerful: bool = Query(F
         return {"message": f"勝利！HP已回復。{msg}"}
     db.commit()
     return {"message": "戰鬥結束，HP已回復。"}
+
 
 @router.post("/gacha/{gacha_type}")
 async def play_gacha(gacha_type: str, db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):

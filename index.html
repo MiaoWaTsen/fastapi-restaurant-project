@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>⚡️ 寶可夢大亂鬥 V2.0.17 (圖鑑修復版) ⚡️</title>
+    <title>⚡️ 寶可夢大亂鬥 V2.0.18 (最終修復版) ⚡️</title>
     <script src="https://unpkg.com/vue@3/dist/vue.global.js"></script>
     <style>
         [v-cloak] { display: none; }
@@ -111,8 +111,8 @@
 
 <div id="app" class="container" v-cloak>
     <div v-if="!user" style="text-align:center; padding-top:100px;">
-        <h1 style="color:#e94560">寶可夢大亂鬥 V2.0.17</h1>
-        <p>圖鑑修復版</p>
+        <h1 style="color:#e94560">寶可夢大亂鬥 V2.0.18</h1>
+        <p>最終修復版</p>
         <button class="btn-action" @click="logout">前往登入頁面</button>
         <br><br>
         <button style="background:transparent; border:1px solid #aaa; color:#aaa; padding:5px;" @click="initAdmin">👑 初始化管理員</button>
@@ -166,10 +166,10 @@
         
         <div v-if="newsState.show" class="modal-overlay">
             <div class="modal-box" style="text-align:left;">
-                <div class="modal-title" style="text-align:center;">📢 V2.0.17 更新公告</div>
+                <div class="modal-title" style="text-align:center;">📢 V2.0.18 更新公告</div>
                 <ul>
-                    <li><b>📖 圖鑑修復</b>：現在只要您盒子裡有的寶可夢，圖鑑就會顯示為已收集！</li>
-                    <li><b>🐞 任務修復</b>：任務進度與按鈕現在會更即時地更新。</li>
+                    <li><b>🐞 任務修復</b>：現在打倒野怪能正確增加進度，領取按鈕也能正常出現了！</li>
+                    <li><b>📖 圖鑑優化</b>：圖鑑只會顯示可捕捉的寶可夢，且會正確點亮您已擁有的。</li>
                 </ul>
                 <div style="text-align:center; margin-top:15px;">
                     <button class="btn-yes" @click="closeNews">我知道了</button>
@@ -470,7 +470,9 @@
                     </div>
                     <p>收集進度: {{ pokedexPercent }}%</p>
                     <div class="pokedex-grid">
-                        <div v-for="p in pokedexList" :key="p.name" class="pokedex-item" :class="{'pokedex-owned': p.owned}">
+                        <div v-for="p in pokedexList" :key="p.name" class="pokedex-item" 
+                             :class="{'pokedex-owned': p.owned}"
+                             v-if="p.is_collectable">
                             <img :src="p.img" class="pokedex-img" :class="{'pokedex-unknown': !p.owned}">
                         </div>
                     </div>
@@ -645,7 +647,6 @@
                     const allMons = await res.json(); 
                     allMons.forEach(m => pokedexMap.value[m.name] = m);
                     
-                    // 🔥 圖鑑修復核心：檢查盒子 + 解鎖紀錄
                     const unlockedStr = (user.value.unlocked_monsters || "").split(","); 
                     const boxNames = box.value.map(p => p.name);
                     
@@ -654,7 +655,6 @@
                         owned: unlockedStr.includes(m.name) || boxNames.includes(m.name) 
                     })); 
                     
-                    // 重新計算百分比
                     const ownedCount = pokedexList.value.filter(m => m.owned).length;
                     pokedexPercent.value = Math.floor((ownedCount / allMons.length) * 100); 
                 } 
@@ -677,7 +677,7 @@
             };
             
             const getMonSkills = (name) => SKILL_MAP[name] || ["撞擊", "撞擊", "撞擊"];
-            const closeNews = () => { newsState.value.show = false; sessionStorage.setItem('seenNews_v2017', 'true'); };
+            const closeNews = () => { newsState.value.show = false; sessionStorage.setItem('seenNews_v2018', 'true'); };
 
             onUpdated(() => {
                 const chatBox = document.getElementById('chat-box');
@@ -687,8 +687,8 @@
             onMounted(async () => {
                 document.getElementById('loading').style.display = 'none'; 
                 if(!token) return window.location.href = 'login.html';
-                if (!sessionStorage.getItem('seenNews_v2017')) newsState.value.show = true;
-                await updateInfo(); await fetchSkillData(); await fetchPokedex(); // 順序調整，確保 user 有值
+                if (!sessionStorage.getItem('seenNews_v2018')) newsState.value.show = true;
+                await updateInfo(); await fetchSkillData(); await fetchPokedex(); 
                 updateMySkills(); 
                 fetchPlayers(); checkRaid(); setInterval(checkRaid, 5000); fetchQuests(); fetchWildList();
                 
@@ -760,14 +760,19 @@
                     const enemyEl = document.getElementById('enemy-fighter'); if(enemyEl) { enemyEl.classList.add('flash-red'); setTimeout(()=>enemyEl.classList.remove('flash-red'), 300); }
                     
                     if(battle.value.target.hp <= 0) {
-                        const res = await fetch(`${API_URL.replace('/items','')}/shop/wild/attack?is_win=true&is_powerful=${battle.value.target.is_powerful||false}&target_name=${battle.value.target.raw_name}`, { method: 'POST', headers: { 'Authorization': `Bearer ${token}` } });
+                        // 🔥 關鍵修正：對目標名稱進行編碼，確保後端能收到中文 🔥
+                        const safeName = encodeURIComponent(battle.value.target.raw_name);
+                        const res = await fetch(`${API_URL.replace('/items','')}/shop/wild/attack?is_win=true&is_powerful=${battle.value.target.is_powerful||false}&target_name=${safeName}`, { 
+                            method: 'POST', 
+                            headers: { 'Authorization': `Bearer ${token}` } 
+                        });
                         const d = await res.json(); 
                         battleResultMsg.value = `造成 ${dmg} 傷害\n${d.message}`;
                         showBattleResult.value = true;
                         battle.value.active = false; 
                         updateInfo(); 
-                        // 🔥 關鍵修正：延遲更新任務，確保後端寫入完畢
-                        setTimeout(fetchQuests, 500); 
+                        // 🔥 關鍵修正：延遲 0.5 秒讀取任務，等待後端寫入完畢 🔥
+                        setTimeout(fetchQuests, 500);
                     } else { setTimeout(() => { enemyAttackPhase(); }, 1200); }
                 }
                 else if (battle.value.mode === 'raid') {
