@@ -15,30 +15,39 @@ from app.common.websocket import manager
 router = APIRouter()
 
 # =================================================================
-# 1. 技能資料庫
+# 1. 技能資料庫 (SKILL_DB)
 # =================================================================
 SKILL_DB = {
+    # --- 傷害 14 系列 (50% 機率觸發) ---
     "水槍": {"dmg": 14, "effect": "heal", "prob": 0.5, "val": 0.15, "desc": "50%回血15%"},
     "撒嬌": {"dmg": 14, "effect": "heal", "prob": 0.5, "val": 0.15, "desc": "50%回血15%"},
     "念力": {"dmg": 14, "effect": "heal", "prob": 0.5, "val": 0.15, "desc": "50%回血15%"},
     "毒針": {"dmg": 14, "effect": "buff_atk", "prob": 0.5, "val": 0.2, "desc": "50%加攻20%"},
+
+    # --- 傷害 16 系列 (35% 機率觸發) ---
     "藤鞭": {"dmg": 16, "effect": "buff_atk", "prob": 0.35, "val": 0.2, "desc": "35%加攻20%"},
     "火花": {"dmg": 16, "effect": "buff_atk", "prob": 0.35, "val": 0.2, "desc": "35%加攻20%"},
     "電光": {"dmg": 16, "effect": "buff_atk", "prob": 0.35, "val": 0.2, "desc": "35%加攻20%"},
     "挖洞": {"dmg": 16, "effect": "buff_atk", "prob": 0.35, "val": 0.2, "desc": "35%加攻20%"},
     "地震": {"dmg": 16, "effect": "heal", "prob": 0.35, "val": 0.2, "desc": "35%回血20%"},
     "冰礫": {"dmg": 16, "effect": "heal", "prob": 0.35, "val": 0.2, "desc": "35%回血20%"},
+
+    # --- 傷害 18 系列 (30% 機率觸發) ---
     "泥巴射擊": {"dmg": 18, "effect": "buff_atk", "prob": 0.3, "val": 0.2, "desc": "30%加攻20%"},
     "污泥炸彈": {"dmg": 18, "effect": "buff_atk", "prob": 0.3, "val": 0.2, "desc": "30%加攻20%"},
     "噴射火焰": {"dmg": 18, "effect": "buff_atk", "prob": 0.3, "val": 0.2, "desc": "30%加攻20%"},
     "水流噴射": {"dmg": 18, "effect": "buff_atk", "prob": 0.3, "val": 0.2, "desc": "30%加攻20%"},
     "精神強念": {"dmg": 18, "effect": "buff_atk", "prob": 0.3, "val": 0.2, "desc": "30%加攻20%"},
     "電擊":     {"dmg": 18, "effect": "buff_atk", "prob": 0.3, "val": 0.2, "desc": "30%加攻20%"},
+
+    # --- 傷害 24 系列 (無特效) ---
     "撞擊": {"dmg": 24, "effect": None, "prob": 0, "val": 0, "desc": "無特效"},
     "啄":   {"dmg": 24, "effect": None, "prob": 0, "val": 0, "desc": "無特效"},
     "緊束": {"dmg": 24, "effect": None, "prob": 0, "val": 0, "desc": "無特效"},
     "葉刃": {"dmg": 24, "effect": None, "prob": 0, "val": 0, "desc": "無特效"},
     "咬碎": {"dmg": 24, "effect": None, "prob": 0, "val": 0, "desc": "無特效"},
+
+    # --- 傷害 26 系列 (無特效) ---
     "抓":       {"dmg": 26, "effect": None, "prob": 0, "val": 0, "desc": "無特效"},
     "放電":     {"dmg": 26, "effect": None, "prob": 0, "val": 0, "desc": "無特效"},
     "出奇一擊": {"dmg": 26, "effect": None, "prob": 0, "val": 0, "desc": "無特效"},
@@ -53,17 +62,22 @@ SKILL_DB = {
     "泥巴炸彈": {"dmg": 26, "effect": None, "prob": 0, "val": 0, "desc": "無特效"},
     "冰凍光束": {"dmg": 26, "effect": None, "prob": 0, "val": 0, "desc": "無特效"},
     "瘋狂伏特": {"dmg": 26, "effect": None, "prob": 0, "val": 0, "desc": "無特效"},
+
+    # --- 傷害 28 系列 (無特效) ---
     "雙倍奉還": {"dmg": 28, "effect": None, "prob": 0, "val": 0, "desc": "無特效"},
     "逆鱗":     {"dmg": 28, "effect": None, "prob": 0, "val": 0, "desc": "無特效"},
     "精神撃破": {"dmg": 28, "effect": None, "prob": 0, "val": 0, "desc": "無特效"},
     "破壞光線": {"dmg": 28, "effect": None, "prob": 0, "val": 0, "desc": "無特效"},
+
+    # --- 特殊傷害 34 (反傷) ---
     "勇鳥猛攻": {"dmg": 34, "effect": "recoil", "prob": 1.0, "val": 0.1, "desc": "扣自身10%血"}
 }
 
 # =================================================================
-# 2. 完整圖鑑資料庫
+# 2. 完整圖鑑資料庫 (POKEDEX_DATA)
 # =================================================================
 POKEDEX_DATA = {
+    # --- 野怪區 ---
     "小拉達": {"hp": 90, "atk": 80, "img": "https://img.pokemondb.net/artwork/large/rattata.jpg", "skills": ["抓", "出奇一擊", "撞擊"]},
     "波波":   {"hp": 94, "atk": 84, "img": "https://img.pokemondb.net/artwork/large/pidgey.jpg", "skills": ["抓", "啄", "燕返"]},
     "烈雀":   {"hp": 88, "atk": 92, "img": "https://img.pokemondb.net/artwork/large/spearow.jpg", "skills": ["抓", "啄", "燕返"]},
@@ -81,6 +95,8 @@ POKEDEX_DATA = {
     "海刺龍": {"hp": 135, "atk": 135, "img": "https://img.pokemondb.net/artwork/large/seadra.jpg", "skills": ["水槍", "水流尾", "逆鱗"]},
     "蚊香勇士": {"hp": 160, "atk": 130, "img": "https://img.pokemondb.net/artwork/large/poliwrath.jpg", "skills": ["雙倍奉還", "冰凍光束", "水槍"]},
     "暴鯉龍": {"hp": 180, "atk": 150, "img": "https://img.pokemondb.net/artwork/large/gyarados.jpg", "skills": ["水流尾", "咬碎", "破壞光線"]},
+
+    # --- 寵物區 ---
     "妙蛙種子": {"hp": 130, "atk": 112, "img": "https://img.pokemondb.net/artwork/large/bulbasaur.jpg", "skills": ["藤鞭", "種子炸彈", "污泥炸彈"]},
     "小火龍": {"hp": 112, "atk": 130, "img": "https://img.pokemondb.net/artwork/large/charmander.jpg", "skills": ["火花", "噴射火焰", "大字爆炎"]},
     "傑尼龜": {"hp": 121, "atk": 121, "img": "https://img.pokemondb.net/artwork/large/squirtle.jpg", "skills": ["水槍", "水流噴射", "水流尾"]},
@@ -100,6 +116,8 @@ POKEDEX_DATA = {
     "幸福蛋": {"hp": 230, "atk": 90, "img": "https://img.pokemondb.net/artwork/large/blissey.jpg", "skills": ["抓", "精神強念", "撞擊"]},
     "拉普拉斯": {"hp": 165, "atk": 140, "img": "https://img.pokemondb.net/artwork/large/lapras.jpg", "skills": ["水槍", "水流噴射", "冰凍光束"]},
     "快龍":   {"hp": 150, "atk": 148, "img": "https://img.pokemondb.net/artwork/large/dragonite.jpg", "skills": ["抓", "逆鱗", "勇鳥猛攻"]},
+    
+    # [神獸區]
     "急凍鳥": {"hp": 150, "atk": 150, "img": "https://img.pokemondb.net/artwork/large/articuno.jpg", "skills": ["冰礫", "冰凍光束", "勇鳥猛攻"]},
     "火焰鳥": {"hp": 150, "atk": 150, "img": "https://img.pokemondb.net/artwork/large/moltres.jpg", "skills": ["噴射火焰", "大字爆炎", "勇鳥猛攻"]},
     "閃電鳥": {"hp": 150, "atk": 150, "img": "https://img.pokemondb.net/artwork/large/zapdos.jpg", "skills": ["電光", "瘋狂伏特", "勇鳥猛攻"]},
@@ -107,6 +125,9 @@ POKEDEX_DATA = {
     "夢幻":   {"hp": 155, "atk": 150, "img": "https://img.pokemondb.net/artwork/large/mew.jpg", "skills": ["念力", "精神強念", "精神撃破"]},
 }
 
+# --------------------------------------------------------
+# 3. 清單與常數
+# --------------------------------------------------------
 OBTAINABLE_MONS = [
     "妙蛙種子", "小火龍", "傑尼龜", "妙蛙花", "噴火龍", "水箭龜",
     "毛辮羊", "皮卡丘", "伊布", "胖丁", "皮皮", "大蔥鴨", "呆呆獸", "可達鴨",
@@ -129,9 +150,9 @@ GACHA_CANDY = [{"name": "伊布", "rate": 20}, {"name": "皮卡丘", "rate": 20}
 ACTIVE_BATTLES = {}
 LEVEL_XP = { 1: 50, 2: 150, 3: 300, 4: 500, 5: 800, 6: 1300, 7: 2000, 8: 3000, 9: 5000 }
 
+# 🔥 Raid 排程：8, 18, 22, 22:30, 23:00 🔥
 RAID_SCHEDULE = [(8, 0), (18, 0), (22, 0), (22, 30), (23, 0)] 
-# 🔥 新增 last_damage 用於前端顯示 Boss 傷害 🔥
-RAID_STATE = {"active": False, "status": "IDLE", "boss": None, "current_hp": 0, "max_hp": 0, "players": {}, "last_attack_time": None, "attack_counter": 0, "last_damage": 0}
+RAID_STATE = {"active": False, "status": "IDLE", "boss": None, "current_hp": 0, "max_hp": 0, "players": {}, "last_attack_time": None, "attack_counter": 0}
 
 LEGENDARY_BIRDS = [
     {"name": "❄️ 急凍鳥", "hp": 3000, "atk": 400, "img": "https://img.pokemondb.net/sprites/home/normal/articuno.png"},
@@ -139,6 +160,7 @@ LEGENDARY_BIRDS = [
     {"name": "🔥 火焰鳥", "hp": 3000, "atk": 400, "img": "https://img.pokemondb.net/sprites/home/normal/moltres.png"}
 ]
 
+# 🔥 核心：取得台灣時間，解決 UTC 問題 🔥
 def get_now_tw():
     return datetime.utcnow() + timedelta(hours=8)
 
@@ -157,7 +179,7 @@ def update_raid_logic(db: Session = None):
     now = get_now_tw()
     curr_total_mins = now.hour * 60 + now.minute
     
-    # 1. 檢查是否進入大廳
+    # 1. 檢查是否進入大廳 (開打前 1 分鐘)
     for (h, m) in RAID_SCHEDULE:
         start_total_mins = h * 60 + m
         lobby_time = start_total_mins - 1
@@ -188,6 +210,7 @@ def update_raid_logic(db: Session = None):
                  RAID_STATE["status"] = "FIGHTING"
                  RAID_STATE["last_attack_time"] = get_now_tw()
             elif RAID_STATE["status"] == "IDLE":
+                 # 容錯
                  boss_template = random.choice(LEGENDARY_BIRDS)
                  RAID_STATE["active"] = True
                  RAID_STATE["status"] = "FIGHTING"
@@ -204,10 +227,7 @@ def update_raid_logic(db: Session = None):
                     RAID_STATE["attack_counter"] += 1 
                     
                     base_dmg = int(RAID_STATE["boss"]["atk"] * 0.2)
-                    boss_dmg = int(base_dmg * random.uniform(0.95, 1.05))
-                    
-                    # 🔥 記錄這次的傷害值，供前端讀取 🔥
-                    RAID_STATE["last_damage"] = boss_dmg
+                    boss_dmg = int(base_dmg * random.uniform(0.95, 1.05)) # 傷害浮動
                     
                     if db:
                         active_uids = [uid for uid, p in RAID_STATE["players"].items() if not p.get("dead_at")]
@@ -284,8 +304,17 @@ async def wild_attack_api(
 ):
     current_user.hp = current_user.max_hp
     if is_win:
-        xp = current_user.level * 50; money = current_user.level * 30
-        current_user.exp += xp; current_user.pet_exp += xp; current_user.money += money
+        # 🔥 動態計算經驗與金幣：(種族值總和 / 3) * (1.1 ^ (目標等級-1))
+        target_data = POKEDEX_DATA.get(target_name, POKEDEX_DATA["小拉達"])
+        base_stat_sum = target_data["hp"] + target_data["atk"]
+        
+        xp = int((base_stat_sum / 3) * (1.1 ** (target_level - 1)))
+        money = int(xp * 0.6) # 金幣約為經驗的 60%
+        
+        current_user.exp += xp
+        current_user.pet_exp += xp
+        current_user.money += money
+        
         msg = f"獲得 {xp} XP, {money} G"
         
         inv = json.loads(current_user.inventory)
@@ -413,6 +442,7 @@ async def swap_active_pokemon(pokemon_uid: str, db: Session = Depends(get_db), c
     await manager.broadcast(f"EVENT:PVP_SWAP|{current_user.id}")
     return {"message": f"就決定是你了，{target['name']}！"}
 
+# 🔥 新增放生 (Release) 邏輯 🔥
 @router.post("/box/action/{action}/{pokemon_uid}")
 async def box_action(action: str, pokemon_uid: str, db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
     box = json.loads(current_user.pokemon_storage)
@@ -517,19 +547,20 @@ def get_raid_status(current_user: User = Depends(get_current_user), db: Session 
         "active": True,
         "status": RAID_STATE["status"],
         "boss_name": boss["name"],
+        "boss_atk": boss["atk"], 
         "hp": RAID_STATE["current_hp"],
         "max_hp": RAID_STATE["max_hp"],
         "image": boss["img"],
         "my_status": my_status,
-        "attack_counter": RAID_STATE.get("attack_counter", 0),
-        "last_damage": RAID_STATE.get("last_damage", 0)
+        "attack_counter": RAID_STATE.get("attack_counter", 0)
     }
 
 @router.post("/raid/join")
 def join_raid(current_user: User = Depends(get_current_user), db: Session = Depends(get_db)):
     update_raid_logic(db)
-    if RAID_STATE["status"] not in ["LOBBY", "FIGHTING"]: 
-        raise HTTPException(status_code=400, detail="目前沒有開放團體戰")
+    # 🔥 修正：只允許 FIGHTING 狀態加入 🔥
+    if RAID_STATE["status"] != "FIGHTING": 
+        raise HTTPException(status_code=400, detail="目前戰鬥尚未開始")
     
     if current_user.id in RAID_STATE["players"]: 
         return {"message": "已經加入過了"}
