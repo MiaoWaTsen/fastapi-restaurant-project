@@ -150,8 +150,9 @@ GACHA_CANDY = [{"name": "伊布", "rate": 20}, {"name": "皮卡丘", "rate": 20}
 ACTIVE_BATTLES = {}
 LEVEL_XP = { 1: 50, 2: 150, 3: 300, 4: 500, 5: 800, 6: 1300, 7: 2000, 8: 3000, 9: 5000 }
 
-# 🔥 Raid 排程：8, 18, 22, 22:30, 23:00 🔥
-RAID_SCHEDULE = [(8, 0), (18, 0), (22, 0), (22, 30), (23, 0)] 
+# 🔥 新增 14:00, 21:00，移除 22:30 🔥
+# 最終時程：08, 14, 18, 21, 22, 23
+RAID_SCHEDULE = [(8, 0), (14, 0), (18, 0), (21, 0), (22, 0), (23, 0)] 
 RAID_STATE = {"active": False, "status": "IDLE", "boss": None, "current_hp": 0, "max_hp": 0, "players": {}, "last_attack_time": None, "attack_counter": 0}
 
 LEGENDARY_BIRDS = [
@@ -160,7 +161,6 @@ LEGENDARY_BIRDS = [
     {"name": "🔥 火焰鳥", "hp": 3000, "atk": 400, "img": "https://img.pokemondb.net/sprites/home/normal/moltres.png"}
 ]
 
-# 🔥 核心：取得台灣時間，解決 UTC 問題 🔥
 def get_now_tw():
     return datetime.utcnow() + timedelta(hours=8)
 
@@ -227,7 +227,7 @@ def update_raid_logic(db: Session = None):
                     RAID_STATE["attack_counter"] += 1 
                     
                     base_dmg = int(RAID_STATE["boss"]["atk"] * 0.2)
-                    boss_dmg = int(base_dmg * random.uniform(0.95, 1.05)) # 傷害浮動
+                    boss_dmg = int(base_dmg * random.uniform(0.95, 1.05)) 
                     
                     if db:
                         active_uids = [uid for uid, p in RAID_STATE["players"].items() if not p.get("dead_at")]
@@ -304,12 +304,12 @@ async def wild_attack_api(
 ):
     current_user.hp = current_user.max_hp
     if is_win:
-        # 🔥 動態計算經驗與金幣：(種族值總和 / 3) * (1.1 ^ (目標等級-1))
+        # 動態計算經驗與金幣
         target_data = POKEDEX_DATA.get(target_name, POKEDEX_DATA["小拉達"])
         base_stat_sum = target_data["hp"] + target_data["atk"]
         
         xp = int((base_stat_sum / 3) * (1.1 ** (target_level - 1)))
-        money = int(xp * 0.6) # 金幣約為經驗的 60%
+        money = int(xp * 0.6) 
         
         current_user.exp += xp
         current_user.pet_exp += xp
@@ -442,7 +442,6 @@ async def swap_active_pokemon(pokemon_uid: str, db: Session = Depends(get_db), c
     await manager.broadcast(f"EVENT:PVP_SWAP|{current_user.id}")
     return {"message": f"就決定是你了，{target['name']}！"}
 
-# 🔥 新增放生 (Release) 邏輯 🔥
 @router.post("/box/action/{action}/{pokemon_uid}")
 async def box_action(action: str, pokemon_uid: str, db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
     box = json.loads(current_user.pokemon_storage)
@@ -558,7 +557,6 @@ def get_raid_status(current_user: User = Depends(get_current_user), db: Session 
 @router.post("/raid/join")
 def join_raid(current_user: User = Depends(get_current_user), db: Session = Depends(get_db)):
     update_raid_logic(db)
-    # 🔥 修正：只允許 FIGHTING 狀態加入 🔥
     if RAID_STATE["status"] != "FIGHTING": 
         raise HTTPException(status_code=400, detail="目前戰鬥尚未開始")
     
