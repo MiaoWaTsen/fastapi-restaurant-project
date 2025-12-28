@@ -66,6 +66,7 @@ SKILL_DB = {
 
 # =================================================================
 # 2. 完整圖鑑資料庫 (POKEDEX_DATA)
+# 🔥 這裡定義的是「玩家持有時」的數值 🔥
 # =================================================================
 POKEDEX_DATA = {
     # --- 野怪區 ---
@@ -368,11 +369,24 @@ async def wild_attack_api(
 
 @router.post("/gacha/{gacha_type}")
 async def play_gacha(gacha_type: str, db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
-    box = json.loads(current_user.pokemon_storage)
-    if len(box) >= 25: raise HTTPException(status_code=400, detail="盒子滿了！請先放生")
-    inventory = json.loads(current_user.inventory)
-    cost, pool = 0, []
+    # 🔥 防呆修復：處理資料庫空值 🔥
+    try:
+        box = json.loads(current_user.pokemon_storage) if current_user.pokemon_storage else []
+    except:
+        box = []
+
+    if len(box) >= 25: 
+        raise HTTPException(status_code=400, detail="盒子滿了！請先放生")
     
+    try:
+        inventory = json.loads(current_user.inventory) if current_user.inventory else {}
+    except:
+        inventory = {}
+
+    cost = 0
+    pool = []
+    
+    # 確保變數存在，重新指向 (如果您是整檔覆蓋，這裡直接用全域變數即可)
     if gacha_type == 'normal': pool = GACHA_NORMAL; cost = 1500
     elif gacha_type == 'medium': pool = GACHA_MEDIUM; cost = 3000
     elif gacha_type == 'high': pool = GACHA_HIGH; cost = 10000
@@ -389,11 +403,14 @@ async def play_gacha(gacha_type: str, db: Session = Depends(get_db), current_use
         current_user.money -= cost
         
     total_rate = sum(p["rate"] for p in pool)
-    r = random.randint(1, total_rate)
-    acc = 0; prize_name = pool[0]["name"]
+    r = random.uniform(0, total_rate)
+    acc = 0
+    prize_name = pool[0]["name"]
     for p in pool:
         acc += p["rate"]
-        if r <= acc: prize_name = p["name"]; break
+        if r <= acc: 
+            prize_name = p["name"]
+            break
     
     iv = int(random.triangular(0, 100, 50))
     new_mon = { "uid": str(uuid.uuid4()), "name": prize_name, "iv": iv, "lv": 1, "exp": 0 }
@@ -403,12 +420,17 @@ async def play_gacha(gacha_type: str, db: Session = Depends(get_db), current_use
     current_user.inventory = json.dumps(inventory)
     
     unlocked = current_user.unlocked_monsters.split(',') if current_user.unlocked_monsters else []
-    if prize_name not in unlocked: unlocked.append(prize_name); current_user.unlocked_monsters = ",".join(unlocked)
+    if prize_name not in unlocked: 
+        unlocked.append(prize_name)
+        current_user.unlocked_monsters = ",".join(unlocked)
     
     db.commit()
     
-    if gacha_type in ['golden', 'high'] or prize_name in ['快龍', '超夢', '夢幻', '拉普拉斯', '幸福蛋', '耿鬼']:
-        await manager.broadcast(f"🎰 恭喜 [{current_user.username}] 獲得了稀有的 [{prize_name}]！")
+    try:
+        if gacha_type in ['golden', 'high'] or prize_name in ['快龍', '超夢', '夢幻', '拉普拉斯', '幸福蛋', '耿鬼']:
+            await manager.broadcast(f"🎰 恭喜 [{current_user.username}] 獲得了稀有的 [{prize_name}]！")
+    except:
+        pass
         
     return {"message": f"獲得 {prize_name} (IV: {iv})!", "prize": new_mon, "user": current_user}
 
