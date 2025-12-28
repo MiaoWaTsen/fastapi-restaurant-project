@@ -1,5 +1,3 @@
-# app/routers/shop.py
-
 from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.orm import Session
 from datetime import datetime, timedelta
@@ -15,7 +13,7 @@ from app.common.websocket import manager
 router = APIRouter()
 
 # =================================================================
-# 1. 技能資料庫 (SKILL_DB)
+# 1. 技能資料庫
 # =================================================================
 SKILL_DB = {
     "水槍": {"dmg": 14, "effect": "heal", "prob": 0.5, "val": 0.15, "desc": "50%回血15%"},
@@ -66,7 +64,6 @@ SKILL_DB = {
 
 # =================================================================
 # 2. 完整圖鑑資料庫 (POKEDEX_DATA)
-# 🔥 這裡定義的是「玩家持有時」的數值 🔥
 # =================================================================
 POKEDEX_DATA = {
     # --- 野怪區 ---
@@ -114,8 +111,7 @@ POKEDEX_DATA = {
     "拉普拉斯": {"hp": 165, "atk": 140, "img": "https://img.pokemondb.net/artwork/large/lapras.jpg", "skills": ["水槍", "水流噴射", "冰凍光束"]},
     "快龍":   {"hp": 150, "atk": 148, "img": "https://img.pokemondb.net/artwork/large/dragonite.jpg", "skills": ["抓", "逆鱗", "勇鳥猛攻"]},
     
-    # [神獸區]
-    # 🔥 玩家捕獲後的數值 (大幅調降) 🔥
+    # [神獸區] (玩家捕獲後的數值)
     "急凍鳥": {"hp": 150, "atk": 150, "img": "https://img.pokemondb.net/artwork/large/articuno.jpg", "skills": ["冰礫", "冰凍光束", "勇鳥猛攻"]},
     "火焰鳥": {"hp": 150, "atk": 150, "img": "https://img.pokemondb.net/artwork/large/moltres.jpg", "skills": ["噴射火焰", "大字爆炎", "勇鳥猛攻"]},
     "閃電鳥": {"hp": 150, "atk": 150, "img": "https://img.pokemondb.net/artwork/large/zapdos.jpg", "skills": ["電光", "瘋狂伏特", "勇鳥猛攻"]},
@@ -386,7 +382,6 @@ async def play_gacha(gacha_type: str, db: Session = Depends(get_db), current_use
     cost = 0
     pool = []
     
-    # 確保變數存在，重新指向 (如果您是整檔覆蓋，這裡直接用全域變數即可)
     if gacha_type == 'normal': pool = GACHA_NORMAL; cost = 1500
     elif gacha_type == 'medium': pool = GACHA_MEDIUM; cost = 3000
     elif gacha_type == 'high': pool = GACHA_HIGH; cost = 10000
