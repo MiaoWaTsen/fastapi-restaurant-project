@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>⚡️ 寶可夢大亂鬥 V2.5.0 (等級開放版) ⚡️</title>
+    <title>⚡️ 寶可夢大亂鬥 V2.5.1 (完整展開版) ⚡️</title>
     <script src="https://unpkg.com/vue@3/dist/vue.global.js"></script>
     <style>
         [v-cloak] { display: none; }
@@ -133,8 +133,8 @@
 
 <div id="app" class="container" v-cloak>
     <div v-if="!user" style="text-align:center; padding-top:100px;">
-        <h1 style="color:#e94560">寶可夢大亂鬥 V2.5.0</h1>
-        <p>等級開放與數值平衡版</p>
+        <h1 style="color:#e94560">寶可夢大亂鬥 V2.5.1</h1>
+        <p>完整全功能版</p>
         <button class="btn-action" @click="logout">前往登入頁面</button>
         <br><br>
         <button style="background:transparent; border:1px solid #aaa; color:#aaa; padding:5px;" @click="initAdmin">👑 初始化管理員</button>
@@ -228,7 +228,7 @@
         
         <div v-if="newsState.show" class="modal-overlay">
             <div class="modal-box" style="text-align:left;">
-                <div class="modal-title" style="text-align:center;">📢 V2.5.0 更新公告</div>
+                <div class="modal-title" style="text-align:center;">📢 V2.5.1 更新公告</div>
                 <ul>
                     <li><b>🚀 等級上限提升</b>：開放至 Lv.30！</li>
                     <li><b>🌲 全新野怪</b>：關都地區大量寶可夢登場 (六尾、耿鬼等)。</li>
@@ -750,7 +750,6 @@
                 }
             };
 
-            // 🔥 共用勝利邏輯 🔥
             const handleBattleWin = async () => {
                 const safeName = encodeURIComponent(battle.value.target.raw_name);
                 const tLv = battle.value.target.level; 
@@ -782,21 +781,12 @@
             
             const startTurnTimer = () => { clearInterval(timerInterval); turnTimer.value = 10; if (battle.value.mode !== 'wild') return; timerInterval = setInterval(() => { turnTimer.value--; if(turnTimer.value <= 0) { clearInterval(timerInterval); isEnemyTurn.value = true; showFloatingText("逾時!", "red"); setTimeout(enemyAttackPhase, 1000); } }, 1000); };
             
-            // 🔥 敵方攻擊 (含反傷修復：無 Alert，且可彈死怪) 🔥
             const enemyAttackPhase = () => { 
                 if(battle.value.shieldActive) { 
-                    // 移除 Alert，直接顯示反傷文字
                     const reflectDmg = Math.floor(battle.value.target.attack * 0.15 * (0.95 + Math.random() * 0.1)); 
                     battle.value.target.hp -= reflectDmg; 
                     showFloatingText(`反傷 ${reflectDmg}`, 'gold'); 
-                    
-                    // 檢查反傷致死
-                    if (battle.value.target.hp <= 0 && battle.value.mode === 'wild') {
-                        clearInterval(timerInterval);
-                        handleBattleWin();
-                        return;
-                    }
-
+                    if (battle.value.target.hp <= 0 && battle.value.mode === 'wild') { clearInterval(timerInterval); handleBattleWin(); return; }
                     battle.value.shieldActive = false; isEnemyTurn.value = false; startTurnTimer(); 
                 } else { 
                     const rawDmg = Math.floor(battle.value.target.attack * 0.2); 
@@ -818,7 +808,7 @@
                     
                     if (skill.effect === 'buff_atk' && Math.random() < skill.prob) { battle.value.atkBuff = 1 + skill.val; showFloatingText(`ATK UP!`, 'gold'); } 
                     else if (skill.effect === 'heal' && Math.random() < skill.prob) { const healAmt = Math.floor(user.value.max_hp * skill.val); user.value.hp = Math.min(user.value.max_hp, user.value.hp + healAmt); showFloatingText(`+${healAmt}`, 'green'); } 
-                    else if (skill.effect === 'debuff_atk') { showFloatingText(`降攻!`, 'blue'); } # 視覺效果
+                    else if (skill.effect === 'debuff_atk') { showFloatingText(`降攻!`, 'blue'); } // 視覺效果
                     
                     if (skill.effect === 'recoil') { const recoilDmg = Math.floor(user.value.max_hp * skill.val); user.value.hp = Math.max(0, user.value.hp - recoilDmg); showFloatingText(`反傷 -${recoilDmg}`, 'red'); } 
                     
@@ -861,21 +851,21 @@
             const joinRaid = async () => { if(confirm("支付 1000G 加入？")) { const res = await fetch(`${API_URL.replace('/items','')}/shop/raid/join`, { method: 'POST', headers: { 'Authorization': `Bearer ${token}` } }); if(res.ok) { battle.value = { active: true, mode: 'raid', target: { name: raidState.value.boss_name, hp: raidState.value.hp, max_hp: raidState.value.max_hp, image_url: raidState.value.image }, shakeMe: false, shakeTarget: false, atkBuff: 1.0, shieldActive: false }; shieldUses.value = 2; updateMySkills(); } else { const d = await res.json(); alert(d.detail); } } };
             const abandonQuest = async (qid) => { if(confirm("放棄需消耗 1000G，確定嗎？")) { await fetch(`${API_URL}/quests/abandon/${qid}`, { method: 'POST', headers: { 'Authorization': `Bearer ${token}` } }); fetchQuests(); } };
             const claimQuest = async (qid) => { const res = await fetch(`${API_URL}/quests/claim/${qid}`, { method: 'POST', headers: { 'Authorization': `Bearer ${token}` } }); const d = await res.json(); alert(d.message); fetchQuests(); };
+            
             const reviveRaid = async () => { const res = await fetch(`${API_URL.replace('/items','')}/shop/raid/revive`, { method: 'POST', headers: { 'Authorization': `Bearer ${token}` } }); if (res.ok) { isRaidDead.value = false; clearInterval(deadInterval); updateInfo(); } else { const d = await res.json(); alert(d.detail); } };
             const claimRaidReward = async (choice) => { const res = await fetch(`${API_URL.replace('/items','')}/shop/raid/claim?choice=${choice}`, { method: 'POST', headers: { 'Authorization': `Bearer ${token}` } }); const d = await res.json(); alert(d.message); raidVictory.value = false; tab.value = 'wild'; updateInfo(); };
             const useMedKit = () => { if(shieldUses.value <= 0) return; shieldUses.value--; const healAmt = Math.floor(user.value.max_hp * 0.2); user.value.hp = Math.min(user.value.max_hp, user.value.hp + healAmt); alert(`💊 醫療包回復了 ${healAmt} HP`); };
+            const releaseMon = async (uid) => { if(!confirm("確定要放生這隻寶可夢嗎？(獲得 100 Gold)")) return; const res = await fetch(`${API_URL.replace('/items','')}/shop/box/action/release/${uid}`, { method: 'POST', headers: { 'Authorization': `Bearer ${token}` } }); const d = await res.json(); if(res.ok) { alert(d.message); viewMon.value = null; updateInfo(); } else { alert(d.detail); } };
 
             onUpdated(() => { const chatBox = document.getElementById('chat-box'); if(chatBox) chatBox.scrollTop = chatBox.scrollHeight; });
             onMounted(async () => { 
                 document.getElementById('loading').style.display = 'none'; 
                 if(!token) return window.location.href = 'login.html'; 
                 if (!sessionStorage.getItem('seenNews_v2500')) newsState.value.show = true; 
-                
                 await fetchSkillData(); await fetchPokedex(); await updateInfo(); await fetchPokedex(); 
                 updateMySkills(); fetchPlayers(); checkRaid(); setInterval(checkRaid, 3000); 
                 setInterval(fetchPlayers, 10000);
                 fetchQuests(); fetchWildList(); fetchLeaderboard();
-                
                 try { const ws = new WebSocket(`${WS_URL}?token=${token}`); ws.onmessage = (e) => { const msg = e.data; if(msg.startsWith("CHAT|")) { chatMsgs.value.push(msg.split("|")[1]); } }; } catch(e) { console.error("WS error", e); } 
             });
 
