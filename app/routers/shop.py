@@ -150,15 +150,14 @@ GACHA_CANDY = [{"name": "伊布", "rate": 20}, {"name": "皮卡丘", "rate": 20}
 ACTIVE_BATTLES = {}
 LEVEL_XP = { 1: 50, 2: 150, 3: 300, 4: 500, 5: 800, 6: 1300, 7: 2000, 8: 3000, 9: 5000 }
 
-# 🔥 新增 14:00, 21:00，移除 22:30 🔥
-# 最終時程：08, 14, 18, 21, 22, 23
 RAID_SCHEDULE = [(8, 0), (14, 0), (18, 0), (21, 0), (22, 0), (23, 0)] 
 RAID_STATE = {"active": False, "status": "IDLE", "boss": None, "current_hp": 0, "max_hp": 0, "players": {}, "last_attack_time": None, "attack_counter": 0}
 
+# 🔥 修改：HP 5000 / ATK 500 🔥
 LEGENDARY_BIRDS = [
-    {"name": "❄️ 急凍鳥", "hp": 3000, "atk": 400, "img": "https://img.pokemondb.net/sprites/home/normal/articuno.png"},
-    {"name": "⚡ 閃電鳥", "hp": 3000, "atk": 400, "img": "https://img.pokemondb.net/sprites/home/normal/zapdos.png"},
-    {"name": "🔥 火焰鳥", "hp": 3000, "atk": 400, "img": "https://img.pokemondb.net/sprites/home/normal/moltres.png"}
+    {"name": "❄️ 急凍鳥", "hp": 5000, "atk": 500, "img": "https://img.pokemondb.net/sprites/home/normal/articuno.png"},
+    {"name": "⚡ 閃電鳥", "hp": 5000, "atk": 500, "img": "https://img.pokemondb.net/sprites/home/normal/zapdos.png"},
+    {"name": "🔥 火焰鳥", "hp": 5000, "atk": 500, "img": "https://img.pokemondb.net/sprites/home/normal/moltres.png"}
 ]
 
 def get_now_tw():
@@ -222,7 +221,8 @@ def update_raid_logic(db: Session = None):
             
             if RAID_STATE["status"] == "FIGHTING":
                 last_time = RAID_STATE.get("last_attack_time")
-                if last_time and (get_now_tw() - last_time).total_seconds() >= 10:
+                # 🔥 修改：攻擊間隔改為 7 秒 🔥
+                if last_time and (get_now_tw() - last_time).total_seconds() >= 7:
                     RAID_STATE["last_attack_time"] = get_now_tw()
                     RAID_STATE["attack_counter"] += 1 
                     
