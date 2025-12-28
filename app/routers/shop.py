@@ -114,11 +114,12 @@ POKEDEX_DATA = {
     "快龍":   {"hp": 150, "atk": 148, "img": "https://img.pokemondb.net/artwork/large/dragonite.jpg", "skills": ["抓", "逆鱗", "勇鳥猛攻"]},
     
     # [神獸區]
-    "急凍鳥": {"hp": 5000, "atk": 500, "img": "https://img.pokemondb.net/artwork/large/articuno.jpg", "skills": ["冰礫", "冰凍光束", "勇鳥猛攻"]},
-    "火焰鳥": {"hp": 5000, "atk": 500, "img": "https://img.pokemondb.net/artwork/large/moltres.jpg", "skills": ["噴射火焰", "大字爆炎", "勇鳥猛攻"]},
-    "閃電鳥": {"hp": 5000, "atk": 500, "img": "https://img.pokemondb.net/artwork/large/zapdos.jpg", "skills": ["電光", "瘋狂伏特", "勇鳥猛攻"]},
+    # 🔥 玩家捕獲後的數值 (大幅調降) 🔥
+    "急凍鳥": {"hp": 150, "atk": 150, "img": "https://img.pokemondb.net/artwork/large/articuno.jpg", "skills": ["冰礫", "冰凍光束", "勇鳥猛攻"]},
+    "火焰鳥": {"hp": 150, "atk": 150, "img": "https://img.pokemondb.net/artwork/large/moltres.jpg", "skills": ["噴射火焰", "大字爆炎", "勇鳥猛攻"]},
+    "閃電鳥": {"hp": 150, "atk": 150, "img": "https://img.pokemondb.net/artwork/large/zapdos.jpg", "skills": ["電光", "瘋狂伏特", "勇鳥猛攻"]},
     "超夢":   {"hp": 152, "atk": 155, "img": "https://img.pokemondb.net/artwork/large/mewtwo.jpg", "skills": ["念力", "精神強念", "精神撃破"]},
-    "夢幻":   {"hp": 155, "atk": 150, "img": "https://img.pokemondb.net/artwork/large/mew.jpg", "skills": ["念力", "精神強念", "精神撃破"]},
+    "夢幻":   {"hp": 155, "atk": 152, "img": "https://img.pokemondb.net/artwork/large/mew.jpg", "skills": ["念力", "暗影球", "精神撃破"]},
 }
 
 OBTAINABLE_MONS = [
@@ -176,10 +177,13 @@ LEVEL_XP_MAP = {
 RAID_SCHEDULE = [(8, 0), (14, 0), (18, 0), (21, 0), (22, 0), (23, 0)] 
 RAID_STATE = {"active": False, "status": "IDLE", "boss": None, "current_hp": 0, "max_hp": 0, "players": {}, "last_attack_time": None, "attack_counter": 0}
 
-LEGENDARY_BIRDS = [
-    {"name": "❄️ 急凍鳥", "hp": 5000, "atk": 500, "img": "https://img.pokemondb.net/sprites/home/normal/articuno.png"},
-    {"name": "⚡ 閃電鳥", "hp": 5000, "atk": 500, "img": "https://img.pokemondb.net/sprites/home/normal/zapdos.png"},
-    {"name": "🔥 火焰鳥", "hp": 5000, "atk": 500, "img": "https://img.pokemondb.net/sprites/home/normal/moltres.png"}
+# 🔥 Boss 池 (數值高) 🔥
+RAID_BOSS_POOL = [
+    {"name": "❄️ 急凍鳥", "hp": 8000, "atk": 500, "img": "https://img.pokemondb.net/sprites/home/normal/articuno.png", "weight": 30},
+    {"name": "🔥 火焰鳥", "hp": 8000, "atk": 500, "img": "https://img.pokemondb.net/sprites/home/normal/moltres.png", "weight": 30},
+    {"name": "⚡ 閃電鳥", "hp": 8000, "atk": 500, "img": "https://img.pokemondb.net/sprites/home/normal/zapdos.png", "weight": 30},
+    {"name": "🔮 超夢",   "hp": 10000, "atk": 600, "img": "https://img.pokemondb.net/sprites/home/normal/mewtwo.png", "weight": 5},
+    {"name": "✨ 夢幻",   "hp": 10000, "atk": 600, "img": "https://img.pokemondb.net/sprites/home/normal/mew.png", "weight": 5}
 ]
 
 def get_now_tw():
@@ -206,12 +210,13 @@ def update_raid_logic(db: Session = None):
         if lobby_time < 0: lobby_time += 1440 
         if curr_total_mins == lobby_time:
             if RAID_STATE["status"] != "LOBBY":
-                boss_template = random.choice(LEGENDARY_BIRDS)
+                # 🔥 隨機抽選 Boss 🔥
+                boss_data = random.choices(RAID_BOSS_POOL, weights=[b['weight'] for b in RAID_BOSS_POOL], k=1)[0]
                 RAID_STATE["active"] = True
                 RAID_STATE["status"] = "LOBBY"
-                RAID_STATE["boss"] = boss_template
-                RAID_STATE["max_hp"] = boss_template["hp"]
-                RAID_STATE["current_hp"] = boss_template["hp"]
+                RAID_STATE["boss"] = boss_data
+                RAID_STATE["max_hp"] = boss_data["hp"]
+                RAID_STATE["current_hp"] = boss_data["hp"]
                 RAID_STATE["players"] = {}
                 RAID_STATE["last_attack_time"] = get_now_tw()
                 RAID_STATE["attack_counter"] = 0
@@ -225,14 +230,15 @@ def update_raid_logic(db: Session = None):
                  RAID_STATE["status"] = "FIGHTING"
                  RAID_STATE["last_attack_time"] = get_now_tw()
             elif RAID_STATE["status"] == "IDLE":
-                 boss_template = random.choice(LEGENDARY_BIRDS)
+                 boss_data = random.choices(RAID_BOSS_POOL, weights=[b['weight'] for b in RAID_BOSS_POOL], k=1)[0]
                  RAID_STATE["active"] = True
                  RAID_STATE["status"] = "FIGHTING"
-                 RAID_STATE["boss"] = boss_template
-                 RAID_STATE["max_hp"] = boss_template["hp"]
-                 RAID_STATE["current_hp"] = boss_template["hp"]
+                 RAID_STATE["boss"] = boss_data
+                 RAID_STATE["max_hp"] = boss_data["hp"]
+                 RAID_STATE["current_hp"] = boss_data["hp"]
                  RAID_STATE["players"] = {}
                  RAID_STATE["last_attack_time"] = get_now_tw()
+            
             if RAID_STATE["status"] == "FIGHTING":
                 last_time = RAID_STATE.get("last_attack_time")
                 if last_time and (get_now_tw() - last_time).total_seconds() >= 7:
@@ -271,45 +277,26 @@ def get_all_pokedex():
 @router.get("/wild/list")
 def get_wild_list(level: int, current_user: User = Depends(get_current_user)):
     wild_list = []
-    
-    # 🔥 規則 A & B (累積 + 向下填充) 🔥
-    # 遍歷目前所有已解鎖的等級
     for lv in range(1, level + 1):
-        species_in_this_level = WILD_UNLOCK_LEVELS.get(lv)
-        
-        # 如果該等級沒有定義怪 (空窗期)，則往下找最近的有怪等級 (Rule B)
-        if not species_in_this_level:
-             for search_lv in range(lv - 1, 0, -1):
-                 if search_lv in WILD_UNLOCK_LEVELS:
-                     species_in_this_level = WILD_UNLOCK_LEVELS[search_lv]
-                     break
-        
-        # 如果還是沒有 (Lv.1 防呆)，預設小拉達
-        if not species_in_this_level: 
-            species_in_this_level = ["小拉達"]
-            
-        # 將找到的怪加入列表，並設定等級為「玩家選擇的野區等級 (level)」
-        for name in species_in_this_level:
+        species_at_this_lv = WILD_UNLOCK_LEVELS.get(lv)
+        if not species_at_this_lv:
+            for prev_lv in range(lv - 1, 0, -1):
+                if prev_lv in WILD_UNLOCK_LEVELS:
+                    species_at_this_lv = WILD_UNLOCK_LEVELS[prev_lv]
+                    break
+        if not species_at_this_lv:
+            species_at_this_lv = ["小拉達"]
+        for name in species_at_this_lv:
             if name not in POKEDEX_DATA: continue
             base = POKEDEX_DATA[name]
-            
-            # 數值計算：以玩家選擇的 level 為準
             wild_hp = int(base["hp"] * 1.3 * (1.09 ** (level - 1)))
             wild_atk = int(base["atk"] * 1.15 * (1.07 ** (level - 1)))
             wild_skills = base.get("skills", ["撞擊", "撞擊", "撞擊"])
-            
             wild_list.append({
-                "name": name, 
-                "raw_name": name, 
-                "is_powerful": False,
-                "level": level, # 重點：這裡強制設為玩家選擇的 level
-                "hp": wild_hp, 
-                "max_hp": wild_hp, 
-                "attack": wild_atk,
-                "image_url": base["img"], 
-                "skills": wild_skills 
+                "name": name, "raw_name": name, "is_powerful": False,
+                "level": level, "hp": wild_hp, "max_hp": wild_hp, "attack": wild_atk,
+                "image_url": base["img"], "skills": wild_skills 
             })
-            
     return wild_list
 
 @router.post("/wild/attack")
@@ -347,7 +334,7 @@ async def wild_attack_api(
         quest_updated = False
         for q in quests:
             is_name_match = (q.get("target") in target_name) or (target_name in q.get("target"))
-            is_level_match = q.get("level") == target_level if "level" in q else True
+            is_level_match = target_level >= q.get("level", 1)
             if q["status"] != "COMPLETED" and is_name_match and is_level_match:
                 q["now"] += 1
                 quest_updated = True
@@ -581,6 +568,8 @@ def join_raid(current_user: User = Depends(get_current_user), db: Session = Depe
 
 @router.post("/raid/attack")
 def attack_raid_boss(damage: int = Query(...), current_user: User = Depends(get_current_user)):
+    update_raid_logic(None)
+    
     if current_user.id not in RAID_STATE["players"]:
         raise HTTPException(status_code=400, detail="你不在大廳中")
         
@@ -593,6 +582,15 @@ def attack_raid_boss(damage: int = Query(...), current_user: User = Depends(get_
     
     RAID_STATE["current_hp"] = max(0, RAID_STATE["current_hp"] - damage)
     return {"message": f"造成 {damage} 點傷害", "boss_hp": RAID_STATE["current_hp"]}
+
+# 🔥 新增回血接口 🔥
+@router.post("/raid/recover")
+def raid_recover(current_user: User = Depends(get_current_user), db: Session = Depends(get_db)):
+    # 邏輯：回復 20% 最大血量
+    heal_amount = int(current_user.max_hp * 0.2)
+    current_user.hp = min(current_user.max_hp, current_user.hp + heal_amount)
+    db.commit()
+    return {"message": f"回復了 {heal_amount} HP", "hp": current_user.hp}
 
 @router.post("/raid/revive")
 def revive_raid(current_user: User = Depends(get_current_user), db: Session = Depends(get_db)):
@@ -633,11 +631,11 @@ def claim_raid_reward(choice: int = Query(...), current_user: User = Depends(get
         current_user.money += 5000
         msg = "獲得 💰 5000 Gold"
     elif prize == "pet":
-        boss_name = RAID_STATE["boss"]["name"].split(" ")[1] # 去掉 emoji
+        boss_name = RAID_STATE["boss"]["name"].split(" ")[1] 
         new_mon = { 
             "uid": str(uuid.uuid4()), 
             "name": boss_name, 
-            "iv": int(random.triangular(0, 100, 80)),
+            "iv": int(random.randint(60, 100)),
             "lv": current_user.pet_level, 
             "exp": 0 
         }

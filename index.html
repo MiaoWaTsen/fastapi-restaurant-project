@@ -3,128 +3,572 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>⚡️ 寶可夢大亂鬥 V2.5.3 (完整修復版) ⚡️</title>
+    <title>⚡️ 寶可夢大亂鬥 V2.5.8 (完整精簡版) ⚡️</title>
     <script src="https://unpkg.com/vue@3/dist/vue.global.js"></script>
     <style>
-        [v-cloak] { display: none; }
-        body { font-family: 'Segoe UI', sans-serif; background-color: #1a1a2e; color: #fff; padding: 20px; padding-bottom: 120px; user-select: none; }
-        .container { max-width: 900px; margin: 0 auto; position: relative; }
-        
-        /* Navbar */
-        .navbar { display: flex; justify-content: space-between; align-items: center; background: #16213e; padding: 15px; border-radius: 10px; margin-bottom: 20px; border: 1px solid #0f3460; }
-        .user-info { display: flex; gap: 15px; width: 100%; }
-        .user-avatar { width: 70px; height: 70px; border-radius: 50%; border: 3px solid #f1c40f; object-fit: cover; }
-        .user-stats { flex: 1; display: flex; flex-direction: column; gap: 8px; }
-        .stat-block { background: rgba(0,0,0,0.2); padding: 5px 10px; border-radius: 5px; }
-        .stat-title { font-size: 0.9em; color: #aaa; margin-bottom: 2px; display: flex; justify-content: space-between; }
-        .bar-container { width: 100%; background: #333; height: 8px; border-radius: 4px; overflow: hidden; position: relative; }
-        .bar-fill { height: 100%; transition: width 0.3s; }
-        .hp-fill { background: linear-gradient(90deg, #e74c3c, #c0392b); } 
-        .pet-xp-fill { background: linear-gradient(90deg, #3498db, #2980b9); } 
-        .player-xp-fill { background: linear-gradient(90deg, #f1c40f, #d35400); }
-        .bar-text { font-size: 0.75em; color: #ccc; display: flex; justify-content: space-between; margin-top: 1px; }
-        .atk-val { color: #f1c40f; font-weight: bold; }
-        
-        /* Tabs */
-        .tabs { display: flex; gap: 10px; margin-bottom: 20px; flex-wrap: wrap; }
-        .tab-btn { flex: 1; padding: 12px; background: #0f3460; border: none; color: #aaa; cursor: pointer; border-radius: 8px; font-weight: bold; min-width: 80px; transition:0.2s; display:flex; flex-direction:column; align-items:center; justify-content: center; }
-        .tab-btn.active { background: #e94560; color: white; transform: translateY(-3px); }
+        [v-cloak] {
+            display: none;
+        }
 
-        /* Cards & Grid */
-        .card-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); gap: 15px; }
-        .card { background: #0f3460; border-radius: 10px; padding: 10px; text-align: center; cursor: pointer; border: 1px solid transparent; transition:0.2s; position: relative; }
-        .card:hover { border-color: #f1c40f; transform: translateY(-5px); }
-        .card-img { width: 100%; height: 120px; object-fit: contain; background: #222; border-radius: 5px; }
-        
-        /* Buttons */
-        .btn-action { width: 100%; padding: 8px; margin-top: 5px; border: none; border-radius: 5px; cursor: pointer; font-weight: bold; background: #c0392b; color: white; }
-        .btn-small { width: 48%; padding: 5px; font-size: 0.9em; margin-top: 5px; border: none; border-radius: 5px; cursor: pointer; color: white; }
-        .btn-disabled { background: #555 !important; cursor: not-allowed; opacity: 0.6; pointer-events: none; }
-        .btn-logout { background: #95a5a6; border: none; padding: 5px 10px; border-radius: 5px; cursor: pointer; color: white; font-size: 0.8em; }
+        body {
+            font-family: 'Segoe UI', sans-serif;
+            background-color: #1a1a2e;
+            color: #fff;
+            padding: 20px;
+            padding-bottom: 120px;
+            user-select: none;
+        }
 
-        /* Shop Gacha Buttons */
-        .btn-gacha { width: 100%; padding: 15px; margin-bottom: 10px; border: none; border-radius: 10px; color: white; font-weight: bold; font-size: 1.1em; cursor: pointer; display: flex; justify-content: space-between; align-items: center; transition: transform 0.2s; box-shadow: 0 4px 6px rgba(0,0,0,0.3); }
-        .btn-gacha:hover { transform: translateY(-3px); }
+        .container {
+            max-width: 900px;
+            margin: 0 auto;
+            position: relative;
+        }
+
+        /* --- Navbar --- */
+        .navbar {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            background: #16213e;
+            padding: 15px;
+            border-radius: 10px;
+            margin-bottom: 20px;
+            border: 1px solid #0f3460;
+        }
+
+        .user-info {
+            display: flex;
+            gap: 15px;
+            width: 100%;
+        }
+
+        .user-avatar {
+            width: 70px;
+            height: 70px;
+            border-radius: 50%;
+            border: 3px solid #f1c40f;
+            object-fit: cover;
+        }
+
+        .user-stats {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+        }
+
+        .stat-block {
+            background: rgba(0, 0, 0, 0.2);
+            padding: 5px 10px;
+            border-radius: 5px;
+        }
+
+        .stat-title {
+            font-size: 0.9em;
+            color: #aaa;
+            margin-bottom: 2px;
+            display: flex;
+            justify-content: space-between;
+        }
+
+        .bar-container {
+            width: 100%;
+            background: #333;
+            height: 8px;
+            border-radius: 4px;
+            overflow: hidden;
+            position: relative;
+        }
+
+        .bar-fill {
+            height: 100%;
+            transition: width 0.3s;
+        }
+
+        .hp-fill {
+            background: linear-gradient(90deg, #e74c3c, #c0392b);
+        }
+
+        .pet-xp-fill {
+            background: linear-gradient(90deg, #3498db, #2980b9);
+        }
+
+        .player-xp-fill {
+            background: linear-gradient(90deg, #f1c40f, #d35400);
+        }
+
+        .bar-text {
+            font-size: 0.75em;
+            color: #ccc;
+            display: flex;
+            justify-content: space-between;
+            margin-top: 1px;
+        }
+
+        .atk-val {
+            color: #f1c40f;
+            font-weight: bold;
+        }
+
+        /* --- Tabs --- */
+        .tabs {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 20px;
+            flex-wrap: wrap;
+        }
+
+        .tab-btn {
+            flex: 1;
+            padding: 12px;
+            background: #0f3460;
+            border: none;
+            color: #aaa;
+            cursor: pointer;
+            border-radius: 8px;
+            font-weight: bold;
+            min-width: 80px;
+            transition: 0.2s;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .tab-btn.active {
+            background: #e94560;
+            color: white;
+            transform: translateY(-3px);
+        }
+
+        /* --- Cards & Grid --- */
+        .card-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
+            gap: 15px;
+        }
+
+        .card {
+            background: #0f3460;
+            border-radius: 10px;
+            padding: 10px;
+            text-align: center;
+            cursor: pointer;
+            border: 1px solid transparent;
+            transition: 0.2s;
+            position: relative;
+        }
+
+        .card:hover {
+            border-color: #f1c40f;
+            transform: translateY(-5px);
+        }
+
+        .card-img {
+            width: 100%;
+            height: 120px;
+            object-fit: contain;
+            background: #222;
+            border-radius: 5px;
+        }
+
+        /* --- Buttons --- */
+        .btn-action {
+            width: 100%;
+            padding: 8px;
+            margin-top: 5px;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            font-weight: bold;
+            background: #c0392b;
+            color: white;
+        }
+
+        .btn-small {
+            width: 48%;
+            padding: 5px;
+            font-size: 0.9em;
+            margin-top: 5px;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            color: white;
+        }
+
+        .btn-disabled {
+            background: #555 !important;
+            cursor: not-allowed;
+            opacity: 0.6;
+            pointer-events: none;
+        }
+
+        .btn-logout {
+            background: #95a5a6;
+            border: none;
+            padding: 5px 10px;
+            border-radius: 5px;
+            cursor: pointer;
+            color: white;
+            font-size: 0.8em;
+        }
+
+        /* --- Shop Gacha Buttons --- */
+        .btn-gacha {
+            width: 100%;
+            padding: 15px;
+            margin-bottom: 10px;
+            border: none;
+            border-radius: 10px;
+            color: white;
+            font-weight: bold;
+            font-size: 1.1em;
+            cursor: pointer;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            transition: transform 0.2s;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.3);
+        }
+
+        .btn-gacha:hover {
+            transform: translateY(-3px);
+        }
+
         .gacha-normal { background: linear-gradient(90deg, #3498db, #2980b9); }
         .gacha-medium { background: linear-gradient(90deg, #9b59b6, #8e44ad); }
         .gacha-high { background: linear-gradient(90deg, #e67e22, #d35400); }
         .gacha-candy { background: linear-gradient(90deg, #e91e63, #c2185b); }
         .gacha-golden { background: linear-gradient(90deg, #f1c40f, #f39c12); color: #000; text-shadow: 0px 0px 2px white; }
 
-        /* Quests */
-        .quest-card { text-align: left; margin-bottom: 10px; border-left: 5px solid #aaa; padding: 15px; background:#1e2a38; transition: 0.3s; }
-        .quest-completed { border-left-color: #2ecc71; background: #1b261b; }
-        .quest-golden { background: linear-gradient(135deg, #f1c40f, #f39c12); color: #000 !important; border-left: 5px solid #fff; box-shadow: 0 0 10px rgba(241, 196, 15, 0.3); }
-        .quest-golden h4, .quest-golden p { color: #000 !important; font-weight: bold; }
+        /* --- Quests --- */
+        .quest-card {
+            text-align: left;
+            margin-bottom: 10px;
+            border-left: 5px solid #aaa;
+            padding: 15px;
+            background: #1e2a38;
+            transition: 0.3s;
+        }
 
-        /* Box Items */
-        .box-item.active { border: 2px solid #f1c40f; }
-        .iv-tag { position: absolute; top: 5px; right: 5px; background: #f1c40f; color: black; padding: 2px 5px; border-radius: 3px; font-size: 0.7em; font-weight: bold; }
-        
-        /* Battle Overlay */
-        .battle-overlay { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(15, 15, 30, 0.98); z-index: 2000; padding: 20px; display: flex; flex-direction: column; align-items: center; overflow-y: auto;}
-        .battle-header { width: 100%; max-width: 600px; display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px; }
-        .battle-arena { display: flex; justify-content: space-between; width: 100%; max-width: 800px; height: 350px; align-items: flex-end; position: relative; margin-top: 20px;}
-        .fighter { width: 40%; text-align: center; position: relative; transition: 0.1s; }
-        .fighter img { width: 100%; height: 180px; object-fit: contain; drop-shadow: 0 10px 10px rgba(0,0,0,0.5); }
-        
-        .fighter-stats { background: rgba(0,0,0,0.6); padding: 5px; border-radius: 5px; margin-top: 5px; text-align: left; border: 1px solid #444; }
-        .fighter-name { font-weight: bold; font-size: 1.1em; margin-bottom: 2px; }
-        .fighter-val { display: flex; justify-content: space-between; font-size: 0.8em; color: #ccc; }
-        .fighter-buff { color: #f1c40f; font-size: 0.8em; height: 1.2em; font-weight: bold; text-align: center; margin-bottom: 2px; }
+        .quest-completed {
+            border-left-color: #2ecc71;
+            background: #1b261b;
+        }
 
-        /* Animations */
+        .quest-golden {
+            background: linear-gradient(135deg, #f1c40f, #f39c12);
+            color: #000 !important;
+            border-left: 5px solid #fff;
+            box-shadow: 0 0 10px rgba(241, 196, 15, 0.3);
+        }
+
+        .quest-golden h4, .quest-golden p {
+            color: #000 !important;
+            font-weight: bold;
+        }
+
+        /* --- Box Items --- */
+        .box-item.active {
+            border: 2px solid #f1c40f;
+        }
+
+        .iv-tag {
+            position: absolute;
+            top: 5px;
+            right: 5px;
+            background: #f1c40f;
+            color: black;
+            padding: 2px 5px;
+            border-radius: 3px;
+            font-size: 0.7em;
+            font-weight: bold;
+        }
+        
+        /* --- Battle Overlay --- */
+        .battle-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(15, 15, 30, 0.98);
+            z-index: 2000;
+            padding: 20px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            overflow-y: auto;
+        }
+
+        .battle-header {
+            width: 100%;
+            max-width: 600px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 10px;
+        }
+
+        .battle-arena {
+            display: flex;
+            justify-content: space-between;
+            width: 100%;
+            max-width: 800px;
+            height: 350px;
+            align-items: flex-end;
+            position: relative;
+            margin-top: 20px;
+        }
+
+        .fighter {
+            width: 40%;
+            text-align: center;
+            position: relative;
+            transition: 0.1s;
+        }
+
+        .fighter img {
+            width: 100%;
+            height: 180px;
+            object-fit: contain;
+            drop-shadow: 0 10px 10px rgba(0, 0, 0, 0.5);
+        }
+
+        .fighter-stats {
+            background: rgba(0, 0, 0, 0.6);
+            padding: 5px;
+            border-radius: 5px;
+            margin-top: 5px;
+            text-align: left;
+            border: 1px solid #444;
+        }
+
+        .fighter-name {
+            font-weight: bold;
+            font-size: 1.1em;
+            margin-bottom: 2px;
+        }
+
+        .fighter-val {
+            display: flex;
+            justify-content: space-between;
+            font-size: 0.8em;
+            color: #ccc;
+        }
+
+        .fighter-buff {
+            color: #f1c40f;
+            font-size: 0.8em;
+            height: 1.2em;
+            font-weight: bold;
+            text-align: center;
+            margin-bottom: 2px;
+        }
+
+        /* --- Animations --- */
         .shake-hit { animation: shake 0.4s; }
         .flash-red { animation: flashRed 0.3s; }
         .flash-heal { animation: flashGreen 0.5s; }
+
         @keyframes shake { 0% { transform: translateX(0); } 25% { transform: translateX(-15px); } 75% { transform: translateX(15px); } 100% { transform: translateX(0); } }
         @keyframes flashRed { 0% { filter: sepia(1) hue-rotate(-50deg) saturate(5); } 100% { filter: none; } }
         @keyframes flashGreen { 0% { filter: sepia(1) hue-rotate(90deg) saturate(3); } 100% { filter: none; } }
-        
-        /* Floating Text */
-        .floating-text { position: absolute; font-size: 2.5em; font-weight: bold; animation: floatUp 1.5s forwards; pointer-events: none; text-shadow: 2px 2px 0 #000; z-index: 3000; white-space: nowrap; }
-        @keyframes floatUp { 0% { transform: translateY(0) scale(1); opacity: 1; } 80% { opacity: 1; } 100% { transform: translateY(-80px) scale(1.1); opacity: 0; } }
-        
-        /* Battle Timer */
-        .timer-bar { width: 100%; height: 8px; background: #333; margin-top: 10px; border-radius: 4px; overflow: hidden; position: relative; }
-        .timer-fill { height: 100%; background: #f1c40f; transition: width 1s linear; }
-        .timer-text { position: absolute; top: -20px; right: 0; font-size: 0.9em; color: #aaa; }
 
-        /* Modals */
-        .modal-overlay { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.8); z-index: 9999; display: flex; justify-content: center; align-items: center; }
-        .modal-box { background: #16213e; border: 3px solid #f1c40f; padding: 30px; border-radius: 20px; text-align: center; width: 350px; position: relative; max-height: 80vh; overflow-y: auto; }
-        .modal-title { font-size: 1.5em; color: #f1c40f; margin-bottom: 20px; }
-        .btn-yes { background: #27ae60; padding: 10px 20px; border:none; color:white; border-radius:5px; cursor:pointer; margin:5px; }
-        
-        /* Chat */
-        .chat-room { background: #1e2a38; border-radius: 10px; padding: 15px; height: 65vh; display: flex; flex-direction: column; border: 1px solid #333; }
-        .chat-msgs { flex: 1; overflow-y: auto; margin-bottom: 10px; padding: 10px; background: rgba(0,0,0,0.2); border-radius: 5px; text-align: left; }
-        .chat-msg-item { margin-bottom: 5px; font-size: 0.95em; border-bottom: 1px solid rgba(255,255,255,0.05); padding-bottom: 3px; }
-        .chat-input-area { display: flex; gap: 10px; }
-        .chat-input { flex: 1; padding: 12px; border-radius: 5px; border: none; background: #333; color: white; }
-        
-        /* Tables & Details */
-        .rate-table { width: 100%; border-collapse: collapse; margin-top: 10px; }
-        .rate-table th, .rate-table td { border: 1px solid #444; padding: 5px; font-size: 0.9em; text-align:left; }
-        .skills-grid { width:100%; max-width:600px; margin-top:20px; display:grid; grid-template-columns:1fr 1fr; gap:15px; }
-        .btn-skill { padding: 15px; font-size: 1.1em; background: #3498db; color: white; border: none; border-radius: 10px; cursor: pointer; transition: 0.2s; position:relative; }
-        .btn-skill:active { transform: scale(0.95); }
-        .btn-shield { background: #f1c40f; color: black; font-weight: bold; }
-        .btn-skill small { display: block; font-size: 0.7em; opacity: 0.8; }
-        .detail-row { display: flex; justify-content: space-between; padding: 5px 0; border-bottom: 1px solid #333; }
-        
-        /* Pokedex */
-        .pokedex-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(100px, 1fr)); gap: 10px; }
-        .pokedex-item { background: #222; border-radius: 8px; padding: 10px; text-align: center; cursor: pointer; transition: 0.2s; }
-        .pokedex-item:hover { transform: scale(1.05); border: 1px solid #f1c40f; }
-        .pokedex-img { width: 100%; height: 80px; object-fit: contain; }
-        .pokedex-unknown { filter: brightness(0); opacity: 0.7; }
-        .pokedex-owned { border: 2px solid #f1c40f; }
-        
-        /* Misc */
-        .gacha-anim { font-size: 5em; animation: bounce 1s infinite; margin-bottom: 20px; }
+        /* --- Floating Text --- */
+        .floating-text {
+            position: absolute;
+            font-size: 2.5em;
+            font-weight: bold;
+            animation: floatUp 1.5s forwards;
+            pointer-events: none;
+            text-shadow: 2px 2px 0 #000;
+            z-index: 3000;
+            white-space: nowrap;
+        }
+
+        @keyframes floatUp { 0% { transform: translateY(0) scale(1); opacity: 1; } 80% { opacity: 1; } 100% { transform: translateY(-80px) scale(1.1); opacity: 0; } }
+
+        /* --- Battle Timer --- */
+        .timer-bar {
+            width: 100%;
+            height: 8px;
+            background: #333;
+            margin-top: 10px;
+            border-radius: 4px;
+            overflow: hidden;
+            position: relative;
+        }
+
+        .timer-fill {
+            height: 100%;
+            background: #f1c40f;
+            transition: width 1s linear;
+        }
+
+        .timer-text {
+            position: absolute;
+            top: -20px;
+            right: 0;
+            font-size: 0.9em;
+            color: #aaa;
+        }
+
+        /* --- Modals --- */
+        .modal-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.8);
+            z-index: 9999;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+        }
+
+        .modal-box {
+            background: #16213e;
+            border: 3px solid #f1c40f;
+            padding: 30px;
+            border-radius: 20px;
+            text-align: center;
+            width: 350px;
+            position: relative;
+            max-height: 80vh;
+            overflow-y: auto;
+        }
+
+        .modal-title {
+            font-size: 1.5em;
+            color: #f1c40f;
+            margin-bottom: 20px;
+        }
+
+        .btn-yes {
+            background: #27ae60;
+            padding: 10px 20px;
+            border: none;
+            color: white;
+            border-radius: 5px;
+            cursor: pointer;
+            margin: 5px;
+        }
+
+        /* --- Tables & Details --- */
+        .rate-table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 10px;
+        }
+
+        .rate-table th, .rate-table td {
+            border: 1px solid #444;
+            padding: 5px;
+            font-size: 0.9em;
+            text-align: left;
+        }
+
+        .skills-grid {
+            width: 100%;
+            max-width: 600px;
+            margin-top: 20px;
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 15px;
+        }
+
+        .btn-skill {
+            padding: 15px;
+            font-size: 1.1em;
+            background: #3498db;
+            color: white;
+            border: none;
+            border-radius: 10px;
+            cursor: pointer;
+            transition: 0.2s;
+            position: relative;
+        }
+
+        .btn-skill:active {
+            transform: scale(0.95);
+        }
+
+        .btn-shield {
+            background: #f1c40f;
+            color: black;
+            font-weight: bold;
+        }
+
+        .btn-skill small {
+            display: block;
+            font-size: 0.7em;
+            opacity: 0.8;
+        }
+
+        .detail-row {
+            display: flex;
+            justify-content: space-between;
+            padding: 5px 0;
+            border-bottom: 1px solid #333;
+        }
+
+        /* --- Pokedex --- */
+        .pokedex-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(100px, 1fr));
+            gap: 10px;
+        }
+
+        .pokedex-item {
+            background: #222;
+            border-radius: 8px;
+            padding: 10px;
+            text-align: center;
+            cursor: pointer;
+            transition: 0.2s;
+        }
+
+        .pokedex-item:hover {
+            transform: scale(1.05);
+            border: 1px solid #f1c40f;
+        }
+
+        .pokedex-img {
+            width: 100%;
+            height: 80px;
+            object-fit: contain;
+        }
+
+        .pokedex-unknown {
+            filter: brightness(0);
+            opacity: 0.7;
+        }
+
+        .pokedex-owned {
+            border: 2px solid #f1c40f;
+        }
+
+        /* --- Misc --- */
+        .gacha-anim {
+            font-size: 5em;
+            animation: bounce 1s infinite;
+            margin-bottom: 20px;
+        }
+
         @keyframes bounce { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-20px); } }
-        .lobby-bar { text-align:center; padding:10px; background:#2c3e50; color:white; border-radius:5px; margin-bottom:15px; border:1px solid #f39c12; }
+
+        .lobby-bar {
+            text-align: center;
+            padding: 10px;
+            background: #2c3e50;
+            color: white;
+            border-radius: 5px;
+            margin-bottom: 15px;
+            border: 1px solid #f39c12;
+        }
     </style>
 </head>
 <body>
@@ -133,8 +577,8 @@
 
 <div id="app" class="container" v-cloak>
     <div v-if="!user" style="text-align:center; padding-top:100px;">
-        <h1 style="color:#e94560">寶可夢大亂鬥 V2.5.3</h1>
-        <p>完整全功能版</p>
+        <h1 style="color:#e94560">寶可夢大亂鬥 V2.5.8</h1>
+        <p>完整精簡版 (移除圖鑑與聊天)</p>
         <button class="btn-action" @click="logout">前往登入頁面</button>
         <br><br>
         <button style="background:transparent; border:1px solid #aaa; color:#aaa; padding:5px;" @click="initAdmin">👑 初始化管理員</button>
@@ -232,12 +676,12 @@
         
         <div v-if="newsState.show" class="modal-overlay">
             <div class="modal-box" style="text-align:left;">
-                <div class="modal-title" style="text-align:center;">📢 V2.5.3 更新公告</div>
+                <div class="modal-title" style="text-align:center;">📢 V2.5.8 更新公告</div>
                 <ul>
+                    <li><b>💰 任務升級</b>：擊敗高等怪物或多隻怪物將獲得大幅加成獎勵！</li>
+                    <li><b>🖥️ 介面優化</b>：移除了暫時用不到的圖鑑與聊天功能。</li>
+                    <li><b>🚑 團體戰修正</b>：醫療包現在會正確同步伺服器血量。</li>
                     <li><b>🚀 等級上限提升</b>：開放至 Lv.30！</li>
-                    <li><b>🌲 全新野怪</b>：關都地區大量寶可夢登場 (六尾、耿鬼等)。</li>
-                    <li><b>⚖️ 數值平衡</b>：調整了升級成長曲線與野怪強度。</li>
-                    <li><b>📦 體驗優化</b>：防護盾不跳視窗、盒子容量顯示。</li>
                 </ul>
                 <div style="text-align:center; margin-top:15px;">
                     <button class="btn-yes" @click="closeNews">我知道了</button>
@@ -377,13 +821,11 @@
             <button class="tab-btn" :class="{active: tab=='arena'}" @click="tab='arena'">🏟️ 競技</button>
             <button class="tab-btn" :class="{active: tab=='box'}" @click="tab='box'">📦 盒子</button>
             <button class="tab-btn" :class="{active: tab=='bag'}" @click="tab='bag'">🎒 背包</button>
-            <button class="tab-btn" :class="{active: tab=='pokedex'}" @click="tab='pokedex'">📖 圖鑑</button>
             <button class="tab-btn" :class="{active: tab=='leaderboard'}" @click="tab='leaderboard'">🏆 排行</button>
             <button class="tab-btn" :class="{active: tab=='raid'}" @click="tab='raid'">🔥 團體戰</button>
             <button class="tab-btn" :class="{active: tab=='quest'}" @click="tab='quest'">📜 任務</button>
             <button class="tab-btn" :class="{active: tab=='shop'}" @click="tab='shop'">🛒 商店</button>
             <button class="tab-btn" :class="{active: tab=='gamble'}" @click="tab='gamble'">🎰 賭場</button>
-            <button class="tab-btn" :class="{active: tab=='chat'}" @click="tab='chat'">💬 聊天</button>
             <button class="tab-btn" :class="{active: tab=='social'}" @click="tab='social'">👥 好友</button>
         </div>
 
@@ -568,24 +1010,6 @@
                 </div>
             </div>
 
-            <div v-if="tab=='pokedex'">
-                <div class="card">
-                    <h3>📖 寶可夢圖鑑</h3>
-                    <div class="bar-container" style="margin-bottom:10px;">
-                        <div class="bar-fill player-xp-fill" :style="{width: pokedexPercent + '%'}"></div>
-                    </div>
-                    <p>收集進度: {{ pokedexPercent }}%</p>
-                    <div class="pokedex-grid">
-                        <div v-for="p in pokedexList" :key="p.name" class="pokedex-item" 
-                             :class="{'pokedex-owned': p.owned}"
-                             v-if="p.is_obtainable"
-                             @click="viewPokedexEntry(p)">
-                            <img :src="p.img" class="pokedex-img" :class="{'pokedex-unknown': !p.owned}">
-                        </div>
-                    </div>
-                </div>
-            </div>
-
             <div v-if="tab=='arena'">
                 <h3>🏟️ 線上玩家</h3>
                 <div class="card-grid">
@@ -604,29 +1028,23 @@
                     </div>
                 </div>
             </div>
-
-            <div v-if="tab=='chat'">
-                <h3>💬 世界頻道</h3>
-                <div class="chat-room">
-                    <div class="chat-msgs" id="chat-box">
-                        <div v-for="m in chatMsgs" class="chat-msg-item">{{ m }}</div>
-                        <div v-if="chatMsgs.length === 0" style="color:#aaa; text-align:center;">目前沒有訊息，說點什麼吧！</div>
-                    </div>
-                    <div class="chat-input-area">
-                        <input v-model="chatInput" class="chat-input" placeholder="輸入訊息..." @keyup.enter="sendChat">
-                        <button class="btn-action" style="margin-top:0; width:80px; background:#e94560;" @click="sendChat">送出</button>
-                    </div>
-                </div>
+            
             </div>
-        </div>
     </div>
 </div>
 
 <script>
     const { createApp, ref, onMounted, computed, watch, onUpdated } = Vue;
     const API_URL = `https://mwtpokemons.zeabur.app/api/v1`;
-    const WS_URL = `wss://mwtpokemons.zeabur.app/ws`;
-    const LEVEL_XP = { 1: 50, 2: 150, 3: 300, 4: 500, 5: 800, 6: 1300, 7: 2000, 8: 3000, 9: 5000 };
+    // const WS_URL = `wss://mwtpokemons.zeabur.app/ws`; // 移除 WS 以節省資源
+
+    // 🔥 XP 表更新：Lv.1-30 🔥
+    const LEVEL_XP_MAP = {
+        1: 50, 2: 150, 3: 300, 4: 500, 5: 800, 6: 1300, 7: 2000, 8: 3000, 9: 5000,
+        10: 7000, 11: 9000, 12: 11000, 13: 13000, 14: 15000, 15: 17000, 16: 19000,
+        17: 21000, 18: 23000, 19: 25000, 20: 27000, 21: 29000, 22: 31000, 23: 33000, 24: 35000, 25: 37000,
+        26: 42000, 27: 47000, 28: 52000, 29: 57000, 30: 62000 
+    };
 
     createApp({
         setup() {
@@ -636,15 +1054,11 @@
             const box = computed(() => { if(!user.value || !user.value.pokemon_storage) return []; try { return JSON.parse(user.value.pokemon_storage); } catch(e) { return []; } });
             const inventory = computed(() => { if(!user.value) return {}; try { return JSON.parse(user.value.inventory); } catch(e) { return {}; } });
             const currentPetIV = computed(() => { if(!user.value) return 0; const p = box.value.find(x => x.uid === user.value.active_pokemon_uid); return p ? p.iv : 50; });
+            
+            // 🔥 更新 XP 計算：使用查表法 🔥
             const getReqXp = (lv) => { 
-                const map = {
-                    1: 50, 2: 150, 3: 300, 4: 500, 5: 800, 6: 1300, 7: 2000, 8: 3000, 9: 5000,
-                    10: 7000, 11: 9000, 12: 11000, 13: 13000, 14: 15000, 15: 17000, 16: 19000,
-                    17: 21000, 18: 23000, 19: 25000, 20: 27000, 21: 29000, 22: 31000, 23: 33000, 24: 35000, 25: 37000,
-                    26: 42000, 27: 47000, 28: 52000, 29: 57000, 30: 62000 
-                };
                 if (lv >= 30) return 999999999;
-                return map[lv] || 62000;
+                return LEVEL_XP_MAP[lv] || 62000;
             };
 
             const playerXpPercent = computed(() => user.value ? Math.min(100, (user.value.exp / getReqXp(user.value.level)) * 100) : 0);
@@ -660,7 +1074,7 @@
             const leaderboardData = ref([]);
             const leaderboardType = ref("level");
             const newsState = ref({ show: false });
-            const chatMsgs = ref([]);
+            // const chatMsgs = ref([]); // 移除聊天變數
             const chatInput = ref("");
             const gambleAmount = ref(100);
             const promoCode = ref("");
@@ -680,7 +1094,7 @@
             const skillData = ref({});
             const mySkills = ref(["撞擊", "撞擊", "撞擊"]);
             const shieldUses = ref(2);
-            const pokedexList = ref([]);
+            const pokedexList = ref([]); // 保留變數以防萬一，但前端不顯示
             const pokedexPercent = ref(0);
             const pokedexMap = ref({});
             const turnTimer = ref(10);
@@ -691,6 +1105,7 @@
             const raidDeadTimer = ref(5);
             let deadInterval = null;
 
+            // 🔥 更新扭蛋機率文字 🔥
             const gachaRates = {
                 "🔮 初級 (1500G)": [{name: "妙蛙種子/小火龍/傑尼龜/六尾/毛辮羊", rate: 5}, {name: "伊布/皮卡丘/皮皮/胖丁/大蔥鴨", rate: 10}, {name: "呆呆獸/可達鴨", rate: 12.5}],
                 "🔵 中級 (3000G)": [{name: "御三家/伊布/皮卡丘/呆呆獸...", rate: 10}, {name: "卡比獸", rate: 5}, {name: "吉利蛋/拉普拉斯/進化型", rate: 3}],
@@ -699,6 +1114,7 @@
                 "✨ 黃金 (3 Golden)": [{name: "卡比獸", rate: 30}, {name: "吉利蛋", rate: 35}, {name: "幸福蛋", rate: 20}, {name: "拉普拉斯/快龍/耿鬼", rate: 5}]
             };
 
+            // 🔥 更新技能對應表 🔥
             const SKILL_MAP = {
                 "小拉達": ["抓", "出奇一擊", "撞擊"], "波波": ["抓", "啄", "燕返"], "烈雀": ["抓", "啄", "燕返"], "阿柏蛇": ["毒針", "毒擊", "緊束"], "瓦斯彈": ["毒針", "毒針", "撞擊"], "海星星": ["水槍", "幻象光線", "撞擊"], "角金魚": ["水槍", "幻象光線", "泥巴射擊"], "走路草": ["種子炸彈", "撞擊", "毒擊"], "穿山鼠": ["抓", "泥巴射擊", "泥巴炸彈"], "蚊香蝌蚪": ["雙倍奉還", "冰凍光束", "水槍"], "小磁怪": ["電擊", "放電", "撞擊"], "卡拉卡拉": ["泥巴射擊", "泥巴炸彈", "挖洞"], "喵喵": ["抓", "出奇一擊", "撞擊"], "瑪瑙水母": ["水槍", "水流尾", "緊束"], "海刺龍": ["水槍", "水流尾", "逆鱗"], "蚊香勇士": ["雙倍奉還", "冰凍光束", "水槍"], "暴鯉龍": ["水流尾", "咬碎", "破壞光線"],
                 "電擊獸": ["電光", "電擊", "瘋狂伏特"], "鴨嘴火獸": ["火花", "噴射火焰", "大字爆炎"], "化石翼龍": ["挖洞", "岩石封鎖", "勇鳥猛攻"], "怪力": ["雙倍奉還", "岩石封鎖", "近身戰"],
@@ -710,8 +1126,9 @@
             const logout = () => { localStorage.clear(); window.location.href = 'login.html'; };
             const getSkillDesc = (name) => { const s = skillData.value[name]; return s ? `${s.dmg}傷 ${s.desc || ''}` : ''; };
             const getMonSkills = (name) => SKILL_MAP[name] || ["撞擊", "撞擊", "撞擊"];
-            const closeNews = () => { newsState.value.show = false; sessionStorage.setItem('seenNews_v2530', 'true'); };
+            const closeNews = () => { newsState.value.show = false; sessionStorage.setItem('seenNews_v2560', 'true'); };
             
+            // 🔥 數值計算：前端同步後端 1.08/1.06 邏輯 🔥
             const calcStats = (mon) => { 
                 const base = pokedexMap.value[mon.name] || { hp: 100, atk: 10 }; 
                 const ivMult = 0.9 + ((mon.iv || 50) / 100) * 0.2; 
@@ -732,12 +1149,13 @@
             const fetchFriends = async () => { const res = await fetch(`${API_URL}/social/list`, { headers: { 'Authorization': `Bearer ${token}` } }); if(res.ok) friends.value = await res.json(); const res2 = await fetch(`${API_URL}/social/requests`, { headers: { 'Authorization': `Bearer ${token}` } }); if(res2.ok) friendRequests.value = await res2.json(); };
             const fetchQuests = async () => { const res = await fetch(`${API_URL}/quests/`, { headers: { 'Authorization': `Bearer ${token}` } }); if(res.ok) quests.value = await res.json(); updateInfo(); };
             const fetchLeaderboard = async () => { const res = await fetch(`${API_URL}/social/leaderboard?type=${leaderboardType.value}`, { headers: { 'Authorization': `Bearer ${token}` } }); if(res.ok) leaderboardData.value = await res.json(); };
+            
             const fetchWildList = async () => { const res = await fetch(`${API_URL.replace('/items','')}/shop/wild/list?level=${selectedWildLevel.value}`, { headers: { 'Authorization': `Bearer ${token}` } }); if(res.ok) wildList.value = await res.json(); };
             const fetchSkillData = async () => { const res = await fetch(`${API_URL.replace('/items','')}/shop/data/skills`); if(res.ok) skillData.value = await res.json(); };
             const initAdmin = async () => { try { const res = await fetch(`${API_URL}/social/admin/init`); const d = await res.json(); alert(d.message); } catch(e) {} };
             const updateMySkills = () => { if(!user.value || !box.value) return; const active = box.value.find(p => p.uid === user.value.active_pokemon_uid); if(active) mySkills.value = SKILL_MAP[active.name] || ["撞擊", "撞擊", "撞擊"]; };
             
-            // 🔥 唯一正確定義的放生函式 🔥
+            // 🔥 唯一正確定義的放生函式 (已確保唯一) 🔥
             const releaseMon = async (uid) => { 
                 if(!confirm("確定要放生這隻寶可夢嗎？(獲得 100 Gold)")) return; 
                 const res = await fetch(`${API_URL.replace('/items','')}/shop/box/action/release/${uid}`, { method: 'POST', headers: { 'Authorization': `Bearer ${token}` } }); 
@@ -859,25 +1277,36 @@
             const claimQuest = async (qid) => { const res = await fetch(`${API_URL}/quests/claim/${qid}`, { method: 'POST', headers: { 'Authorization': `Bearer ${token}` } }); const d = await res.json(); alert(d.message); fetchQuests(); };
             const reviveRaid = async () => { const res = await fetch(`${API_URL.replace('/items','')}/shop/raid/revive`, { method: 'POST', headers: { 'Authorization': `Bearer ${token}` } }); if (res.ok) { isRaidDead.value = false; clearInterval(deadInterval); updateInfo(); } else { const d = await res.json(); alert(d.detail); } };
             const claimRaidReward = async (choice) => { const res = await fetch(`${API_URL.replace('/items','')}/shop/raid/claim?choice=${choice}`, { method: 'POST', headers: { 'Authorization': `Bearer ${token}` } }); const d = await res.json(); alert(d.message); raidVictory.value = false; tab.value = 'wild'; updateInfo(); };
-            const useMedKit = () => { if(shieldUses.value <= 0) return; shieldUses.value--; const healAmt = Math.floor(user.value.max_hp * 0.2); user.value.hp = Math.min(user.value.max_hp, user.value.hp + healAmt); alert(`💊 醫療包回復了 ${healAmt} HP`); };
+            
+            // 🔥 使用醫療包 (含後端同步) 🔥
+            const useMedKit = async () => { 
+                if(shieldUses.value <= 0) return; 
+                shieldUses.value--; 
+                const healAmt = Math.floor(user.value.max_hp * 0.2); 
+                user.value.hp = Math.min(user.value.max_hp, user.value.hp + healAmt); 
+                try {
+                    await fetch(`${API_URL.replace('/items','')}/shop/raid/recover`, { method: 'POST', headers: { 'Authorization': `Bearer ${token}` } });
+                    showFloatingText(`+${healAmt}`, 'green');
+                } catch(e) { console.error("Heal sync failed", e); }
+            };
 
             onUpdated(() => { const chatBox = document.getElementById('chat-box'); if(chatBox) chatBox.scrollTop = chatBox.scrollHeight; });
             onMounted(async () => { 
                 document.getElementById('loading').style.display = 'none'; 
                 if(!token) return window.location.href = 'login.html'; 
-                if (!sessionStorage.getItem('seenNews_v2530')) newsState.value.show = true; 
+                if (!sessionStorage.getItem('seenNews_v2560')) newsState.value.show = true; 
                 await fetchSkillData(); await fetchPokedex(); await updateInfo(); await fetchPokedex(); 
                 updateMySkills(); fetchPlayers(); checkRaid(); setInterval(checkRaid, 3000); 
                 setInterval(fetchPlayers, 10000);
                 fetchQuests(); fetchWildList(); fetchLeaderboard();
-                try { const ws = new WebSocket(`${WS_URL}?token=${token}`); ws.onmessage = (e) => { const msg = e.data; if(msg.startsWith("CHAT|")) { chatMsgs.value.push(msg.split("|")[1]); } }; } catch(e) { console.error("WS error", e); } 
+                // 移除 WS 連線代碼以避免錯誤
             });
 
             const canJoinLobby = computed(() => raidState.value.status === 'LOBBY');
 
             return { 
                 user, tab, box, players, friends, friendRequests, selectedMon, viewMon, battle, raidState, inLobby, lobbyTimer, 
-                dailyCheckin, logout, playGacha, swapMon, useCandy, gambleAmount, doGamble, chatMsgs, chatInput, sendChat, 
+                dailyCheckin, logout, playGacha, swapMon, useCandy, gambleAmount, doGamble, chatInput, sendChat, // 移除 chatMsgs
                 doSkillAttack, useShield, doHeal, buyHeal, promoCode, redeemCode, sendGift, joinRaid, 
                 playerXpPercent, hpPercent, petXpPercent, currentAtkMe, quests, abandonQuest, claimQuest, 
                 wildList, fetchWildList, startWildBattle, showRates, gachaRates, mySkills, shieldUses, 
