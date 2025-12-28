@@ -15,39 +15,42 @@ from app.common.websocket import manager
 router = APIRouter()
 
 # =================================================================
-# 1. 技能資料庫 (SKILL_DB)
+# 1. 技能資料庫 (SKILL_DB) - 根據 V2.5.0 更新
 # =================================================================
 SKILL_DB = {
-    # --- 傷害 14 系列 (50% 機率觸發) ---
+    # --- 傷害 14 系列 (50% 觸發) ---
     "水槍": {"dmg": 14, "effect": "heal", "prob": 0.5, "val": 0.15, "desc": "50%回血15%"},
     "撒嬌": {"dmg": 14, "effect": "heal", "prob": 0.5, "val": 0.15, "desc": "50%回血15%"},
     "念力": {"dmg": 14, "effect": "heal", "prob": 0.5, "val": 0.15, "desc": "50%回血15%"},
+    "岩石封鎖": {"dmg": 14, "effect": "heal", "prob": 0.5, "val": 0.15, "desc": "50%回血15%"}, # 暫代防禦效果
     "毒針": {"dmg": 14, "effect": "buff_atk", "prob": 0.5, "val": 0.2, "desc": "50%加攻20%"},
 
-    # --- 傷害 16 系列 (35% 機率觸發) ---
+    # --- 傷害 16 系列 (35% 觸發) ---
     "藤鞭": {"dmg": 16, "effect": "buff_atk", "prob": 0.35, "val": 0.2, "desc": "35%加攻20%"},
     "火花": {"dmg": 16, "effect": "buff_atk", "prob": 0.35, "val": 0.2, "desc": "35%加攻20%"},
     "電光": {"dmg": 16, "effect": "buff_atk", "prob": 0.35, "val": 0.2, "desc": "35%加攻20%"},
     "挖洞": {"dmg": 16, "effect": "buff_atk", "prob": 0.35, "val": 0.2, "desc": "35%加攻20%"},
+    "驚嚇": {"dmg": 16, "effect": "buff_atk", "prob": 0.35, "val": 0.2, "desc": "35%加攻20%"},
     "地震": {"dmg": 16, "effect": "heal", "prob": 0.35, "val": 0.2, "desc": "35%回血20%"},
     "冰礫": {"dmg": 16, "effect": "heal", "prob": 0.35, "val": 0.2, "desc": "35%回血20%"},
 
-    # --- 傷害 18 系列 (30% 機率觸發) ---
+    # --- 傷害 18 系列 (30% 觸發) ---
     "泥巴射擊": {"dmg": 18, "effect": "buff_atk", "prob": 0.3, "val": 0.2, "desc": "30%加攻20%"},
     "污泥炸彈": {"dmg": 18, "effect": "buff_atk", "prob": 0.3, "val": 0.2, "desc": "30%加攻20%"},
     "噴射火焰": {"dmg": 18, "effect": "buff_atk", "prob": 0.3, "val": 0.2, "desc": "30%加攻20%"},
     "水流噴射": {"dmg": 18, "effect": "buff_atk", "prob": 0.3, "val": 0.2, "desc": "30%加攻20%"},
     "精神強念": {"dmg": 18, "effect": "buff_atk", "prob": 0.3, "val": 0.2, "desc": "30%加攻20%"},
+    "近身戰":   {"dmg": 18, "effect": "buff_atk", "prob": 0.3, "val": 0.2, "desc": "30%加攻20%"},
     "電擊":     {"dmg": 18, "effect": "buff_atk", "prob": 0.3, "val": 0.2, "desc": "30%加攻20%"},
 
-    # --- 傷害 24 系列 (無特效) ---
+    # --- 傷害 24 (無特效) ---
     "撞擊": {"dmg": 24, "effect": None, "prob": 0, "val": 0, "desc": "無特效"},
     "啄":   {"dmg": 24, "effect": None, "prob": 0, "val": 0, "desc": "無特效"},
     "緊束": {"dmg": 24, "effect": None, "prob": 0, "val": 0, "desc": "無特效"},
     "葉刃": {"dmg": 24, "effect": None, "prob": 0, "val": 0, "desc": "無特效"},
     "咬碎": {"dmg": 24, "effect": None, "prob": 0, "val": 0, "desc": "無特效"},
 
-    # --- 傷害 26 系列 (無特效) ---
+    # --- 傷害 26 (無特效) ---
     "抓":       {"dmg": 26, "effect": None, "prob": 0, "val": 0, "desc": "無特效"},
     "放電":     {"dmg": 26, "effect": None, "prob": 0, "val": 0, "desc": "無特效"},
     "出奇一擊": {"dmg": 26, "effect": None, "prob": 0, "val": 0, "desc": "無特效"},
@@ -63,21 +66,22 @@ SKILL_DB = {
     "冰凍光束": {"dmg": 26, "effect": None, "prob": 0, "val": 0, "desc": "無特效"},
     "瘋狂伏特": {"dmg": 26, "effect": None, "prob": 0, "val": 0, "desc": "無特效"},
 
-    # --- 傷害 28 系列 (無特效) ---
+    # --- 傷害 28 (無特效) ---
     "雙倍奉還": {"dmg": 28, "effect": None, "prob": 0, "val": 0, "desc": "無特效"},
     "逆鱗":     {"dmg": 28, "effect": None, "prob": 0, "val": 0, "desc": "無特效"},
     "精神撃破": {"dmg": 28, "effect": None, "prob": 0, "val": 0, "desc": "無特效"},
     "破壞光線": {"dmg": 28, "effect": None, "prob": 0, "val": 0, "desc": "無特效"},
 
-    # --- 特殊傷害 34 (反傷) ---
+    # --- 特殊效果 ---
+    "暗影球":   {"dmg": 32, "effect": "debuff_atk", "prob": 1.0, "val": 0.1, "desc": "降敵10%攻"},
     "勇鳥猛攻": {"dmg": 34, "effect": "recoil", "prob": 1.0, "val": 0.1, "desc": "扣自身10%血"}
 }
 
 # =================================================================
-# 2. 完整圖鑑資料庫 (POKEDEX_DATA)
+# 2. 完整圖鑑資料庫 (POKEDEX_DATA) - 數值更新
 # =================================================================
 POKEDEX_DATA = {
-    # --- 野怪區 ---
+    # --- 野怪區 (關都 Lv1-30) ---
     "小拉達": {"hp": 90, "atk": 80, "img": "https://img.pokemondb.net/artwork/large/rattata.jpg", "skills": ["抓", "出奇一擊", "撞擊"]},
     "波波":   {"hp": 94, "atk": 84, "img": "https://img.pokemondb.net/artwork/large/pidgey.jpg", "skills": ["抓", "啄", "燕返"]},
     "烈雀":   {"hp": 88, "atk": 92, "img": "https://img.pokemondb.net/artwork/large/spearow.jpg", "skills": ["抓", "啄", "燕返"]},
@@ -93,8 +97,13 @@ POKEDEX_DATA = {
     "喵喵":   {"hp": 124, "atk": 124, "img": "https://img.pokemondb.net/artwork/large/meowth.jpg", "skills": ["抓", "出奇一擊", "撞擊"]},
     "瑪瑙水母": {"hp": 130, "atk": 130, "img": "https://img.pokemondb.net/artwork/large/tentacool.jpg", "skills": ["水槍", "水流尾", "緊束"]},
     "海刺龍": {"hp": 135, "atk": 135, "img": "https://img.pokemondb.net/artwork/large/seadra.jpg", "skills": ["水槍", "水流尾", "逆鱗"]},
-    "蚊香勇士": {"hp": 160, "atk": 130, "img": "https://img.pokemondb.net/artwork/large/poliwrath.jpg", "skills": ["雙倍奉還", "冰凍光束", "水槍"]},
-    "暴鯉龍": {"hp": 180, "atk": 150, "img": "https://img.pokemondb.net/artwork/large/gyarados.jpg", "skills": ["水流尾", "咬碎", "破壞光線"]},
+    
+    # 新增野怪
+    "電擊獸": {"hp": 135, "atk": 140, "img": "https://img.pokemondb.net/artwork/large/electabuzz.jpg", "skills": ["電光", "電擊", "瘋狂伏特"]},
+    "鴨嘴火獸": {"hp": 135, "atk": 140, "img": "https://img.pokemondb.net/artwork/large/magmar.jpg", "skills": ["火花", "噴射火焰", "大字爆炎"]},
+    "化石翼龍": {"hp": 140, "atk": 140, "img": "https://img.pokemondb.net/artwork/large/aerodactyl.jpg", "skills": ["挖洞", "岩石封鎖", "勇鳥猛攻"]},
+    "怪力": {"hp": 140, "atk": 145, "img": "https://img.pokemondb.net/artwork/large/machamp.jpg", "skills": ["雙倍奉還", "岩石封鎖", "近身戰"]},
+    "暴鯉龍": {"hp": 150, "atk": 150, "img": "https://img.pokemondb.net/artwork/large/gyarados.jpg", "skills": ["水槍", "水流尾", "勇鳥猛攻"]},
 
     # --- 寵物區 ---
     "妙蛙種子": {"hp": 130, "atk": 112, "img": "https://img.pokemondb.net/artwork/large/bulbasaur.jpg", "skills": ["藤鞭", "種子炸彈", "污泥炸彈"]},
@@ -106,11 +115,13 @@ POKEDEX_DATA = {
     "毛辮羊": {"hp": 120, "atk": 120, "img": "https://img.pokemondb.net/artwork/large/wooloo.jpg", "skills": ["撞擊", "撒嬌", "電擊"]},
     "皮卡丘": {"hp": 125, "atk": 125, "img": "https://img.pokemondb.net/artwork/large/pikachu.jpg", "skills": ["電光", "放電", "電擊"]},
     "伊布":   {"hp": 125, "atk": 125, "img": "https://img.pokemondb.net/artwork/large/eevee.jpg", "skills": ["撞擊", "挖洞", "高速星星"]},
+    "六尾":   {"hp": 125, "atk": 125, "img": "https://img.pokemondb.net/artwork/large/vulpix.jpg", "skills": ["撞擊", "火花", "噴射火焰"]},
     "胖丁":   {"hp": 125, "atk": 125, "img": "https://img.pokemondb.net/artwork/large/jigglypuff.jpg", "skills": ["撞擊", "撒嬌", "精神強念"]},
     "皮皮":   {"hp": 125, "atk": 125, "img": "https://img.pokemondb.net/artwork/large/clefairy.jpg", "skills": ["撞擊", "撒嬌", "精神強念"]},
     "大蔥鴨": {"hp": 120, "atk": 130, "img": "https://img.pokemondb.net/artwork/large/farfetchd.jpg", "skills": ["啄", "葉刃", "勇鳥猛攻"]},
     "呆呆獸": {"hp": 122, "atk": 122, "img": "https://img.pokemondb.net/artwork/large/slowpoke.jpg", "skills": ["水槍", "幻象光線", "水流噴射"]},
     "可達鴨": {"hp": 122, "atk": 122, "img": "https://img.pokemondb.net/artwork/large/psyduck.jpg", "skills": ["水槍", "幻象光線", "水流噴射"]},
+    "耿鬼":   {"hp": 92, "atk": 175, "img": "https://img.pokemondb.net/artwork/large/gengar.jpg", "skills": ["驚嚇", "污泥炸彈", "暗影球"]},
     "卡比獸": {"hp": 175, "atk": 112, "img": "https://img.pokemondb.net/artwork/large/snorlax.jpg", "skills": ["泰山壓頂", "地震", "撞擊"]},
     "吉利蛋": {"hp": 220, "atk": 90, "img": "https://img.pokemondb.net/artwork/large/chansey.jpg", "skills": ["抓", "精神強念", "撞擊"]},
     "幸福蛋": {"hp": 230, "atk": 90, "img": "https://img.pokemondb.net/artwork/large/blissey.jpg", "skills": ["抓", "精神強念", "撞擊"]},
@@ -130,30 +141,62 @@ POKEDEX_DATA = {
 # --------------------------------------------------------
 OBTAINABLE_MONS = [
     "妙蛙種子", "小火龍", "傑尼龜", "妙蛙花", "噴火龍", "水箭龜",
-    "毛辮羊", "皮卡丘", "伊布", "胖丁", "皮皮", "大蔥鴨", "呆呆獸", "可達鴨",
+    "毛辮羊", "皮卡丘", "伊布", "六尾", "胖丁", "皮皮", "大蔥鴨", "呆呆獸", "可達鴨", "耿鬼",
     "卡比獸", "吉利蛋", "幸福蛋", "拉普拉斯", "快龍",
     "急凍鳥", "火焰鳥", "閃電鳥", "超夢", "夢幻"
 ]
 
+# 🔥 嚴格的野怪等級分佈 (Lv.1 ~ Lv.30) 🔥
 WILD_UNLOCK_LEVELS = {
     1: ["小拉達"], 2: ["波波"], 3: ["烈雀"], 4: ["阿柏蛇"], 5: ["瓦斯彈"],
     6: ["海星星"], 7: ["角金魚"], 8: ["走路草"], 9: ["穿山鼠"], 10: ["蚊香蝌蚪"],
-    12: ["小磁怪"], 14: ["卡拉卡拉"], 16: ["喵喵"], 18: ["瑪瑙水母"], 20: ["海刺龍"]
+    12: ["小磁怪"], 14: ["卡拉卡拉"], 16: ["喵喵"], 18: ["瑪瑙水母"], 20: ["海刺龍"],
+    22: ["電擊獸"], 24: ["鴨嘴火獸"], 26: ["化石翼龍"], 28: ["怪力"], 30: ["暴鯉龍"]
 }
 
-GACHA_HIGH = [{"name": "卡比獸", "rate": 20}, {"name": "吉利蛋", "rate": 24}, {"name": "幸福蛋", "rate": 10}, {"name": "拉普拉斯", "rate": 10}, {"name": "妙蛙花", "rate": 10}, {"name": "噴火龍", "rate": 10}, {"name": "水箭龜", "rate": 10}, {"name": "快龍", "rate": 6}]
-GACHA_GOLDEN = [{"name": "卡比獸", "rate": 30}, {"name": "吉利蛋", "rate": 35}, {"name": "幸福蛋", "rate": 20}, {"name": "拉普拉斯", "rate": 10}, {"name": "快龍", "rate": 5}]
-GACHA_NORMAL = [{"name": "妙蛙種子", "rate": 5}, {"name": "小火龍", "rate": 5}, {"name": "傑尼龜", "rate": 5}, {"name": "伊布", "rate": 8}, {"name": "皮卡丘", "rate": 8}, {"name": "皮皮", "rate": 10}, {"name": "胖丁", "rate": 10}, {"name": "毛辮羊", "rate": 8}, {"name": "大蔥鴨", "rate": 12}, {"name": "呆呆獸", "rate": 12}, {"name": "可達鴨", "rate": 12}, {"name": "卡比獸", "rate": 2}, {"name": "吉利蛋", "rate": 2}]
-GACHA_MEDIUM = [{"name": "妙蛙種子", "rate": 10}, {"name": "小火龍", "rate": 10}, {"name": "傑尼龜", "rate": 10}, {"name": "伊布", "rate": 10}, {"name": "皮卡丘", "rate": 10}, {"name": "呆呆獸", "rate": 10}, {"name": "可達鴨", "rate": 10}, {"name": "毛辮羊", "rate": 10}, {"name": "卡比獸", "rate": 5}, {"name": "吉利蛋", "rate": 3}, {"name": "拉普拉斯", "rate": 3}, {"name": "妙蛙花", "rate": 3}, {"name": "噴火龍", "rate": 3}, {"name": "水箭龜", "rate": 3}]
-GACHA_CANDY = [{"name": "伊布", "rate": 20}, {"name": "皮卡丘", "rate": 20}, {"name": "妙蛙花", "rate": 10}, {"name": "噴火龍", "rate": 10}, {"name": "水箭龜", "rate": 10}, {"name": "卡比獸", "rate": 10}, {"name": "吉利蛋", "rate": 10}, {"name": "幸福蛋", "rate": 4}, {"name": "拉普拉斯", "rate": 3}, {"name": "快龍", "rate": 3}]
+# 🔥 扭蛋機率更新 🔥
+GACHA_NORMAL = [
+    {"name": "妙蛙種子", "rate": 5}, {"name": "小火龍", "rate": 5}, {"name": "傑尼龜", "rate": 5}, {"name": "六尾", "rate": 5}, {"name": "毛辮羊", "rate": 5},
+    {"name": "伊布", "rate": 10}, {"name": "皮卡丘", "rate": 10}, {"name": "皮皮", "rate": 10}, {"name": "胖丁", "rate": 10}, {"name": "大蔥鴨", "rate": 10},
+    {"name": "呆呆獸", "rate": 12.5}, {"name": "可達鴨", "rate": 12.5}
+]
+
+GACHA_MEDIUM = [
+    {"name": "妙蛙種子", "rate": 10}, {"name": "小火龍", "rate": 10}, {"name": "傑尼龜", "rate": 10},
+    {"name": "伊布", "rate": 10}, {"name": "皮卡丘", "rate": 10}, {"name": "呆呆獸", "rate": 10}, {"name": "可達鴨", "rate": 10}, {"name": "毛辮羊", "rate": 10},
+    {"name": "卡比獸", "rate": 5},
+    {"name": "吉利蛋", "rate": 3}, {"name": "拉普拉斯", "rate": 3}, {"name": "妙蛙花", "rate": 3}, {"name": "噴火龍", "rate": 3}, {"name": "水箭龜", "rate": 3}
+]
+
+GACHA_HIGH = [
+    {"name": "卡比獸", "rate": 20}, {"name": "吉利蛋", "rate": 20},
+    {"name": "幸福蛋", "rate": 10}, {"name": "拉普拉斯", "rate": 10}, {"name": "妙蛙花", "rate": 10}, {"name": "噴火龍", "rate": 10}, {"name": "水箭龜", "rate": 10},
+    {"name": "快龍", "rate": 5}, {"name": "耿鬼", "rate": 5}
+]
+
+GACHA_CANDY = [
+    {"name": "伊布", "rate": 20}, {"name": "皮卡丘", "rate": 20},
+    {"name": "妙蛙花", "rate": 10}, {"name": "噴火龍", "rate": 10}, {"name": "水箭龜", "rate": 10}, {"name": "卡比獸", "rate": 10}, {"name": "吉利蛋", "rate": 10},
+    {"name": "幸福蛋", "rate": 4}, {"name": "拉普拉斯", "rate": 3}, {"name": "快龍", "rate": 3}
+]
+
+GACHA_GOLDEN = [
+    {"name": "卡比獸", "rate": 30}, {"name": "吉利蛋", "rate": 35}, {"name": "幸福蛋", "rate": 20},
+    {"name": "拉普拉斯", "rate": 5}, {"name": "快龍", "rate": 5}, {"name": "耿鬼", "rate": 5}
+]
 
 ACTIVE_BATTLES = {}
-LEVEL_XP = { 1: 50, 2: 150, 3: 300, 4: 500, 5: 800, 6: 1300, 7: 2000, 8: 3000, 9: 5000 }
+# 🔥 XP 表：Lv.30 上限 🔥
+LEVEL_XP_MAP = {
+    1: 50, 2: 150, 3: 300, 4: 500, 5: 800, 6: 1300, 7: 2000, 8: 3000, 9: 5000,
+    10: 7000, 11: 9000, 12: 11000, 13: 13000, 14: 15000, 15: 17000, 16: 19000,
+    17: 21000, 18: 23000, 19: 25000, 20: 27000, 21: 29000, 22: 31000, 23: 33000, 24: 35000, 25: 37000,
+    26: 42000, 27: 47000, 28: 52000, 29: 57000, 30: 62000 
+}
 
 RAID_SCHEDULE = [(8, 0), (14, 0), (18, 0), (21, 0), (22, 0), (23, 0)] 
 RAID_STATE = {"active": False, "status": "IDLE", "boss": None, "current_hp": 0, "max_hp": 0, "players": {}, "last_attack_time": None, "attack_counter": 0}
 
-# 🔥 修改：HP 5000 / ATK 500 🔥
 LEGENDARY_BIRDS = [
     {"name": "❄️ 急凍鳥", "hp": 5000, "atk": 500, "img": "https://img.pokemondb.net/sprites/home/normal/articuno.png"},
     {"name": "⚡ 閃電鳥", "hp": 5000, "atk": 500, "img": "https://img.pokemondb.net/sprites/home/normal/zapdos.png"},
@@ -163,27 +206,33 @@ LEGENDARY_BIRDS = [
 def get_now_tw():
     return datetime.utcnow() + timedelta(hours=8)
 
+# 🔥 升級所需 XP 查詢 🔥
 def get_req_xp(lv):
-    if lv >= 25: return 999999999
-    if lv < 10: return LEVEL_XP.get(lv, 5000)
-    return 5000 + (lv - 9) * 2000
+    if lv >= 30: return 999999999
+    # 直接查表，如果表沒有（例如大於30的防呆）回最後一個
+    return LEVEL_XP_MAP.get(lv, 62000)
 
-def apply_iv_stats(base_val, iv, level, is_player=True):
+# 🔥 數值計算公式更新 🔥
+def apply_iv_stats(base_val, iv, level, is_hp=False, is_player=True):
     iv_mult = 0.9 + (iv / 100) * 0.2
-    growth = 1.06 if is_player else 1.07
-    if base_val > 500: growth = 1.08 if is_player else 1.09
-    return int(base_val * iv_mult * (growth ** (level - 1)))
+    
+    if is_player:
+        # 玩家：HP 1.08 / ATK 1.06
+        growth_rate = 1.08 if is_hp else 1.06
+    else:
+        # 野怪：HP 1.09 / ATK 1.07
+        growth_rate = 1.09 if is_hp else 1.07
+        
+    return int(base_val * iv_mult * (growth_rate ** (level - 1)))
 
+# ... (update_raid_logic, get_skill_data, get_all_pokedex 保持不變) ...
 def update_raid_logic(db: Session = None):
     now = get_now_tw()
     curr_total_mins = now.hour * 60 + now.minute
-    
-    # 1. 檢查是否進入大廳 (開打前 1 分鐘)
     for (h, m) in RAID_SCHEDULE:
         start_total_mins = h * 60 + m
         lobby_time = start_total_mins - 1
         if lobby_time < 0: lobby_time += 1440 
-        
         if curr_total_mins == lobby_time:
             if RAID_STATE["status"] != "LOBBY":
                 boss_template = random.choice(LEGENDARY_BIRDS)
@@ -196,20 +245,15 @@ def update_raid_logic(db: Session = None):
                 RAID_STATE["last_attack_time"] = get_now_tw()
                 RAID_STATE["attack_counter"] = 0
             return
-
-    # 2. 檢查是否在戰鬥時間內 (5 分鐘)
     in_fighting_window = False
     for (h, m) in RAID_SCHEDULE:
         start_total_mins = h * 60 + m
-        
         if 0 <= (curr_total_mins - start_total_mins) < 5:
             in_fighting_window = True
-            
             if RAID_STATE["status"] == "LOBBY":
                  RAID_STATE["status"] = "FIGHTING"
                  RAID_STATE["last_attack_time"] = get_now_tw()
             elif RAID_STATE["status"] == "IDLE":
-                 # 容錯
                  boss_template = random.choice(LEGENDARY_BIRDS)
                  RAID_STATE["active"] = True
                  RAID_STATE["status"] = "FIGHTING"
@@ -221,14 +265,11 @@ def update_raid_logic(db: Session = None):
             
             if RAID_STATE["status"] == "FIGHTING":
                 last_time = RAID_STATE.get("last_attack_time")
-                # 🔥 修改：攻擊間隔改為 7 秒 🔥
                 if last_time and (get_now_tw() - last_time).total_seconds() >= 7:
                     RAID_STATE["last_attack_time"] = get_now_tw()
                     RAID_STATE["attack_counter"] += 1 
-                    
                     base_dmg = int(RAID_STATE["boss"]["atk"] * 0.2)
                     boss_dmg = int(base_dmg * random.uniform(0.95, 1.05)) 
-                    
                     if db:
                         active_uids = [uid for uid, p in RAID_STATE["players"].items() if not p.get("dead_at")]
                         if active_uids:
@@ -238,52 +279,45 @@ def update_raid_logic(db: Session = None):
                                 if u.hp <= 0:
                                     RAID_STATE["players"][u.id]["dead_at"] = get_now_tw().isoformat()
                             db.commit()
-            
             if RAID_STATE["current_hp"] <= 0:
                 RAID_STATE["status"] = "ENDED"
-            
             return
-
-    # 3. 關閉
     if RAID_STATE["status"] != "IDLE":
         RAID_STATE["active"] = False
         RAID_STATE["status"] = "IDLE"
         RAID_STATE["boss"] = None
 
 @router.get("/data/skills")
-def get_skill_data():
-    return SKILL_DB
+def get_skill_data(): return SKILL_DB
 
 @router.get("/pokedex/all")
 def get_all_pokedex():
     result = []
     for name, data in POKEDEX_DATA.items():
         is_obtainable = name in OBTAINABLE_MONS
-        result.append({
-            "name": name, 
-            "img": data["img"], 
-            "hp": data["hp"], 
-            "atk": data["atk"],
-            "is_obtainable": is_obtainable 
-        })
+        result.append({ "name": name, "img": data["img"], "hp": data["hp"], "atk": data["atk"], "is_obtainable": is_obtainable })
     return result
 
 @router.get("/wild/list")
 def get_wild_list(level: int, current_user: User = Depends(get_current_user)):
     wild_list = []
-    available_species = []
-    for unlock_lv, species_list in WILD_UNLOCK_LEVELS.items():
-        if unlock_lv <= level:
-            available_species.extend(species_list)
-    if not available_species: available_species = ["小拉達"]
-    
+    # 嚴格對應：只取該等級的野怪，如果該等級沒怪則往下找
+    available_species = WILD_UNLOCK_LEVELS.get(level)
+    if not available_species:
+        # 向下相容，找最近的有怪等級
+        for lv in sorted(WILD_UNLOCK_LEVELS.keys(), reverse=True):
+            if lv <= level:
+                available_species = WILD_UNLOCK_LEVELS[lv]
+                break
+    if not available_species: available_species = ["小拉達"] # fallback
+
     for name in available_species:
         if name not in POKEDEX_DATA: continue
         base = POKEDEX_DATA[name]
         
-        mult = 1.0
-        wild_hp = int(base["hp"] * 1.3 * mult * (1.09 ** (level - 1)))
-        wild_atk = int(base["atk"] * 1.15 * mult * (1.07 ** (level - 1)))
+        # 🔥 野怪數值計算：基礎加成 (ATK*1.15, HP*1.3) + 等級成長 (ATK*1.07, HP*1.09) 🔥
+        wild_hp = int(base["hp"] * 1.3 * (1.09 ** (level - 1)))
+        wild_atk = int(base["atk"] * 1.15 * (1.07 ** (level - 1)))
         wild_skills = base.get("skills", ["撞擊", "撞擊", "撞擊"])
         
         wild_list.append({
@@ -304,7 +338,6 @@ async def wild_attack_api(
 ):
     current_user.hp = current_user.max_hp
     if is_win:
-        # 動態計算經驗與金幣
         target_data = POKEDEX_DATA.get(target_name, POKEDEX_DATA["小拉達"])
         base_stat_sum = target_data["hp"] + target_data["atk"]
         
@@ -342,12 +375,12 @@ async def wild_attack_api(
         if quest_updated: current_user.quests = json.dumps(quests)
         
         req_xp_p = get_req_xp(current_user.level)
-        while current_user.exp >= req_xp_p and current_user.level < 25:
+        while current_user.exp >= req_xp_p and current_user.level < 30:
             current_user.exp -= req_xp_p; current_user.level += 1; req_xp_p = get_req_xp(current_user.level); msg += f" | 訓練師升級 Lv.{current_user.level}!"
         
         req_xp_pet = get_req_xp(current_user.pet_level)
         pet_leveled_up = False
-        while current_user.pet_exp >= req_xp_pet and current_user.pet_level < 25:
+        while current_user.pet_exp >= req_xp_pet and current_user.pet_level < 30:
             current_user.pet_exp -= req_xp_pet; current_user.pet_level += 1; req_xp_pet = get_req_xp(current_user.pet_level); pet_leveled_up = True; msg += f" | 寶可夢升級 Lv.{current_user.pet_level}!"
         
         box = json.loads(current_user.pokemon_storage)
@@ -357,8 +390,9 @@ async def wild_attack_api(
             if pet_leveled_up:
                 base = POKEDEX_DATA.get(active_pet["name"])
                 if base:
-                    current_user.max_hp = apply_iv_stats(base["hp"], active_pet["iv"], current_user.pet_level)
-                    current_user.attack = apply_iv_stats(base["atk"], active_pet["iv"], current_user.pet_level)
+                    # 🔥 玩家數值更新：HP 1.08 / ATK 1.06 🔥
+                    current_user.max_hp = apply_iv_stats(base["hp"], active_pet["iv"], current_user.pet_level, is_hp=True, is_player=True)
+                    current_user.attack = apply_iv_stats(base["atk"], active_pet["iv"], current_user.pet_level, is_hp=False, is_player=True)
                     current_user.hp = current_user.max_hp
         current_user.pokemon_storage = json.dumps(box)
         db.commit()
@@ -395,6 +429,7 @@ async def play_gacha(gacha_type: str, db: Session = Depends(get_db), current_use
         acc += p["rate"]
         if r <= acc: prize_name = p["name"]; break
     
+    # 隨機 IV (50~100)
     iv = int(random.triangular(0, 100, 50))
     new_mon = { "uid": str(uuid.uuid4()), "name": prize_name, "iv": iv, "lv": 1, "exp": 0 }
     box.append(new_mon)
@@ -407,7 +442,7 @@ async def play_gacha(gacha_type: str, db: Session = Depends(get_db), current_use
     
     db.commit()
     
-    if gacha_type in ['golden', 'high'] or prize_name in ['快龍', '超夢', '夢幻', '拉普拉斯', '幸福蛋']:
+    if gacha_type in ['golden', 'high'] or prize_name in ['快龍', '超夢', '夢幻', '拉普拉斯', '幸福蛋', '耿鬼']:
         await manager.broadcast(f"🎰 恭喜 [{current_user.username}] 獲得了稀有的 [{prize_name}]！")
         
     return {"message": f"獲得 {prize_name} (IV: {iv})!", "prize": new_mon, "user": current_user}
@@ -421,10 +456,6 @@ async def swap_active_pokemon(pokemon_uid: str, db: Session = Depends(get_db), c
     current_user.active_pokemon_uid = pokemon_uid
     current_user.pokemon_name = target["name"]
     
-    def apply_iv_stats_local(base_val, iv, level):
-        iv_mult = 0.9 + (iv / 100) * 0.2
-        return int(base_val * iv_mult * (1.06 ** (level - 1)))
-        
     base = POKEDEX_DATA.get(target["name"])
     current_user.pokemon_image = base["img"] if base else "https://via.placeholder.com/150"
     
@@ -432,8 +463,9 @@ async def swap_active_pokemon(pokemon_uid: str, db: Session = Depends(get_db), c
     current_user.pet_exp = target["exp"]
     
     if base:
-        current_user.max_hp = apply_iv_stats_local(base["hp"], target["iv"], target["lv"])
-        current_user.attack = apply_iv_stats_local(base["atk"], target["iv"], target["lv"])
+        # 🔥 換寵數值更新：HP 1.08 / ATK 1.06 🔥
+        current_user.max_hp = apply_iv_stats(base["hp"], target["iv"], target["lv"], is_hp=True, is_player=True)
+        current_user.attack = apply_iv_stats(base["atk"], target["iv"], target["lv"], is_hp=False, is_player=True)
     else:
         current_user.max_hp = 100; current_user.attack = 10
         
@@ -442,6 +474,7 @@ async def swap_active_pokemon(pokemon_uid: str, db: Session = Depends(get_db), c
     await manager.broadcast(f"EVENT:PVP_SWAP|{current_user.id}")
     return {"message": f"就決定是你了，{target['name']}！"}
 
+# ... (box_action (release), gamble, heal, pvp 等 API 保持不變，為節省空間省略，請保留原有的) ...
 @router.post("/box/action/{action}/{pokemon_uid}")
 async def box_action(action: str, pokemon_uid: str, db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
     box = json.loads(current_user.pokemon_storage)
@@ -464,20 +497,17 @@ async def box_action(action: str, pokemon_uid: str, db: Session = Depends(get_db
         target["exp"] += 1000
         
         req = get_req_xp(target["lv"])
-        while target["exp"] >= req and target["lv"] < 25:
+        while target["exp"] >= req and target["lv"] < 30:
             if target["lv"] >= current_user.level: break
             target["lv"] += 1; target["exp"] -= req; req = get_req_xp(target["lv"])
             
         if pokemon_uid == current_user.active_pokemon_uid:
             base = POKEDEX_DATA.get(target["name"])
-            def apply_iv_stats_local(base_val, iv, level):
-                iv_mult = 0.9 + (iv / 100) * 0.2
-                return int(base_val * iv_mult * (1.06 ** (level - 1)))
-            
             if base:
                 current_user.pet_level = target["lv"]; current_user.pet_exp = target["exp"]
-                current_user.max_hp = apply_iv_stats_local(base["hp"], target["iv"], target["lv"])
-                current_user.attack = apply_iv_stats_local(base["atk"], target["iv"], target["lv"])
+                # 糖果升級：數值更新
+                current_user.max_hp = apply_iv_stats(base["hp"], target["iv"], target["lv"], is_hp=True, is_player=True)
+                current_user.attack = apply_iv_stats(base["atk"], target["iv"], target["lv"], is_hp=False, is_player=True)
                 
         msg = f"使用成長糖果，經驗+1000 (Lv.{target['lv']})"
         
