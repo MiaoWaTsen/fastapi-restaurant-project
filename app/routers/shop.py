@@ -15,7 +15,7 @@ from app.common.websocket import manager
 router = APIRouter()
 
 # =================================================================
-# 1. 技能資料庫 (保持不變)
+# 1. 技能資料庫
 # =================================================================
 SKILL_DB = {
     "水槍": {"dmg": 14, "effect": "heal", "prob": 0.5, "val": 0.15, "desc": "50%回血15%"},
@@ -61,7 +61,7 @@ SKILL_DB = {
 }
 
 # =================================================================
-# 2. 完整圖鑑資料庫 (保持不變)
+# 2. 完整圖鑑資料庫
 # =================================================================
 POKEDEX_DATA = {
     "小拉達": {"hp": 90, "atk": 80, "img": "https://img.pokemondb.net/artwork/large/rattata.jpg", "skills": ["抓", "出奇一擊", "撞擊"]},
@@ -107,9 +107,6 @@ POKEDEX_DATA = {
     "夢幻":   {"hp": 155, "atk": 150, "img": "https://img.pokemondb.net/artwork/large/mew.jpg", "skills": ["念力", "精神強念", "精神撃破"]},
 }
 
-# --------------------------------------------------------
-# 3. 清單與常數 (保持不變)
-# --------------------------------------------------------
 OBTAINABLE_MONS = [
     "妙蛙種子", "小火龍", "傑尼龜", "妙蛙花", "噴火龍", "水箭龜",
     "毛辮羊", "皮卡丘", "伊布", "胖丁", "皮皮", "大蔥鴨", "呆呆獸", "可達鴨",
@@ -132,10 +129,9 @@ GACHA_CANDY = [{"name": "伊布", "rate": 20}, {"name": "皮卡丘", "rate": 20}
 ACTIVE_BATTLES = {}
 LEVEL_XP = { 1: 50, 2: 150, 3: 300, 4: 500, 5: 800, 6: 1300, 7: 2000, 8: 3000, 9: 5000 }
 
-# 🔥 新增 23:00 場次 🔥
 RAID_SCHEDULE = [(8, 0), (18, 0), (22, 0), (22, 30), (23, 0)] 
-# 🔥 新增 attack_counter 用於前端動畫判定 🔥
-RAID_STATE = {"active": False, "status": "IDLE", "boss": None, "current_hp": 0, "max_hp": 0, "players": {}, "last_attack_time": None, "attack_counter": 0}
+# 🔥 新增 last_damage 用於前端顯示 Boss 傷害 🔥
+RAID_STATE = {"active": False, "status": "IDLE", "boss": None, "current_hp": 0, "max_hp": 0, "players": {}, "last_attack_time": None, "attack_counter": 0, "last_damage": 0}
 
 LEGENDARY_BIRDS = [
     {"name": "❄️ 急凍鳥", "hp": 3000, "atk": 400, "img": "https://img.pokemondb.net/sprites/home/normal/articuno.png"},
@@ -157,12 +153,11 @@ def apply_iv_stats(base_val, iv, level, is_player=True):
     if base_val > 500: growth = 1.08 if is_player else 1.09
     return int(base_val * iv_mult * (growth ** (level - 1)))
 
-# 🔥 核心修正：接收 db 參數，實裝真實扣血 🔥
 def update_raid_logic(db: Session = None):
     now = get_now_tw()
     curr_total_mins = now.hour * 60 + now.minute
     
-    # 1. 檢查是否進入大廳 (開打前 1 分鐘)
+    # 1. 檢查是否進入大廳
     for (h, m) in RAID_SCHEDULE:
         start_total_mins = h * 60 + m
         lobby_time = start_total_mins - 1
@@ -181,11 +176,11 @@ def update_raid_logic(db: Session = None):
                 RAID_STATE["attack_counter"] = 0
             return
 
-    # 2. 檢查是否在戰鬥時間內 (改為 5 分鐘)
+    # 2. 檢查是否在戰鬥時間內 (5 分鐘)
     in_fighting_window = False
     for (h, m) in RAID_SCHEDULE:
         start_total_mins = h * 60 + m
-        # 🔥 修正：持續時間 5 分鐘 🔥
+        
         if 0 <= (curr_total_mins - start_total_mins) < 5:
             in_fighting_window = True
             
@@ -202,23 +197,24 @@ def update_raid_logic(db: Session = None):
                  RAID_STATE["players"] = {}
                  RAID_STATE["last_attack_time"] = get_now_tw()
             
-            # 🔥 Boss 攻擊邏輯：真實扣血 🔥
             if RAID_STATE["status"] == "FIGHTING":
                 last_time = RAID_STATE.get("last_attack_time")
                 if last_time and (get_now_tw() - last_time).total_seconds() >= 10:
                     RAID_STATE["last_attack_time"] = get_now_tw()
-                    RAID_STATE["attack_counter"] += 1 # 讓前端知道要播動畫
+                    RAID_STATE["attack_counter"] += 1 
                     
-                    boss_dmg = int(RAID_STATE["boss"]["atk"] * 0.2)
+                    base_dmg = int(RAID_STATE["boss"]["atk"] * 0.2)
+                    boss_dmg = int(base_dmg * random.uniform(0.95, 1.05))
                     
-                    # 只有在有 DB session 時才真的扣血
+                    # 🔥 記錄這次的傷害值，供前端讀取 🔥
+                    RAID_STATE["last_damage"] = boss_dmg
+                    
                     if db:
                         active_uids = [uid for uid, p in RAID_STATE["players"].items() if not p.get("dead_at")]
                         if active_uids:
                             users_to_hit = db.query(User).filter(User.id.in_(active_uids)).all()
                             for u in users_to_hit:
                                 u.hp = max(0, u.hp - boss_dmg)
-                                # 標記死亡
                                 if u.hp <= 0:
                                     RAID_STATE["players"][u.id]["dead_at"] = get_now_tw().isoformat()
                             db.commit()
@@ -502,7 +498,6 @@ async def pvp_attack(target_id: int, damage: int = Query(0), heal: int = Query(0
 
 @router.get("/raid/status")
 def get_raid_status(current_user: User = Depends(get_current_user), db: Session = Depends(get_db)):
-    # 🔥 傳入 db session 以便進行扣血 🔥
     update_raid_logic(db)
     boss = RAID_STATE.get("boss")
     if not boss: 
@@ -526,7 +521,8 @@ def get_raid_status(current_user: User = Depends(get_current_user), db: Session 
         "max_hp": RAID_STATE["max_hp"],
         "image": boss["img"],
         "my_status": my_status,
-        "attack_counter": RAID_STATE.get("attack_counter", 0)
+        "attack_counter": RAID_STATE.get("attack_counter", 0),
+        "last_damage": RAID_STATE.get("last_damage", 0)
     }
 
 @router.post("/raid/join")
