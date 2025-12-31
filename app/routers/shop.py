@@ -15,33 +15,41 @@ from app.common.websocket import manager
 router = APIRouter()
 
 # =================================================================
-# 1. 技能資料庫 (SKILL_DB)
+# 1. 技能資料庫 (SKILL_DB) - V2.6.0 平衡調整
 # =================================================================
 SKILL_DB = {
-    "水槍": {"dmg": 14, "effect": "heal", "prob": 0.5, "val": 0.15, "desc": "50%回血15%"},
-    "撒嬌": {"dmg": 14, "effect": "heal", "prob": 0.5, "val": 0.15, "desc": "50%回血15%"},
-    "念力": {"dmg": 14, "effect": "heal", "prob": 0.5, "val": 0.15, "desc": "50%回血15%"},
-    "岩石封鎖": {"dmg": 14, "effect": "heal", "prob": 0.5, "val": 0.15, "desc": "50%回血15%"},
-    "毒針": {"dmg": 14, "effect": "buff_atk", "prob": 0.5, "val": 0.2, "desc": "50%加攻20%"},
-    "藤鞭": {"dmg": 16, "effect": "buff_atk", "prob": 0.35, "val": 0.2, "desc": "35%加攻20%"},
-    "火花": {"dmg": 16, "effect": "buff_atk", "prob": 0.35, "val": 0.2, "desc": "35%加攻20%"},
-    "電光": {"dmg": 16, "effect": "buff_atk", "prob": 0.35, "val": 0.2, "desc": "35%加攻20%"},
-    "挖洞": {"dmg": 16, "effect": "buff_atk", "prob": 0.35, "val": 0.2, "desc": "35%加攻20%"},
-    "驚嚇": {"dmg": 16, "effect": "buff_atk", "prob": 0.35, "val": 0.2, "desc": "35%加攻20%"},
-    "地震": {"dmg": 16, "effect": "heal", "prob": 0.35, "val": 0.2, "desc": "35%回血20%"},
-    "冰礫": {"dmg": 16, "effect": "heal", "prob": 0.35, "val": 0.2, "desc": "35%回血20%"},
-    "泥巴射擊": {"dmg": 18, "effect": "buff_atk", "prob": 0.3, "val": 0.2, "desc": "30%加攻20%"},
-    "污泥炸彈": {"dmg": 18, "effect": "buff_atk", "prob": 0.3, "val": 0.2, "desc": "30%加攻20%"},
-    "噴射火焰": {"dmg": 18, "effect": "buff_atk", "prob": 0.3, "val": 0.2, "desc": "30%加攻20%"},
-    "水流噴射": {"dmg": 18, "effect": "buff_atk", "prob": 0.3, "val": 0.2, "desc": "30%加攻20%"},
-    "精神強念": {"dmg": 18, "effect": "buff_atk", "prob": 0.3, "val": 0.2, "desc": "30%加攻20%"},
-    "近身戰":   {"dmg": 18, "effect": "buff_atk", "prob": 0.3, "val": 0.2, "desc": "30%加攻20%"},
-    "電擊":     {"dmg": 18, "effect": "buff_atk", "prob": 0.3, "val": 0.2, "desc": "30%加攻20%"},
+    # [16傷害區 - 50% 機率特效]
+    "水槍":     {"dmg": 16, "effect": "heal", "prob": 0.5, "val": 0.15, "desc": "50%回血15%"},
+    "撒嬌":     {"dmg": 16, "effect": "heal", "prob": 0.5, "val": 0.15, "desc": "50%回血15%"},
+    "念力":     {"dmg": 16, "effect": "heal", "prob": 0.5, "val": 0.15, "desc": "50%回血15%"},
+    "岩石封鎖": {"dmg": 16, "effect": "heal", "prob": 0.5, "val": 0.15, "desc": "50%回血15%"},
+    "毒針":     {"dmg": 16, "effect": "buff_atk", "prob": 0.5, "val": 0.15, "desc": "50%加攻15%"},
+
+    # [18傷害區 - 35% 機率特效]
+    "藤鞭":     {"dmg": 18, "effect": "buff_atk", "prob": 0.35, "val": 0.15, "desc": "35%加攻15%"},
+    "火花":     {"dmg": 18, "effect": "buff_atk", "prob": 0.35, "val": 0.15, "desc": "35%加攻15%"},
+    "電光":     {"dmg": 18, "effect": "buff_atk", "prob": 0.35, "val": 0.15, "desc": "35%加攻15%"},
+    "挖洞":     {"dmg": 18, "effect": "buff_atk", "prob": 0.35, "val": 0.15, "desc": "35%加攻15%"},
+    "驚嚇":     {"dmg": 18, "effect": "buff_atk", "prob": 0.35, "val": 0.15, "desc": "35%加攻15%"},
+    "地震":     {"dmg": 18, "effect": "heal", "prob": 0.35, "val": 0.15, "desc": "35%回血15%"},
+    "冰礫":     {"dmg": 18, "effect": "heal", "prob": 0.35, "val": 0.15, "desc": "35%回血15%"},
+
+    # [20傷害區 - 30% 機率特效]
+    "泥巴射擊": {"dmg": 20, "effect": "buff_atk", "prob": 0.3, "val": 0.15, "desc": "30%加攻15%"},
+    "污泥炸彈": {"dmg": 20, "effect": "buff_atk", "prob": 0.3, "val": 0.15, "desc": "30%加攻15%"},
+    "噴射火焰": {"dmg": 20, "effect": "buff_atk", "prob": 0.3, "val": 0.15, "desc": "30%加攻15%"},
+    "水流噴射": {"dmg": 20, "effect": "buff_atk", "prob": 0.3, "val": 0.15, "desc": "30%加攻15%"},
+    "精神強念": {"dmg": 20, "effect": "buff_atk", "prob": 0.3, "val": 0.15, "desc": "30%加攻15%"},
+    "近身戰":   {"dmg": 20, "effect": "buff_atk", "prob": 0.3, "val": 0.15, "desc": "30%加攻15%"},
+    "電擊":     {"dmg": 20, "effect": "buff_atk", "prob": 0.3, "val": 0.15, "desc": "30%加攻15%"},
+
+    # [24傷害區 - 無特效]
     "撞擊": {"dmg": 24, "effect": None, "prob": 0, "val": 0, "desc": "無特效"},
     "啄":   {"dmg": 24, "effect": None, "prob": 0, "val": 0, "desc": "無特效"},
     "緊束": {"dmg": 24, "effect": None, "prob": 0, "val": 0, "desc": "無特效"},
     "葉刃": {"dmg": 24, "effect": None, "prob": 0, "val": 0, "desc": "無特效"},
-    "咬碎": {"dmg": 24, "effect": None, "prob": 0, "val": 0, "desc": "無特效"},
+
+    # [26傷害區 - 無特效]
     "抓":       {"dmg": 26, "effect": None, "prob": 0, "val": 0, "desc": "無特效"},
     "放電":     {"dmg": 26, "effect": None, "prob": 0, "val": 0, "desc": "無特效"},
     "出奇一擊": {"dmg": 26, "effect": None, "prob": 0, "val": 0, "desc": "無特效"},
@@ -56,12 +64,17 @@ SKILL_DB = {
     "泥巴炸彈": {"dmg": 26, "effect": None, "prob": 0, "val": 0, "desc": "無特效"},
     "冰凍光束": {"dmg": 26, "effect": None, "prob": 0, "val": 0, "desc": "無特效"},
     "瘋狂伏特": {"dmg": 26, "effect": None, "prob": 0, "val": 0, "desc": "無特效"},
+
+    # [28傷害區 - 無特效]
     "雙倍奉還": {"dmg": 28, "effect": None, "prob": 0, "val": 0, "desc": "無特效"},
     "逆鱗":     {"dmg": 28, "effect": None, "prob": 0, "val": 0, "desc": "無特效"},
     "精神撃破": {"dmg": 28, "effect": None, "prob": 0, "val": 0, "desc": "無特效"},
     "破壞光線": {"dmg": 28, "effect": None, "prob": 0, "val": 0, "desc": "無特效"},
-    "暗影球":   {"dmg": 32, "effect": "debuff_atk", "prob": 1.0, "val": 0.1, "desc": "降敵10%攻"},
-    "勇鳥猛攻": {"dmg": 34, "effect": "recoil", "prob": 1.0, "val": 0.1, "desc": "扣自身10%血"}
+
+    # [34傷害區 - 強力副作用]
+    # 🔥 修正：暗影球降自身攻擊 🔥
+    "暗影球":   {"dmg": 34, "effect": "debuff_self", "prob": 1.0, "val": 0.1, "desc": "降自身10%攻"},
+    "勇鳥猛攻": {"dmg": 34, "effect": "recoil", "prob": 1.0, "val": 0.15, "desc": "扣自身15%血"}
 }
 
 # =================================================================
@@ -106,7 +119,8 @@ POKEDEX_DATA = {
     "大蔥鴨": {"hp": 120, "atk": 130, "img": "https://img.pokemondb.net/artwork/large/farfetchd.jpg", "skills": ["啄", "葉刃", "勇鳥猛攻"]},
     "呆呆獸": {"hp": 122, "atk": 122, "img": "https://img.pokemondb.net/artwork/large/slowpoke.jpg", "skills": ["水槍", "幻象光線", "水流噴射"]},
     "可達鴨": {"hp": 122, "atk": 122, "img": "https://img.pokemondb.net/artwork/large/psyduck.jpg", "skills": ["水槍", "幻象光線", "水流噴射"]},
-    "耿鬼":   {"hp": 92, "atk": 175, "img": "https://img.pokemondb.net/artwork/large/gengar.jpg", "skills": ["驚嚇", "污泥炸彈", "暗影球"]},
+    # 🔥 耿鬼數據更新：HP 96 / ATK 176 🔥
+    "耿鬼":   {"hp": 96, "atk": 176, "img": "https://img.pokemondb.net/artwork/large/gengar.jpg", "skills": ["驚嚇", "污泥炸彈", "暗影球"]},
     "卡比獸": {"hp": 175, "atk": 112, "img": "https://img.pokemondb.net/artwork/large/snorlax.jpg", "skills": ["泰山壓頂", "地震", "撞擊"]},
     "吉利蛋": {"hp": 220, "atk": 90, "img": "https://img.pokemondb.net/artwork/large/chansey.jpg", "skills": ["抓", "精神強念", "撞擊"]},
     "幸福蛋": {"hp": 230, "atk": 90, "img": "https://img.pokemondb.net/artwork/large/blissey.jpg", "skills": ["抓", "精神強念", "撞擊"]},
@@ -176,7 +190,7 @@ LEVEL_XP_MAP = {
 RAID_SCHEDULE = [(8, 0), (14, 0), (18, 0), (21, 0), (22, 0), (23, 0)] 
 RAID_STATE = {"active": False, "status": "IDLE", "boss": None, "current_hp": 0, "max_hp": 0, "players": {}, "last_attack_time": None, "attack_counter": 0}
 
-# 🔥 Boss 池 (高數值) 🔥
+# 🔥 Boss 池 (數值高) 🔥
 RAID_BOSS_POOL = [
     {"name": "❄️ 急凍鳥", "hp": 15000, "atk": 500, "img": "https://img.pokemondb.net/sprites/home/normal/articuno.png", "weight": 30},
     {"name": "🔥 火焰鳥", "hp": 15000, "atk": 500, "img": "https://img.pokemondb.net/sprites/home/normal/moltres.png", "weight": 30},
@@ -239,7 +253,6 @@ def update_raid_logic(db: Session = None):
                  RAID_STATE["players"] = {}
                  RAID_STATE["last_attack_time"] = get_now_tw()
             
-            # 🔥 Boss 攻擊邏輯修復 (Bug 1) 🔥
             if RAID_STATE["status"] == "FIGHTING":
                 last_time = RAID_STATE.get("last_attack_time")
                 if last_time and (get_now_tw() - last_time).total_seconds() >= 7:
@@ -261,7 +274,6 @@ def update_raid_logic(db: Session = None):
                                     # 標記死亡時間
                                     RAID_STATE["players"][u.id]["dead_at"] = get_now_tw().isoformat()
                             
-                            # 🔥 強制提交，同步血量 🔥
                             db.commit()
 
             if RAID_STATE["current_hp"] <= 0:
