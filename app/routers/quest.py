@@ -12,10 +12,9 @@ from app.routers.shop import POKEDEX_DATA, WILD_UNLOCK_LEVELS
 
 router = APIRouter()
 
-# 🔥 新版獎勵公式 🔥
+# 🔥 新版獎勵公式 (保留您要的高獎勵機制) 🔥
 def calc_reward(target_name, level, count, is_golden):
     # 1. 種族值差異 (讓波波 > 小拉達)
-    # 預設值防呆
     base_data = POKEDEX_DATA.get(target_name, {"hp": 100, "atk": 100})
     species_score = (base_data.get("hp", 100) + base_data.get("atk", 100)) / 4
     
@@ -56,11 +55,17 @@ def get_quests(current_user: User = Depends(get_current_user), db: Session = Dep
             
     # 如果任務不滿 3 個，補滿
     if len(quests) < 3:
-        # 建立候選池：累積解鎖 (1 ~ current_user.level)
         candidate_pool = []
-        for lv in range(1, current_user.level + 1):
+        
+        # 🔥 關鍵修正：使用「寵物等級」作為上限，而非玩家等級 🔥
+        # 這樣練新寵時，只會接到該等級區間的怪
+        max_pool_level = current_user.pet_level
+        if max_pool_level < 1: max_pool_level = 1
+        
+        # 建立候選池：累積解鎖 (1 ~ current_user.pet_level)
+        for lv in range(1, max_pool_level + 1):
             species = WILD_UNLOCK_LEVELS.get(lv)
-            # 向下相容邏輯
+            # 向下相容邏輯 (如果該等級沒定義怪，往前找)
             if not species:
                 for prev_lv in range(lv - 1, 0, -1):
                     if prev_lv in WILD_UNLOCK_LEVELS:
@@ -89,7 +94,7 @@ def get_quests(current_user: User = Depends(get_current_user), db: Session = Dep
                 "id": str(random.randint(10000, 99999)),
                 "target": target_name,
                 "target_display": f"討伐 Lv.{target_level} {target_name}",
-                "level": target_level,
+                "level": target_level, # 用於前端顯示或後端驗證
                 "req": req_count,
                 "now": 0,
                 "gold": gold,

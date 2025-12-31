@@ -1,3 +1,5 @@
+# app/routers/shop.py
+
 from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.orm import Session
 from datetime import datetime, timedelta
@@ -174,13 +176,13 @@ LEVEL_XP_MAP = {
 RAID_SCHEDULE = [(8, 0), (14, 0), (18, 0), (21, 0), (22, 0), (23, 0)] 
 RAID_STATE = {"active": False, "status": "IDLE", "boss": None, "current_hp": 0, "max_hp": 0, "players": {}, "last_attack_time": None, "attack_counter": 0}
 
-# 🔥 Boss 池 (數值高) 🔥
+# 🔥 Boss 池 (高數值) 🔥
 RAID_BOSS_POOL = [
-    {"name": "❄️ 急凍鳥", "hp": 8000, "atk": 500, "img": "https://img.pokemondb.net/sprites/home/normal/articuno.png", "weight": 30},
-    {"name": "🔥 火焰鳥", "hp": 8000, "atk": 500, "img": "https://img.pokemondb.net/sprites/home/normal/moltres.png", "weight": 30},
-    {"name": "⚡ 閃電鳥", "hp": 8000, "atk": 500, "img": "https://img.pokemondb.net/sprites/home/normal/zapdos.png", "weight": 30},
-    {"name": "🔮 超夢",   "hp": 10000, "atk": 600, "img": "https://img.pokemondb.net/sprites/home/normal/mewtwo.png", "weight": 5},
-    {"name": "✨ 夢幻",   "hp": 10000, "atk": 600, "img": "https://img.pokemondb.net/sprites/home/normal/mew.png", "weight": 5}
+    {"name": "❄️ 急凍鳥", "hp": 15000, "atk": 500, "img": "https://img.pokemondb.net/sprites/home/normal/articuno.png", "weight": 30},
+    {"name": "🔥 火焰鳥", "hp": 15000, "atk": 500, "img": "https://img.pokemondb.net/sprites/home/normal/moltres.png", "weight": 30},
+    {"name": "⚡ 閃電鳥", "hp": 15000, "atk": 500, "img": "https://img.pokemondb.net/sprites/home/normal/zapdos.png", "weight": 30},
+    {"name": "🔮 超夢",   "hp": 20000, "atk": 800, "img": "https://img.pokemondb.net/sprites/home/normal/mewtwo.png", "weight": 5},
+    {"name": "✨ 夢幻",   "hp": 20000, "atk": 800, "img": "https://img.pokemondb.net/sprites/home/normal/mew.png", "weight": 5}
 ]
 
 def get_now_tw():
@@ -218,6 +220,7 @@ def update_raid_logic(db: Session = None):
                 RAID_STATE["last_attack_time"] = get_now_tw()
                 RAID_STATE["attack_counter"] = 0
             return
+    
     in_fighting_window = False
     for (h, m) in RAID_SCHEDULE:
         start_total_mins = h * 60 + m
@@ -236,25 +239,35 @@ def update_raid_logic(db: Session = None):
                  RAID_STATE["players"] = {}
                  RAID_STATE["last_attack_time"] = get_now_tw()
             
+            # 🔥 Boss 攻擊邏輯修復 (Bug 1) 🔥
             if RAID_STATE["status"] == "FIGHTING":
                 last_time = RAID_STATE.get("last_attack_time")
                 if last_time and (get_now_tw() - last_time).total_seconds() >= 7:
                     RAID_STATE["last_attack_time"] = get_now_tw()
                     RAID_STATE["attack_counter"] += 1 
+                    
                     base_dmg = int(RAID_STATE["boss"]["atk"] * 0.2)
                     boss_dmg = int(base_dmg * random.uniform(0.95, 1.05)) 
+                    
+                    # 必須在這裡執行 DB 寫入，確保所有玩家扣血
                     if db:
+                        # 找出所有存活玩家
                         active_uids = [uid for uid, p in RAID_STATE["players"].items() if not p.get("dead_at")]
                         if active_uids:
                             users_to_hit = db.query(User).filter(User.id.in_(active_uids)).all()
                             for u in users_to_hit:
                                 u.hp = max(0, u.hp - boss_dmg)
                                 if u.hp <= 0:
+                                    # 標記死亡時間
                                     RAID_STATE["players"][u.id]["dead_at"] = get_now_tw().isoformat()
+                            
+                            # 🔥 強制提交，同步血量 🔥
                             db.commit()
+
             if RAID_STATE["current_hp"] <= 0:
                 RAID_STATE["status"] = "ENDED"
             return
+            
     if RAID_STATE["status"] != "IDLE":
         RAID_STATE["active"] = False
         RAID_STATE["status"] = "IDLE"
@@ -331,6 +344,7 @@ async def wild_attack_api(
         quest_updated = False
         for q in quests:
             is_name_match = (q.get("target") in target_name) or (target_name in q.get("target"))
+            # 寬鬆判定
             is_level_match = target_level >= q.get("level", 1)
             if q["status"] != "COMPLETED" and is_name_match and is_level_match:
                 q["now"] += 1
@@ -365,7 +379,6 @@ async def wild_attack_api(
 
 @router.post("/gacha/{gacha_type}")
 async def play_gacha(gacha_type: str, db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
-    # 🔥 防呆修復：處理資料庫空值 🔥
     try:
         box = json.loads(current_user.pokemon_storage) if current_user.pokemon_storage else []
     except:
@@ -600,10 +613,8 @@ def attack_raid_boss(damage: int = Query(...), current_user: User = Depends(get_
     RAID_STATE["current_hp"] = max(0, RAID_STATE["current_hp"] - damage)
     return {"message": f"造成 {damage} 點傷害", "boss_hp": RAID_STATE["current_hp"]}
 
-# 🔥 新增回血接口 🔥
 @router.post("/raid/recover")
 def raid_recover(current_user: User = Depends(get_current_user), db: Session = Depends(get_db)):
-    # 邏輯：回復 20% 最大血量
     heal_amount = int(current_user.max_hp * 0.2)
     current_user.hp = min(current_user.max_hp, current_user.hp + heal_amount)
     db.commit()
