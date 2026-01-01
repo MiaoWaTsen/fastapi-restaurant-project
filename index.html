@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>⚡️ 寶可夢大亂鬥 V2.11.0 (收藏家更新) ⚡️</title>
+    <title>⚡️ 寶可夢大亂鬥 V2.11.2 (修復版) ⚡️</title>
     <script src="https://unpkg.com/vue@3/dist/vue.global.js"></script>
     <style>
         [v-cloak] { display: none; }
@@ -103,8 +103,8 @@
 
 <div id="app" class="container" v-cloak>
     <div v-if="!user" style="text-align:center; padding-top:100px;">
-        <h1 style="color:#e94560">寶可夢大亂鬥 V2.11.0</h1>
-        <p>圖鑑收藏版 (整合賭場/新增圖鑑)</p>
+        <h1 style="color:#e94560">寶可夢大亂鬥 V2.11.2</h1>
+        <p>圖鑑與變數修復版</p>
         <button class="btn-action" @click="logout">前往登入頁面</button>
         <br><br>
         <button style="background:transparent; border:1px solid #aaa; color:#aaa; padding:5px;" @click="initAdmin">👑 初始化管理員</button>
@@ -145,7 +145,7 @@
         <div v-if="raidVictory" class="modal-overlay"><div class="modal-box"><div class="modal-title">🎉 團體戰勝利！ 🎉</div><p>請選擇您的獎勵 (三選一)：</p><div style="display:flex; justify-content:center; gap:20px; margin-top:20px;"><div v-for="i in 3" :key="i" @click="claimRaidReward(i)" style="cursor:pointer; transition:0.2s; background:#2c3e50; padding:15px; border-radius:10px;"><img src="https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/items/poke-ball.png" style="width:60px;"><div style="margin-top:5px;">點擊開啟</div></div></div></div></div>
         <div v-if="isRaidDead" class="modal-overlay" style="background:rgba(50,0,0,0.9);"><div class="modal-box" style="border: 3px solid #e74c3c;"><div class="modal-title" style="color:#e74c3c;">💀 你已經死亡</div><h2 style="font-size:4em; margin:10px 0; color:#fff;">{{ raidDeadTimer }}</h2><p>秒後將被踢出大廳...</p><button class="btn-action" style="background:#27ae60; margin-top:20px; padding:15px;" @click="reviveRaid">💊 購買復活 (500G)</button></div></div>
         <div v-if="viewMon" class="modal-overlay" @click.self="viewMon=null"><div class="modal-box"><div class="modal-title">{{ viewMon.name }} <span v-if="viewMon.lv" style="font-size:0.6em; color:#aaa;">(Lv.{{ viewMon.lv }})</span></div><div style="text-align:center; margin:10px 0;"><img :src="viewMon.img_src" style="width:120px; height:120px; object-fit:contain;"></div><div v-if="viewMon.iv" style="text-align:center; margin-bottom:15px;"><span style="background:#f1c40f; color:black; padding:2px 8px; border-radius:5px; font-weight:bold;">IV: {{ viewMon.iv }}</span></div><div class="detail-row"><span>❤️ 最大血量</span><b>{{ viewMon.hp_val }}</b></div><div class="detail-row"><span>⚔️ 攻擊力</span><b>{{ viewMon.atk_val }}</b></div><div v-if="!viewMon.is_demo" class="detail-row"><span>✨ 經驗值</span><span>{{ viewMon.exp }}</span></div><div style="margin-top:15px; text-align:left;"><h4>⚡ 技能組</h4><div v-for="skill in getMonSkills(viewMon.name)" :key="skill" style="background:#222; padding:5px; margin-bottom:5px; border-radius:5px;"><b style="color:#3498db">{{ skill }}</b> <small style="color:#aaa;">{{ getSkillDesc(skill) }}</small></div></div><div style="display:flex; gap:10px; margin-top:20px;"><button class="btn-yes" style="flex:1; background:#7f8c8d" @click="viewMon=null">關閉</button><template v-if="!viewMon.is_demo"><button class="btn-yes" style="flex:1; background:#e67e22;" @click="useCandy(viewMon.uid)">🍬 餵糖</button><button class="btn-yes" style="flex:1;" @click="swapMon(viewMon.uid); viewMon=null;">出戰</button><button class="btn-yes" style="flex:1; background:#c0392b;" @click="releaseMon(viewMon.uid)">❌ 放生</button></template></div></div></div>
-        <div v-if="newsState.show" class="modal-overlay"><div class="modal-box" style="text-align:left;"><div class="modal-title" style="text-align:center;">📢 V2.11.0 更新公告</div><ul><li><b>📖 新增圖鑑</b>：快去看看你收集了多少寶可夢！</li><li><b>🛒 商店改版</b>：賭場已搬遷至商店頁面下方。</li><li><b>👥 好友優化</b>：新增拒絕與刪除好友功能。</li></ul><div style="text-align:center; margin-top:15px;"><button class="btn-yes" @click="closeNews">我知道了</button></div></div></div>
+        <div v-if="newsState.show" class="modal-overlay"><div class="modal-box" style="text-align:left;"><div class="modal-title" style="text-align:center;">📢 V2.11.2 更新公告</div><ul><li><b>📖 新增圖鑑</b>：快去看看你收集了多少寶可夢！</li><li><b>🛒 商店改版</b>：賭場已搬遷至商店頁面下方。</li><li><b>🔧 系統修復</b>：解決了登入白畫面問題。</li></ul><div style="text-align:center; margin-top:15px;"><button class="btn-yes" @click="closeNews">我知道了</button></div></div></div>
         <div v-if="showRates" class="modal-overlay" @click.self="showRates=false"><div class="modal-box" style="width: 400px; max-height:80vh;"><div class="modal-title">📊 扭蛋機率表</div><div style="overflow-y:auto; max-height:60vh;"><div v-for="(pool, name) in gachaRates" :key="name" style="margin-bottom: 15px;"><h4 style="color: #f1c40f; border-bottom: 1px solid #555;">{{ name }}</h4><table class="rate-table"><tr v-for="item in pool" :key="item.name"><td>{{ item.name }}</td><td style="text-align: right;">{{ item.rate }}%</td></tr></table></div></div><button class="btn-yes" style="width: 100%; margin-top: 10px;" @click="showRates=false">關閉</button></div></div>
 
         <div v-if="inLobby" class="lobby-bar"><span style="font-size:1.2em; margin-right:20px;">⚠️ 戰鬥準備中...</span><span style="font-size:1.5em; color:#f1c40f; font-family:monospace;">{{ lobbyTimer }}s</span></div>
@@ -278,6 +278,7 @@
             const friendRequests = ref([]);
             const viewMon = ref(null);
             const selectedMon = ref(null); 
+            // 🔥 新增：圖鑑相關變數
             const pokedexCollection = ref([]); 
             const pokedexPercent = ref(0); 
             const pokedexMap = ref({}); 
@@ -314,6 +315,17 @@
             };
 
             const logout = () => { localStorage.clear(); window.location.href = 'login.html'; };
+            
+            // 🔥 V2.11.2：安全 Fetch (自動處理 401)
+            const safeFetch = async (url, options = {}) => {
+                const token = localStorage.getItem('token');
+                if (!token) { logout(); return null; }
+                const headers = { ...options.headers, 'Authorization': `Bearer ${token}` };
+                const res = await fetch(url, { ...options, headers });
+                if (res.status === 401) { logout(); return null; }
+                return res;
+            };
+
             const getSkillDesc = (name) => { const s = skillData.value[name]; return s ? `${s.dmg}傷 ${s.desc || ''}` : ''; };
             const getMonSkills = (name) => SKILL_MAP[name] || ["撞擊", "撞擊", "撞擊"];
             const closeNews = () => { newsState.value.show = false; sessionStorage.setItem('seenNews_v2910', 'true'); };
@@ -330,18 +342,16 @@
             const showFloatingText = (text, color='red', isEnemy=false) => { const arena = document.querySelector('.battle-arena'); if(!arena) return; const el = document.createElement('div'); el.className = 'floating-text'; el.innerText = text; el.style.color = color === 'gold' ? '#f1c40f' : (color === 'green' ? '#2ecc71' : '#e74c3c'); el.style.left = isEnemy ? '60%' : '20%'; el.style.top = '30%'; arena.appendChild(el); setTimeout(() => el.remove(), 1500); };
             const getMonImage = (name) => { const base = pokedexMap.value[name]; return base ? base.img : "https://via.placeholder.com/150"; };
 
-            const updateInfo = async () => { try { const res = await fetch(`${API_URL}/auth/me`, { headers: { 'Authorization': `Bearer ${token}` } }); if(res.ok) { user.value = await res.json(); if(selectedWildLevel.value > user.value.level) selectedWildLevel.value = user.value.level; } else window.location.href = 'login.html'; } catch(e) {} };
+            const updateInfo = async () => { try { const res = await safeFetch(`${API_URL}/auth/me`); if(res && res.ok) { user.value = await res.json(); if(selectedWildLevel.value > user.value.level) selectedWildLevel.value = user.value.level; } } catch(e) {} };
             const fetchPokedex = async () => { 
                 try { 
-                    // 先抓全圖鑑資料建立 Map
-                    const res = await fetch(`${API_URL.replace('/items','')}/shop/pokedex/all`, { headers: { 'Authorization': `Bearer ${token}` } }); 
-                    if(res.ok) { 
+                    const res = await safeFetch(`${API_URL.replace('/items','')}/shop/pokedex/all`); 
+                    if(res && res.ok) { 
                         const allMons = await res.json(); 
                         allMons.forEach(m => pokedexMap.value[m.name] = m); 
                     }
-                    // 🔥 再抓玩家收集進度 (V2.11.0)
-                    const res2 = await fetch(`${API_URL.replace('/items','')}/shop/pokedex/collection`, { headers: { 'Authorization': `Bearer ${token}` } });
-                    if(res2.ok) {
+                    const res2 = await safeFetch(`${API_URL.replace('/items','')}/shop/pokedex/collection`);
+                    if(res2 && res2.ok) {
                         pokedexCollection.value = await res2.json();
                         const ownedCount = pokedexCollection.value.filter(x => x.is_owned).length;
                         pokedexPercent.value = Math.floor((ownedCount / pokedexCollection.value.length) * 100);
@@ -349,27 +359,26 @@
                 } catch(e) { console.error("Pokedex error", e); } 
             };
             
-            // 🔥 所有 API 路徑加上 /shop 🔥
             const fetchPlayers = async () => { 
-                const res = await fetch(`${API_URL.replace('/items','')}/shop/social/players`, { headers: { 'Authorization': `Bearer ${token}` } }); 
-                if(res.ok) {
+                const res = await safeFetch(`${API_URL.replace('/items','')}/shop/social/players`); 
+                if(res && res.ok) {
                     const data = await res.json();
                     players.value = data.filter(p => p.id !== user.value.id);
                 }
             };
-            const fetchFriends = async () => { const res = await fetch(`${API_URL.replace('/items','')}/shop/social/list`, { headers: { 'Authorization': `Bearer ${token}` } }); if(res.ok) friends.value = await res.json(); const res2 = await fetch(`${API_URL.replace('/items','')}/shop/social/requests`, { headers: { 'Authorization': `Bearer ${token}` } }); if(res2.ok) friendRequests.value = await res2.json(); };
-            const fetchQuests = async () => { const res = await fetch(`${API_URL}/quests/`, { headers: { 'Authorization': `Bearer ${token}` } }); if(res.ok) quests.value = await res.json(); updateInfo(); };
-            const fetchLeaderboard = async () => { const res = await fetch(`${API_URL}/social/leaderboard?type=${leaderboardType.value}`, { headers: { 'Authorization': `Bearer ${token}` } }); if(res.ok) leaderboardData.value = await res.json(); };
-            const fetchWildList = async () => { const res = await fetch(`${API_URL.replace('/items','')}/shop/wild/list?level=${selectedWildLevel.value}`, { headers: { 'Authorization': `Bearer ${token}` } }); if(res.ok) wildList.value = await res.json(); };
+            const fetchFriends = async () => { const res = await safeFetch(`${API_URL.replace('/items','')}/shop/social/list`); if(res && res.ok) friends.value = await res.json(); const res2 = await safeFetch(`${API_URL.replace('/items','')}/shop/social/requests`); if(res2 && res2.ok) friendRequests.value = await res2.json(); };
+            const fetchQuests = async () => { const res = await safeFetch(`${API_URL}/quests/`); if(res && res.ok) quests.value = await res.json(); updateInfo(); };
+            const fetchLeaderboard = async () => { const res = await safeFetch(`${API_URL}/social/leaderboard?type=${leaderboardType.value}`); if(res && res.ok) leaderboardData.value = await res.json(); };
+            const fetchWildList = async () => { const res = await safeFetch(`${API_URL.replace('/items','')}/shop/wild/list?level=${selectedWildLevel.value}`); if(res && res.ok) wildList.value = await res.json(); };
             const fetchSkillData = async () => { const res = await fetch(`${API_URL.replace('/items','')}/shop/data/skills`); if(res.ok) skillData.value = await res.json(); };
-            const initAdmin = async () => { try { const res = await fetch(`${API_URL.replace('/items','')}/shop/social/admin/init`); const d = await res.json(); showToast("系統", d.message); } catch(e) {} };
+            const initAdmin = async () => { try { const res = await safeFetch(`${API_URL.replace('/items','')}/shop/social/admin/init`); if(res) { const d = await res.json(); showToast("系統", d.message); } } catch(e) {} };
             const updateMySkills = () => { if(!user.value || !box.value) return; const active = box.value.find(p => p.uid === user.value.active_pokemon_uid); if(active) mySkills.value = SKILL_MAP[active.name] || ["撞擊", "撞擊", "撞擊"]; };
             
-            const releaseMon = async (uid) => { if(!confirm("確定要放生這隻寶可夢嗎？(傳說寶可夢可得傳說糖果)")) return; const res = await fetch(`${API_URL.replace('/items','')}/shop/box/action/release/${uid}`, { method: 'POST', headers: { 'Authorization': `Bearer ${token}` } }); const d = await res.json(); if(res.ok) { showToast("系統", d.message); viewMon.value = null; updateInfo(); } else { showToast("錯誤", d.detail); } };
+            const releaseMon = async (uid) => { if(!confirm("確定要放生這隻寶可夢嗎？(傳說寶可夢可得傳說糖果)")) return; const res = await safeFetch(`${API_URL.replace('/items','')}/shop/box/action/release/${uid}`, { method: 'POST' }); if(res && res.ok) { const d = await res.json(); showToast("系統", d.message); viewMon.value = null; updateInfo(); } else if(res) { const d = await res.json(); showToast("錯誤", d.detail); } };
 
             const checkRaid = async () => {
-                const res = await fetch(`${API_URL.replace('/items','')}/shop/raid/status`, { headers: { 'Authorization': `Bearer ${token}` } });
-                if(res.ok) {
+                const res = await safeFetch(`${API_URL.replace('/items','')}/shop/raid/status`);
+                if(res && res.ok) {
                     const data = await res.json();
                     raidState.value = data;
                     if (data.my_status && data.my_status.dead_at) { if (!isRaidDead.value) { isRaidDead.value = true; raidDeadTimer.value = 5; deadInterval = setInterval(() => { raidDeadTimer.value--; if(raidDeadTimer.value <= 0) { clearInterval(deadInterval); showToast("系統", "你已被踢出團體戰"); isRaidDead.value = false; battle.value.active = false; } }, 1000); } } else { if (isRaidDead.value) { isRaidDead.value = false; clearInterval(deadInterval); } }
@@ -380,9 +389,11 @@
             const handleBattleWin = async () => {
                 const safeName = encodeURIComponent(battle.value.target.raw_name);
                 const tLv = battle.value.target.level; 
-                const res = await fetch(`${API_URL.replace('/items','')}/shop/wild/attack?is_win=true&is_powerful=${battle.value.target.is_powerful||false}&target_name=${safeName}&target_level=${tLv}`, { method: 'POST', headers: { 'Authorization': `Bearer ${token}` } });
-                const d = await res.json();
-                battleResultMsg.value = d.message; showBattleResult.value = true; battle.value.active = false; updateInfo(); setTimeout(fetchQuests, 500);
+                const res = await safeFetch(`${API_URL.replace('/items','')}/shop/wild/attack?is_win=true&is_powerful=${battle.value.target.is_powerful||false}&target_name=${safeName}&target_level=${tLv}`, { method: 'POST' });
+                if (res) {
+                    const d = await res.json();
+                    battleResultMsg.value = d.message; showBattleResult.value = true; battle.value.active = false; updateInfo(); setTimeout(fetchQuests, 500);
+                }
             };
 
             const startWildBattle = (target) => { 
@@ -412,7 +423,7 @@
                     user.value.hp = Math.max(0, user.value.hp - enemyDmg); 
                     battle.value.shakeMe = true; setTimeout(() => battle.value.shakeMe = false, 400); 
                     showFloatingText(`-${enemyDmg}`, 'red'); 
-                    if(user.value.hp <= 0) { showToast("戰鬥失敗", "你被打敗了..."); battle.value.active = false; fetch(`${API_URL.replace('/items','')}/shop/wild/attack?is_win=false`, { method: 'POST', headers: { 'Authorization': `Bearer ${token}` } }); buyHeal(); } else { isEnemyTurn.value = false; startTurnTimer(); } 
+                    if(user.value.hp <= 0) { showToast("戰鬥失敗", "你被打敗了..."); battle.value.active = false; safeFetch(`${API_URL.replace('/items','')}/shop/wild/attack?is_win=false`, { method: 'POST' }); buyHeal(); } else { isEnemyTurn.value = false; startTurnTimer(); } 
                 } 
             };
             
@@ -455,62 +466,66 @@
                         if(battle.value.target.hp <= 0) { handleBattleWin(); } else { setTimeout(enemyAttackPhase, 1200); } 
                     } 
                     else if (battle.value.mode === 'raid') { 
-                        const res = await fetch(`${API_URL.replace('/items','')}/shop/raid/attack?damage=${dmg}`, { method: 'POST', headers: { 'Authorization': `Bearer ${token}` } }); 
-                        const d = await res.json(); 
-                        if(d.boss_hp !== undefined) battle.value.target.hp = d.boss_hp; 
+                        const res = await safeFetch(`${API_URL.replace('/items','')}/shop/raid/attack?damage=${dmg}`, { method: 'POST' }); 
+                        if(res) {
+                            const d = await res.json(); 
+                            if(d.boss_hp !== undefined) battle.value.target.hp = d.boss_hp; 
+                        }
                         setTimeout(() => { isEnemyTurn.value = false; startTurnTimer(); }, 800); 
                     } 
                     else if (battle.value.mode === 'pvp') {
-                        const res = await fetch(`${API_URL.replace('/items','')}/shop/duel/attack?damage=${dmg}&heal=${healAmt}`, { method: 'POST', headers: { 'Authorization': `Bearer ${token}` } });
-                        const d = await res.json();
-                        if(d.result === 'WIN') { showToast("戰鬥結束", d.reward); battle.value.active = false; updateInfo(); }
+                        const res = await safeFetch(`${API_URL.replace('/items','')}/shop/duel/attack?damage=${dmg}&heal=${healAmt}`, { method: 'POST' });
+                        if(res) {
+                            const d = await res.json();
+                            if(d.result === 'WIN') { showToast("戰鬥結束", d.reward); battle.value.active = false; updateInfo(); }
+                        }
                     }
                 } catch (e) { console.error(e); battle.value.active = false; } 
             };
 
-            const playGacha = async (type) => { showGachaAnim.value = true; const res = await fetch(`${API_URL.replace('/items','')}/shop/gacha/${type}`, { method: 'POST', headers: { 'Authorization': `Bearer ${token}` } }); const d = await res.json(); setTimeout(() => { showGachaAnim.value = false; gachaResult.value = d; updateInfo(); }, 2000); };
+            const playGacha = async (type) => { showGachaAnim.value = true; const res = await safeFetch(`${API_URL.replace('/items','')}/shop/gacha/${type}`, { method: 'POST' }); if(res) { const d = await res.json(); setTimeout(() => { showGachaAnim.value = false; gachaResult.value = d; updateInfo(); }, 2000); } else { showGachaAnim.value = false; } };
             const useShield = () => { if(shieldUses.value <= 0) return; shieldUses.value--; battle.value.shieldActive = true; isEnemyTurn.value = true; clearInterval(timerInterval); setTimeout(enemyAttackPhase, 1200); };
             const doHeal = async () => { 
                 const heal = Math.floor(user.value.max_hp * 0.2); 
                 user.value.hp = Math.min(user.value.max_hp, user.value.hp + heal); 
                 showToast("系統", `回復了 ${heal} HP`); 
                 if (battle.value.mode === 'pvp') {
-                    await fetch(`${API_URL.replace('/items','')}/shop/duel/attack?damage=0&heal=${heal}`, { method: 'POST', headers: { 'Authorization': `Bearer ${token}` } });
+                    await safeFetch(`${API_URL.replace('/items','')}/shop/duel/attack?damage=0&heal=${heal}`, { method: 'POST' });
                     isEnemyTurn.value = true; 
                 }
             };
-            const dailyCheckin = async () => { const res = await fetch(`${API_URL.replace('/items','')}/shop/social/daily_checkin`, { method: 'POST', headers: { 'Authorization': `Bearer ${token}` } }); const d = await res.json(); showToast("簽到", d.message || d.detail); updateInfo(); };
-            const swapMon = async (uid) => { await fetch(`${API_URL.replace('/items','')}/shop/box/swap/${uid}`, { method: 'POST', headers: { 'Authorization': `Bearer ${token}` } }); updateInfo(); };
-            const useCandy = async (uid) => { const res = await fetch(`${API_URL.replace('/items','')}/shop/box/action/candy/${uid}`, { method: 'POST', headers: { 'Authorization': `Bearer ${token}` } }); const d = await res.json(); showToast("系統", d.message || d.detail); updateInfo(); };
-            const doGamble = async () => { const res = await fetch(`${API_URL.replace('/items','')}/shop/gamble?amount=${gambleAmount.value}`, { method: 'POST', headers: { 'Authorization': `Bearer ${token}` } }); const d = await res.json(); showToast("賭場", d.message || d.detail); updateInfo(); };
-            const sendChat = async () => { if(!chatInput.value) return; await fetch(`${API_URL}/social/chat/send?content=${chatInput.value}`, { method: 'POST', headers: { 'Authorization': `Bearer ${token}` } }); chatInput.value = ""; };
-            const buyHeal = async () => { const res = await fetch(`${API_URL.replace('/items','')}/shop/heal`, { method: 'POST', headers: { 'Authorization': `Bearer ${token}` } }); if(res.ok) { showToast("系統", "補血成功"); updateInfo(); } else showToast("錯誤", "金幣不足"); };
-            const redeemCode = async () => { const res = await fetch(`${API_URL.replace('/items','')}/shop/social/redeem?code=${promoCode.value}`, { method: 'POST', headers: { 'Authorization': `Bearer ${token}` } }); const d = await res.json(); showToast("系統", d.message || d.detail); updateInfo(); };
-            const sendGift = async (fid) => { const res = await fetch(`${API_URL}/social/gift/send/${fid}`, { method: 'POST', headers: { 'Authorization': `Bearer ${token}` } }); if(res.ok) { showToast("系統", "禮物已發送！"); fetchFriends(); } else { const d = await res.json(); showToast("錯誤", d.detail); } };
-            const sendInvite = async (p) => { await fetch(`${API_URL.replace('/items','')}/shop/social/invite/${p.id}`, { method: 'POST', headers: { 'Authorization': `Bearer ${token}` } }); showToast("系統", "已發送邀請，等待對方回應..."); };
-            const addFriend = async (uid) => { const res = await fetch(`${API_URL.replace('/items','')}/shop/social/add/${uid}`, { method: 'POST', headers: { 'Authorization': `Bearer ${token}` } }); const d = await res.json(); showToast("系統", d.message || d.detail); };
-            const acceptFriend = async (reqId) => { await fetch(`${API_URL.replace('/items','')}/shop/social/accept/${reqId}`, { method: 'POST', headers: { 'Authorization': `Bearer ${token}` } }); showToast("系統", "已接受好友！"); fetchFriends(); };
-            const rejectFriend = async (reqId) => { await fetch(`${API_URL.replace('/items','')}/shop/social/reject/${reqId}`, { method: 'POST', headers: { 'Authorization': `Bearer ${token}` } }); showToast("系統", "已拒絕好友邀請"); fetchFriends(); };
-            const removeFriend = async (friendId) => { if(confirm("確定要刪除這位好友嗎？")) { await fetch(`${API_URL.replace('/items','')}/shop/social/remove/${friendId}`, { method: 'POST', headers: { 'Authorization': `Bearer ${token}` } }); showToast("系統", "已刪除好友"); fetchFriends(); } };
+            const dailyCheckin = async () => { const res = await safeFetch(`${API_URL.replace('/items','')}/shop/social/daily_checkin`, { method: 'POST' }); if(res) { const d = await res.json(); showToast("簽到", d.message || d.detail); updateInfo(); } };
+            const swapMon = async (uid) => { await safeFetch(`${API_URL.replace('/items','')}/shop/box/swap/${uid}`, { method: 'POST' }); updateInfo(); };
+            const useCandy = async (uid) => { const res = await safeFetch(`${API_URL.replace('/items','')}/shop/box/action/candy/${uid}`, { method: 'POST' }); if(res) { const d = await res.json(); showToast("系統", d.message || d.detail); updateInfo(); } };
+            const doGamble = async () => { const res = await safeFetch(`${API_URL.replace('/items','')}/shop/gamble?amount=${gambleAmount.value}`, { method: 'POST' }); if(res) { const d = await res.json(); showToast("賭場", d.message || d.detail); updateInfo(); } };
+            const sendChat = async () => { if(!chatInput.value) return; await safeFetch(`${API_URL}/social/chat/send?content=${chatInput.value}`, { method: 'POST' }); chatInput.value = ""; };
+            const buyHeal = async () => { const res = await safeFetch(`${API_URL.replace('/items','')}/shop/heal`, { method: 'POST' }); if(res && res.ok) { showToast("系統", "補血成功"); updateInfo(); } else showToast("錯誤", "金幣不足"); };
+            const redeemCode = async () => { const res = await safeFetch(`${API_URL.replace('/items','')}/shop/social/redeem?code=${promoCode.value}`, { method: 'POST' }); if(res) { const d = await res.json(); showToast("系統", d.message || d.detail); updateInfo(); } };
+            const sendGift = async (fid) => { const res = await safeFetch(`${API_URL}/social/gift/send/${fid}`, { method: 'POST' }); if(res && res.ok) { showToast("系統", "禮物已發送！"); fetchFriends(); } else if(res) { const d = await res.json(); showToast("錯誤", d.detail); } };
+            const sendInvite = async (p) => { await safeFetch(`${API_URL.replace('/items','')}/shop/social/invite/${p.id}`, { method: 'POST' }); showToast("系統", "已發送邀請，等待對方回應..."); };
+            const addFriend = async (uid) => { const res = await safeFetch(`${API_URL.replace('/items','')}/shop/social/add/${uid}`, { method: 'POST' }); if(res) { const d = await res.json(); showToast("系統", d.message || d.detail); } };
+            const acceptFriend = async (reqId) => { await safeFetch(`${API_URL.replace('/items','')}/shop/social/accept/${reqId}`, { method: 'POST' }); showToast("系統", "已接受好友！"); fetchFriends(); };
+            const rejectFriend = async (reqId) => { await safeFetch(`${API_URL.replace('/items','')}/shop/social/reject/${reqId}`, { method: 'POST' }); showToast("系統", "已拒絕好友邀請"); fetchFriends(); };
+            const removeFriend = async (friendId) => { if(confirm("確定要刪除這位好友嗎？")) { await safeFetch(`${API_URL.replace('/items','')}/shop/social/remove/${friendId}`, { method: 'POST' }); showToast("系統", "已刪除好友"); fetchFriends(); } };
             
             const joinRaid = async () => { 
                 if(confirm("支付 1000G 加入？")) { 
-                    const res = await fetch(`${API_URL.replace('/items','')}/shop/raid/join`, { method: 'POST', headers: { 'Authorization': `Bearer ${token}` } }); 
-                    if(res.ok) { 
+                    const res = await safeFetch(`${API_URL.replace('/items','')}/shop/raid/join`, { method: 'POST' }); 
+                    if(res && res.ok) { 
                         battle.value = { active: true, mode: 'raid', target: { name: raidState.value.boss_name, hp: raidState.value.hp, max_hp: raidState.value.max_hp, image_url: raidState.value.image }, shakeMe: false, shakeTarget: false, atkBuff: 1.0, shieldActive: false }; 
                         shieldUses.value = 2; updateMySkills(); 
-                    } else { const d = await res.json(); showToast("錯誤", d.detail); } 
+                    } else if(res) { const d = await res.json(); showToast("錯誤", d.detail); } 
                 } 
             };
-            const abandonQuest = async (qid) => { if(confirm("放棄需消耗 1000G，確定嗎？")) { await fetch(`${API_URL}/quests/abandon/${qid}`, { method: 'POST', headers: { 'Authorization': `Bearer ${token}` } }); fetchQuests(); } };
-            const claimQuest = async (qid) => { const res = await fetch(`${API_URL}/quests/claim/${qid}`, { method: 'POST', headers: { 'Authorization': `Bearer ${token}` } }); const d = await res.json(); showToast("系統", d.message); fetchQuests(); };
-            const reviveRaid = async () => { const res = await fetch(`${API_URL.replace('/items','')}/shop/raid/revive`, { method: 'POST', headers: { 'Authorization': `Bearer ${token}` } }); if (res.ok) { isRaidDead.value = false; clearInterval(deadInterval); updateInfo(); } else { const d = await res.json(); showToast("錯誤", d.detail); } };
-            const claimRaidReward = async (choice) => { const res = await fetch(`${API_URL.replace('/items','')}/shop/raid/claim?choice=${choice}`, { method: 'POST', headers: { 'Authorization': `Bearer ${token}` } }); const d = await res.json(); showToast("系統", d.message); raidVictory.value = false; battle.value.active = false; tab.value = 'wild'; updateInfo(); };
-            const useMedKit = async () => { if(shieldUses.value <= 0) return; shieldUses.value--; const healAmt = Math.floor(user.value.max_hp * 0.2); user.value.hp = Math.min(user.value.max_hp, user.value.hp + healAmt); try { await fetch(`${API_URL.replace('/items','')}/shop/raid/recover`, { method: 'POST', headers: { 'Authorization': `Bearer ${token}` } }); showFloatingText(`+${healAmt}`, 'green'); } catch(e) { console.error("Heal sync failed", e); } };
+            const abandonQuest = async (qid) => { if(confirm("放棄需消耗 1000G，確定嗎？")) { await safeFetch(`${API_URL}/quests/abandon/${qid}`, { method: 'POST' }); fetchQuests(); } };
+            const claimQuest = async (qid) => { const res = await safeFetch(`${API_URL}/quests/claim/${qid}`, { method: 'POST' }); if(res) { const d = await res.json(); showToast("系統", d.message); fetchQuests(); } };
+            const reviveRaid = async () => { const res = await safeFetch(`${API_URL.replace('/items','')}/shop/raid/revive`, { method: 'POST' }); if (res && res.ok) { isRaidDead.value = false; clearInterval(deadInterval); updateInfo(); } else if(res) { const d = await res.json(); showToast("錯誤", d.detail); } };
+            const claimRaidReward = async (choice) => { const res = await safeFetch(`${API_URL.replace('/items','')}/shop/raid/claim?choice=${choice}`, { method: 'POST' }); if(res) { const d = await res.json(); showToast("系統", d.message); raidVictory.value = false; battle.value.active = false; tab.value = 'wild'; updateInfo(); } };
+            const useMedKit = async () => { if(shieldUses.value <= 0) return; shieldUses.value--; const healAmt = Math.floor(user.value.max_hp * 0.2); user.value.hp = Math.min(user.value.max_hp, user.value.hp + healAmt); try { await safeFetch(`${API_URL.replace('/items','')}/shop/raid/recover`, { method: 'POST' }); showFloatingText(`+${healAmt}`, 'green'); } catch(e) { console.error("Heal sync failed", e); } };
             
             const checkInvite = async () => {
-                const res = await fetch(`${API_URL.replace('/items','')}/shop/social/check_invite`, { headers: { 'Authorization': `Bearer ${token}` } });
-                if (res.ok) {
+                const res = await safeFetch(`${API_URL.replace('/items','')}/shop/social/check_invite`);
+                if (res && res.ok) {
                     const d = await res.json();
                     if (d.has_invite) {
                         invite.value = d;
@@ -519,19 +534,19 @@
             };
 
             const acceptInvite = async () => {
-                await fetch(`${API_URL.replace('/items','')}/shop/social/accept_invite/${invite.value.source_id}`, { method: 'POST', headers: { 'Authorization': `Bearer ${token}` } });
+                await safeFetch(`${API_URL.replace('/items','')}/shop/social/accept_invite/${invite.value.source_id}`, { method: 'POST' });
                 invite.value.has_invite = false; 
                 duelState.value.preparing = true;
             };
 
             const rejectInvite = async () => {
-                await fetch(`${API_URL.replace('/items','')}/shop/social/reject_invite/${invite.value.source_id}`, { method: 'POST', headers: { 'Authorization': `Bearer ${token}` } });
+                await safeFetch(`${API_URL.replace('/items','')}/shop/social/reject_invite/${invite.value.source_id}`, { method: 'POST' });
                 invite.value.has_invite = false; 
             };
 
             const checkDuelStatus = async () => {
-                const res = await fetch(`${API_URL.replace('/items','')}/shop/duel/status`, { headers: { 'Authorization': `Bearer ${token}` } });
-                if (res.ok) {
+                const res = await safeFetch(`${API_URL.replace('/items','')}/shop/duel/status`);
+                if (res && res.ok) {
                     const d = await res.json();
                     if (d.status === 'PREPARING') {
                         duelState.value.preparing = true;
