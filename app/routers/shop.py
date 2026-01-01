@@ -3,14 +3,13 @@
 from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.orm import Session
 from sqlalchemy import or_, Column, Integer, String, ForeignKey
-from sqlalchemy.ext.declarative import declarative_base # 🔥 新增這個
+from sqlalchemy.ext.declarative import declarative_base
 from datetime import datetime, timedelta
 import random
 import json
 import uuid
 
 from app.db.session import get_db, engine
-# from app.db.base_class import Base  <-- 🔥 刪除這行，這是報錯的主因
 from app.common.deps import get_current_user
 from app.models.user import User
 from app.common.websocket import manager 
@@ -18,9 +17,8 @@ from app.common.websocket import manager
 router = APIRouter()
 
 # =================================================================
-# 0. 自動建立好友資料表 (修復版)
+# 0. 自動建立好友資料表
 # =================================================================
-# 🔥 在這裡定義一個本地的 Base，避免引用錯誤
 Base = declarative_base()
 
 class Friendship(Base):
@@ -175,7 +173,7 @@ WILD_UNLOCK_LEVELS = {
 }
 
 # =================================================================
-# 3. 扭蛋機率與池子 (V2.10.0 更新：拆分糖果與金幣池)
+# 3. 扭蛋機率與池子
 # =================================================================
 GACHA_NORMAL = [{"name": "妙蛙種子", "rate": 5}, {"name": "小火龍", "rate": 5}, {"name": "傑尼龜", "rate": 5}, {"name": "六尾", "rate": 5}, {"name": "毛辮羊", "rate": 5}, {"name": "伊布", "rate": 10}, {"name": "皮卡丘", "rate": 10}, {"name": "皮皮", "rate": 10}, {"name": "胖丁", "rate": 10}, {"name": "大蔥鴨", "rate": 10}, {"name": "呆呆獸", "rate": 12.5}, {"name": "可達鴨", "rate": 12.5}]
 GACHA_MEDIUM = [{"name": "妙蛙種子", "rate": 10}, {"name": "小火龍", "rate": 10}, {"name": "傑尼龜", "rate": 10}, {"name": "伊布", "rate": 10}, {"name": "皮卡丘", "rate": 10}, {"name": "呆呆獸", "rate": 10}, {"name": "可達鴨", "rate": 10}, {"name": "毛辮羊", "rate": 10}, {"name": "卡比獸", "rate": 5}, {"name": "吉利蛋", "rate": 3}, {"name": "拉普拉斯", "rate": 3}, {"name": "妙蛙花", "rate": 3}, {"name": "噴火龍", "rate": 3}, {"name": "水箭龜", "rate": 3}]
@@ -221,9 +219,9 @@ def create_xp_map():
 LEVEL_XP_MAP = create_xp_map()
 
 # =================================================================
-# 4. 團體戰邏輯
+# 4. 團體戰邏輯 (移除 15:00)
 # =================================================================
-RAID_SCHEDULE = [(8, 0), (14, 0), (16, 0), (18, 0), (21, 0), (22, 0), (23, 0)] 
+RAID_SCHEDULE = [(8, 0), (14, 0), (18, 0), (21, 0), (22, 0), (23, 0)] 
 RAID_STATE = {"active": False, "status": "IDLE", "boss": None, "current_hp": 0, "max_hp": 0, "players": {}, "last_attack_time": None, "attack_counter": 0}
 RAID_BOSS_POOL = [
     {"name": "❄️ 急凍鳥", "hp": 15000, "atk": 500, "img": "https://img.pokemondb.net/sprites/home/normal/articuno.png", "weight": 25},
@@ -350,7 +348,6 @@ async def wild_attack_api(is_win: bool = Query(...), is_powerful: bool = Query(F
     db.commit()
     return {"message": "戰鬥結束，HP已回復。"}
 
-# 🔥 扭蛋邏輯 (V2.10.0 更新：拆分糖果與金幣池) 🔥
 @router.post("/gacha/{gacha_type}")
 async def play_gacha(gacha_type: str, db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
     try: box = json.loads(current_user.pokemon_storage) if current_user.pokemon_storage else []
@@ -379,7 +376,6 @@ async def play_gacha(gacha_type: str, db: Session = Depends(get_db), current_use
         if inventory.get("legendary_candy", 0) < cost: raise HTTPException(status_code=400, detail="傳說糖果不足")
         inventory["legendary_candy"] -= cost
     else:
-        # normal, medium, high, legendary_gold (金幣扣款)
         if current_user.money < cost: raise HTTPException(status_code=400, detail="金幣不足")
         current_user.money -= cost
         
@@ -389,7 +385,6 @@ async def play_gacha(gacha_type: str, db: Session = Depends(get_db), current_use
         if r <= acc: prize_name = p["name"]; break
         
     new_lv = random.randint(1, current_user.level)
-    # 傳說類扭蛋保底 IV 60
     if 'legendary' in gacha_type: iv = random.randint(60, 100)
     else: iv = int(random.triangular(0, 100, 50))
     
@@ -563,6 +558,27 @@ def duel_attack(damage: int = Query(0), heal: int = Query(0), db: Session = Depe
     db.commit()
     return {"result": "NEXT", "damage": damage, "heal": heal}
 
+# 🔥 新增：團體戰狀態查詢接口 (核心修復) 🔥
+@router.get("/raid/status")
+def get_raid_status(current_user: User = Depends(get_current_user), db: Session = Depends(get_db)):
+    # 每次前端查詢時，主動更新後端邏輯
+    update_raid_logic(db)
+    
+    # 回傳玩家個人的參與狀態
+    my_status = {}
+    if current_user.id in RAID_STATE["players"]:
+        my_status = RAID_STATE["players"][current_user.id]
+        
+    return {
+        "active": RAID_STATE["active"],
+        "status": RAID_STATE["status"],
+        "boss_name": RAID_STATE["boss"]["name"] if RAID_STATE["boss"] else "",
+        "hp": RAID_STATE["current_hp"],
+        "max_hp": RAID_STATE["max_hp"],
+        "image": RAID_STATE["boss"]["img"] if RAID_STATE["boss"] else "",
+        "my_status": my_status
+    }
+
 @router.post("/raid/join")
 def join_raid(current_user: User = Depends(get_current_user), db: Session = Depends(get_db)):
     update_raid_logic(db)
@@ -711,6 +727,54 @@ def get_online_players(current_user: User = Depends(get_current_user), db: Sessi
         result.append({ "id": u.id, "username": u.username, "pokemon_image": u.pokemon_image, "is_online": is_online })
     return result
 
+@router.post("/social/redeem")
+def redeem_code(code: str, current_user: User = Depends(get_current_user), db: Session = Depends(get_db)):
+    try: inv = json.loads(current_user.inventory) if current_user.inventory else {}
+    except: inv = {}
+    if "redeemed_codes" not in inv: inv["redeemed_codes"] = []
+    code = code.strip()
+    if code in inv["redeemed_codes"]: raise HTTPException(status_code=400, detail="此序號已經使用過了！")
+    msg = ""; success = False
+    if code == "1PF563GFK2":
+        inv["legendary_candy"] = inv.get("legendary_candy", 0) + 10
+        msg = "兌換成功！獲得 🔮 傳說糖果 x10"; success = True
+    else: raise HTTPException(status_code=400, detail="無效的序號")
+    if success:
+        inv["redeemed_codes"].append(code)
+        current_user.inventory = json.dumps(inv)
+        db.commit()
+        return {"message": msg, "user": current_user}
+
+@router.post("/admin/sanction_player")
+def sanction_player(username: str = Query(..., description="輸入要制裁的玩家名稱"), db: Session = Depends(get_db)):
+    target = db.query(User).filter(User.username == username).first()
+    if not target: raise HTTPException(status_code=404, detail="找不到該玩家")
+    sanction_log = []
+    if target.level > 75:
+        target.level = 75; target.exp = get_req_xp(75)
+        sanction_log.append("玩家等級降為 75 (經驗值已重置)")
+    if target.money > 200000:
+        target.money = 200000
+        sanction_log.append("金幣扣除至 200,000")
+    try:
+        box = json.loads(target.pokemon_storage); active_uid = target.active_pokemon_uid
+        for p in box:
+            if p.get("lv", 1) > 75:
+                old_lv = p["lv"]; p["lv"] = 75; p["exp"] = get_req_xp(75)
+                sanction_log.append(f"寶可夢 {p['name']} 從 Lv.{old_lv} 降為 Lv.75")
+                if p["uid"] == active_uid:
+                    target.pet_level = 75; target.pet_exp = p["exp"]
+                    base = POKEDEX_DATA.get(p["name"])
+                    if base:
+                        target.max_hp = apply_iv_stats(base["hp"], p["iv"], 75, is_hp=True, is_player=True)
+                        target.attack = apply_iv_stats(base["atk"], p["iv"], 75, is_hp=False, is_player=True)
+                        target.hp = target.max_hp
+        target.pokemon_storage = json.dumps(box)
+    except: pass 
+    db.commit()
+    if not sanction_log: return {"message": f"玩家 [{username}] 檢查完畢，沒有數值需要制裁。"}
+    return {"message": f"⚖️ 已對 [{username}] 執行制裁： " + ", ".join(sanction_log)}
+
 @router.delete("/admin/delete_user")
 def delete_user_by_name(username: str, db: Session = Depends(get_db)):
     target = db.query(User).filter(User.username == username).first()
@@ -733,89 +797,3 @@ def delete_user_by_name(username: str, db: Session = Depends(get_db)):
     except Exception as e:
         db.rollback()
         return {"message": f"❌ 刪除失敗 (資料庫錯誤): {str(e)}"}
-    
-# =================================================================
-# 11. 序號兌換系統 (V2.10.1 新增)
-# =================================================================
-@router.post("/social/redeem")
-def redeem_code(code: str, current_user: User = Depends(get_current_user), db: Session = Depends(get_db)):
-    # 讀取背包與已兌換列表
-    try:
-        inv = json.loads(current_user.inventory) if current_user.inventory else {}
-    except:
-        inv = {}
-        
-    # 確保有 redeemed_codes 欄位
-    if "redeemed_codes" not in inv:
-        inv["redeemed_codes"] = []
-        
-    code = code.strip()
-    
-    # 檢查是否領過
-    if code in inv["redeemed_codes"]:
-        raise HTTPException(status_code=400, detail="此序號已經使用過了！")
-
-    msg = ""
-    success = False
-
-    # --- 序號邏輯區 ---
-    if code == "1PF563GFK2":
-        # 補償序號：10顆傳說糖果
-        inv["legendary_candy"] = inv.get("legendary_candy", 0) + 15
-        msg = "兌換成功！獲得 🔮 傳說糖果 x10"
-        success = True
-        
-    # (未來可以在這裡加更多 else if 序號)
-    
-    else:
-        raise HTTPException(status_code=400, detail="無效的序號")
-
-    # 如果成功，記錄並存檔
-    if success:
-        inv["redeemed_codes"].append(code)
-        current_user.inventory = json.dumps(inv)
-        db.commit()
-        return {"message": msg, "user": current_user}
-
-# =================================================================
-# 12. 特定玩家制裁 API (針對 Stardreamsteps)
-# =================================================================
-@router.post("/admin/sanction_player")
-def sanction_player(username: str = Query(..., description="輸入要制裁的玩家名稱"), db: Session = Depends(get_db)):
-    # 1. 找到玩家
-    target = db.query(User).filter(User.username == username).first()
-    if not target:
-        raise HTTPException(status_code=404, detail="找不到該玩家")
-
-    # 2. 執行制裁 (Lv.75, Money 200,000)
-    target.level = 75
-    target.exp = get_req_xp(75) # 重置經驗值為 Lv.75 的門檻
-    target.money = 200000
-    
-    # 3. 修正出戰寶可夢等級 (同時修正盒子裡的數據)
-    try:
-        box = json.loads(target.pokemon_storage)
-        active_uid = target.active_pokemon_uid
-        
-        for p in box:
-            if p["uid"] == active_uid:
-                p["lv"] = 75
-                p["exp"] = get_req_xp(75)
-                
-                # 重新計算屬性
-                target.pet_level = 75
-                target.pet_exp = p["exp"]
-                
-                base = POKEDEX_DATA.get(p["name"])
-                if base:
-                    target.max_hp = apply_iv_stats(base["hp"], p["iv"], 75, is_hp=True, is_player=True)
-                    target.attack = apply_iv_stats(base["atk"], p["iv"], 75, is_hp=False, is_player=True)
-                    target.hp = target.max_hp # 順便補滿血
-                break
-        
-        target.pokemon_storage = json.dumps(box)
-    except:
-        pass # 如果解析盒子失敗就不處理盒子，只處理玩家本體
-
-    db.commit()
-    return {"message": f"⚖️ 已對 [{username}] 執行制裁：等級降為 75，金幣重置為 200,000。"}
