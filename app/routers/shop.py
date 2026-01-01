@@ -2,31 +2,37 @@
 
 from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.orm import Session
-from sqlalchemy import or_
+from sqlalchemy import or_, Column, Integer, String, ForeignKey
 from datetime import datetime, timedelta
 import random
 import json
 import uuid
 
-from app.db.session import get_db
+from app.db.session import get_db, engine
+from app.db.base_class import Base
 from app.common.deps import get_current_user
 from app.models.user import User
-# 嘗試匯入 Friendship 模型，若無則略過 (避免報錯)
-try:
-    from app.models.social import Friendship
-except ImportError:
-    Friendship = None
-
 from app.common.websocket import manager 
 
 router = APIRouter()
 
-# =================================================================
+# 0. 自動建立好友資料表
+class Friendship(Base):
+    __tablename__ = "friendships"
+    id = Column(Integer, primary_key=True, index=True)
+    user_id = Column(Integer, ForeignKey("users.id"))
+    friend_id = Column(Integer, ForeignKey("users.id"))
+    status = Column(String, default="PENDING")
+
+try:
+    Friendship.__table__.create(bind=engine, checkfirst=True)
+except:
+    pass
+
 # 全域變數
-# =================================================================
-ONLINE_USERS = {} # {user_id: datetime}
-INVITES = {}      # {target_id: source_id}
-DUEL_ROOMS = {}   # {room_id: {...}}
+ONLINE_USERS = {}
+INVITES = {}
+DUEL_ROOMS = {}
 
 def update_user_activity(user_id):
     ONLINE_USERS[user_id] = datetime.utcnow()
@@ -41,7 +47,7 @@ def get_now_tw():
     return datetime.utcnow() + timedelta(hours=8)
 
 # =================================================================
-# 1. 技能與圖鑑 (維持 V2.7.0)
+# 1. 技能資料庫 (V2.9.6 更新)
 # =================================================================
 SKILL_DB = {
     "水槍": {"dmg": 16, "effect": "heal", "prob": 0.5, "val": 0.15, "desc": "50%回血15%"},
@@ -49,13 +55,13 @@ SKILL_DB = {
     "念力": {"dmg": 16, "effect": "heal", "prob": 0.5, "val": 0.15, "desc": "50%回血15%"},
     "岩石封鎖": {"dmg": 16, "effect": "heal", "prob": 0.5, "val": 0.15, "desc": "50%回血15%"},
     "毒針": {"dmg": 16, "effect": "buff_atk", "prob": 0.5, "val": 0.15, "desc": "50%加攻15%"},
-    "藤鞭": {"dmg": 18, "effect": "buff_atk", "prob": 0.35, "val": 0.15, "desc": "35%加攻15%"},
-    "火花": {"dmg": 18, "effect": "buff_atk", "prob": 0.35, "val": 0.15, "desc": "35%加攻15%"},
-    "電光": {"dmg": 18, "effect": "buff_atk", "prob": 0.35, "val": 0.15, "desc": "35%加攻15%"},
-    "挖洞": {"dmg": 18, "effect": "buff_atk", "prob": 0.35, "val": 0.15, "desc": "35%加攻15%"},
-    "驚嚇": {"dmg": 18, "effect": "buff_atk", "prob": 0.35, "val": 0.15, "desc": "35%加攻15%"},
-    "地震": {"dmg": 18, "effect": "heal", "prob": 0.35, "val": 0.15, "desc": "35%回血15%"},
-    "冰礫": {"dmg": 18, "effect": "heal", "prob": 0.35, "val": 0.15, "desc": "35%回血15%"},
+    "藤鞭": {"dmg": 18, "effect": "buff_atk", "prob": 0.4, "val": 0.15, "desc": "40%加攻15%"},
+    "火花": {"dmg": 18, "effect": "buff_atk", "prob": 0.4, "val": 0.15, "desc": "40%加攻15%"},
+    "電光": {"dmg": 18, "effect": "buff_atk", "prob": 0.4, "val": 0.15, "desc": "40%加攻15%"},
+    "挖洞": {"dmg": 18, "effect": "buff_atk", "prob": 0.4, "val": 0.15, "desc": "40%加攻15%"},
+    "驚嚇": {"dmg": 18, "effect": "buff_atk", "prob": 0.4, "val": 0.15, "desc": "40%加攻15%"},
+    "地震": {"dmg": 18, "effect": "heal", "prob": 0.4, "val": 0.15, "desc": "40%回血15%"},
+    "冰礫": {"dmg": 18, "effect": "heal", "prob": 0.4, "val": 0.15, "desc": "40%回血15%"},
     "泥巴射擊": {"dmg": 20, "effect": "buff_atk", "prob": 0.3, "val": 0.15, "desc": "30%加攻15%"},
     "污泥炸彈": {"dmg": 20, "effect": "buff_atk", "prob": 0.3, "val": 0.15, "desc": "30%加攻15%"},
     "噴射火焰": {"dmg": 20, "effect": "buff_atk", "prob": 0.3, "val": 0.15, "desc": "30%加攻15%"},
@@ -63,6 +69,9 @@ SKILL_DB = {
     "精神強念": {"dmg": 20, "effect": "buff_atk", "prob": 0.3, "val": 0.15, "desc": "30%加攻15%"},
     "近身戰": {"dmg": 20, "effect": "buff_atk", "prob": 0.3, "val": 0.15, "desc": "30%加攻15%"},
     "電擊": {"dmg": 20, "effect": "buff_atk", "prob": 0.3, "val": 0.15, "desc": "30%加攻15%"},
+    "龍息": {"dmg": 20, "effect": "buff_atk", "prob": 0.3, "val": 0.15, "desc": "30%加攻15%"},
+    "神聖之火": {"dmg": 22, "effect": "buff_atk", "prob": 1.0, "val": 0.1, "desc": "100%加攻10%"},
+    "氣旋攻擊": {"dmg": 22, "effect": "buff_atk", "prob": 1.0, "val": 0.1, "desc": "100%加攻10%"},
     "撞擊": {"dmg": 24, "effect": None, "prob": 0, "val": 0, "desc": "無特效"},
     "啄": {"dmg": 24, "effect": None, "prob": 0, "val": 0, "desc": "無特效"},
     "緊束": {"dmg": 24, "effect": None, "prob": 0, "val": 0, "desc": "無特效"},
@@ -74,6 +83,8 @@ SKILL_DB = {
     "幻象光線": {"dmg": 26, "effect": None, "prob": 0, "val": 0, "desc": "無特效"},
     "水流尾": {"dmg": 26, "effect": None, "prob": 0, "val": 0, "desc": "無特效"},
     "燕返": {"dmg": 26, "effect": None, "prob": 0, "val": 0, "desc": "無特效"},
+    "龍尾": {"dmg": 26, "effect": None, "prob": 0, "val": 0, "desc": "無特效"},
+    "燒盡": {"dmg": 26, "effect": None, "prob": 0, "val": 0, "desc": "無特效"},
     "種子炸彈": {"dmg": 26, "effect": None, "prob": 0, "val": 0, "desc": "無特效"},
     "高速星星": {"dmg": 26, "effect": None, "prob": 0, "val": 0, "desc": "無特效"},
     "泰山壓頂": {"dmg": 26, "effect": None, "prob": 0, "val": 0, "desc": "無特效"},
@@ -83,13 +94,17 @@ SKILL_DB = {
     "瘋狂伏特": {"dmg": 26, "effect": None, "prob": 0, "val": 0, "desc": "無特效"},
     "雙倍奉還": {"dmg": 28, "effect": None, "prob": 0, "val": 0, "desc": "無特效"},
     "逆鱗": {"dmg": 28, "effect": None, "prob": 0, "val": 0, "desc": "無特效"},
-    "精神撃破": {"dmg": 28, "effect": None, "prob": 0, "val": 0, "desc": "無特效"},
-    "破壞光線": {"dmg": 28, "effect": None, "prob": 0, "val": 0, "desc": "無特效"},
+    "精神擊破": {"dmg": 28, "effect": None, "prob": 0, "val": 0, "desc": "無特效"},
     "暗影球": {"dmg": 34, "effect": "debuff_self", "prob": 1.0, "val": 0.1, "desc": "降自身10%攻"},
+    "水砲": {"dmg": 34, "effect": "debuff_self", "prob": 1.0, "val": 0.1, "desc": "降自身10%攻"},
     "勇鳥猛攻": {"dmg": 34, "effect": "recoil", "prob": 1.0, "val": 0.15, "desc": "扣自身15%血"}
 }
 
+# =================================================================
+# 2. 圖鑑資料庫 (V2.9.6 更新)
+# =================================================================
 POKEDEX_DATA = {
+    # --- 關都野怪區 (保持原樣，僅列出 key 避免錯誤) ---
     "小拉達": {"hp": 90, "atk": 80, "img": "https://img.pokemondb.net/artwork/large/rattata.jpg", "skills": ["抓", "出奇一擊", "撞擊"]},
     "波波": {"hp": 94, "atk": 84, "img": "https://img.pokemondb.net/artwork/large/pidgey.jpg", "skills": ["抓", "啄", "燕返"]},
     "烈雀": {"hp": 88, "atk": 92, "img": "https://img.pokemondb.net/artwork/large/spearow.jpg", "skills": ["抓", "啄", "燕返"]},
@@ -110,6 +125,8 @@ POKEDEX_DATA = {
     "化石翼龍": {"hp": 140, "atk": 140, "img": "https://img.pokemondb.net/artwork/large/aerodactyl.jpg", "skills": ["挖洞", "岩石封鎖", "勇鳥猛攻"]},
     "怪力": {"hp": 140, "atk": 145, "img": "https://img.pokemondb.net/artwork/large/machamp.jpg", "skills": ["雙倍奉還", "岩石封鎖", "近身戰"]},
     "暴鯉龍": {"hp": 150, "atk": 150, "img": "https://img.pokemondb.net/artwork/large/gyarados.jpg", "skills": ["水槍", "水流尾", "勇鳥猛攻"]},
+
+    # --- 玩家/寵物區 (Updated) ---
     "妙蛙種子": {"hp": 130, "atk": 112, "img": "https://img.pokemondb.net/artwork/large/bulbasaur.jpg", "skills": ["藤鞭", "種子炸彈", "污泥炸彈"]},
     "小火龍": {"hp": 112, "atk": 130, "img": "https://img.pokemondb.net/artwork/large/charmander.jpg", "skills": ["火花", "噴射火焰", "大字爆炎"]},
     "傑尼龜": {"hp": 121, "atk": 121, "img": "https://img.pokemondb.net/artwork/large/squirtle.jpg", "skills": ["水槍", "水流噴射", "水流尾"]},
@@ -130,15 +147,19 @@ POKEDEX_DATA = {
     "吉利蛋": {"hp": 220, "atk": 90, "img": "https://img.pokemondb.net/artwork/large/chansey.jpg", "skills": ["抓", "精神強念", "撞擊"]},
     "幸福蛋": {"hp": 230, "atk": 90, "img": "https://img.pokemondb.net/artwork/large/blissey.jpg", "skills": ["抓", "精神強念", "撞擊"]},
     "拉普拉斯": {"hp": 165, "atk": 140, "img": "https://img.pokemondb.net/artwork/large/lapras.jpg", "skills": ["水槍", "水流噴射", "冰凍光束"]},
-    "快龍": {"hp": 150, "atk": 148, "img": "https://img.pokemondb.net/artwork/large/dragonite.jpg", "skills": ["抓", "逆鱗", "勇鳥猛攻"]},
+    "快龍": {"hp": 150, "atk": 148, "img": "https://img.pokemondb.net/artwork/large/dragonite.jpg", "skills": ["龍息", "逆鱗", "勇鳥猛攻"]},
+    
+    # --- 傳說/Boss 區 (Updated) ---
     "急凍鳥": {"hp": 150, "atk": 150, "img": "https://img.pokemondb.net/artwork/large/articuno.jpg", "skills": ["冰礫", "冰凍光束", "勇鳥猛攻"]},
     "火焰鳥": {"hp": 150, "atk": 150, "img": "https://img.pokemondb.net/artwork/large/moltres.jpg", "skills": ["噴射火焰", "大字爆炎", "勇鳥猛攻"]},
     "閃電鳥": {"hp": 150, "atk": 150, "img": "https://img.pokemondb.net/artwork/large/zapdos.jpg", "skills": ["電光", "瘋狂伏特", "勇鳥猛攻"]},
-    "超夢": {"hp": 152, "atk": 155, "img": "https://img.pokemondb.net/artwork/large/mewtwo.jpg", "skills": ["念力", "精神強念", "精神撃破"]},
-    "夢幻": {"hp": 155, "atk": 152, "img": "https://img.pokemondb.net/artwork/large/mew.jpg", "skills": ["念力", "暗影球", "精神撃破"]},
+    "超夢": {"hp": 152, "atk": 155, "img": "https://img.pokemondb.net/artwork/large/mewtwo.jpg", "skills": ["念力", "精神強念", "精神擊破"]},
+    "夢幻": {"hp": 155, "atk": 152, "img": "https://img.pokemondb.net/artwork/large/mew.jpg", "skills": ["念力", "暗影球", "精神擊破"]},
+    "鳳王": {"hp": 155, "atk": 150, "img": "https://img.pokemondb.net/artwork/large/ho-oh.jpg", "skills": ["燒盡", "勇鳥猛攻", "神聖之火"]},
+    "洛奇亞": {"hp": 155, "atk": 150, "img": "https://img.pokemondb.net/artwork/large/lugia.jpg", "skills": ["龍尾", "水砲", "氣旋攻擊"]},
 }
 
-LEGENDARY_MONS = ["急凍鳥", "火焰鳥", "閃電鳥", "超夢", "夢幻"]
+LEGENDARY_MONS = ["急凍鳥", "火焰鳥", "閃電鳥", "超夢", "夢幻", "鳳王", "洛奇亞"]
 OBTAINABLE_MONS = [k for k in POKEDEX_DATA.keys()]
 
 WILD_UNLOCK_LEVELS = {
@@ -167,9 +188,22 @@ def create_xp_map():
 
 LEVEL_XP_MAP = create_xp_map()
 
-RAID_SCHEDULE = [(8, 0), (14, 0), (18, 0), (21, 0), (22, 0), (23, 0)] 
+# =================================================================
+# 3. 團體戰邏輯 (V2.9.6 時間修正)
+# =================================================================
+RAID_SCHEDULE = [(8, 0), (14, 0), (15, 0), (18, 0), (21, 0), (22, 0), (23, 0)] 
 RAID_STATE = {"active": False, "status": "IDLE", "boss": None, "current_hp": 0, "max_hp": 0, "players": {}, "last_attack_time": None, "attack_counter": 0}
-RAID_BOSS_POOL = [{"name": "❄️ 急凍鳥", "hp": 15000, "atk": 500, "img": "https://img.pokemondb.net/sprites/home/normal/articuno.png", "weight": 30}, {"name": "🔥 火焰鳥", "hp": 15000, "atk": 500, "img": "https://img.pokemondb.net/sprites/home/normal/moltres.png", "weight": 30}, {"name": "⚡ 閃電鳥", "hp": 15000, "atk": 500, "img": "https://img.pokemondb.net/sprites/home/normal/zapdos.png", "weight": 30}, {"name": "🔮 超夢",   "hp": 20000, "atk": 800, "img": "https://img.pokemondb.net/sprites/home/normal/mewtwo.png", "weight": 5}, {"name": "✨ 夢幻",   "hp": 20000, "atk": 800, "img": "https://img.pokemondb.net/sprites/home/normal/mew.png", "weight": 5}]
+
+# 🔥 Boss 池與權重更新 (V2.9.6) 🔥
+RAID_BOSS_POOL = [
+    {"name": "❄️ 急凍鳥", "hp": 15000, "atk": 500, "img": "https://img.pokemondb.net/sprites/home/normal/articuno.png", "weight": 25},
+    {"name": "🔥 火焰鳥", "hp": 15000, "atk": 500, "img": "https://img.pokemondb.net/sprites/home/normal/moltres.png", "weight": 25},
+    {"name": "⚡ 閃電鳥", "hp": 15000, "atk": 500, "img": "https://img.pokemondb.net/sprites/home/normal/zapdos.png", "weight": 25},
+    {"name": "🔮 超夢",   "hp": 20000, "atk": 800, "img": "https://img.pokemondb.net/sprites/home/normal/mewtwo.png", "weight": 5},
+    {"name": "✨ 夢幻",   "hp": 20000, "atk": 800, "img": "https://img.pokemondb.net/sprites/home/normal/mew.png", "weight": 5},
+    {"name": "🌈 鳳王",   "hp": 18000, "atk": 600, "img": "https://img.pokemondb.net/sprites/home/normal/ho-oh.png", "weight": 7.5},
+    {"name": "🌪️ 洛奇亞", "hp": 18000, "atk": 600, "img": "https://img.pokemondb.net/sprites/home/normal/lugia.png", "weight": 7.5},
+]
 
 def get_req_xp(lv):
     if lv >= 100: return 999999999
@@ -181,24 +215,33 @@ def apply_iv_stats(base_val, iv, level, is_hp=False, is_player=True):
     else: growth_rate = 1.033 if is_hp else 1.034
     return int(base_val * iv_mult * (growth_rate ** (level - 1)))
 
-# ... (Raid logic stays same) ...
 def update_raid_logic(db: Session = None):
     now = get_now_tw()
     curr_total_mins = now.hour * 60 + now.minute
+    
+    # 判斷是否為「準備期」 (57~00分)
     for (h, m) in RAID_SCHEDULE:
         start_total_mins = h * 60 + m
-        lobby_time = start_total_mins - 1
-        if lobby_time < 0: lobby_time += 1440 
-        if curr_total_mins == lobby_time:
+        start_lobby_mins = start_total_mins - 3 # 前 3 分鐘
+        if start_lobby_mins < 0: start_lobby_mins += 1440
+        
+        # LOBBY CHECK (57, 58, 59 分)
+        if start_lobby_mins <= curr_total_mins < start_total_mins:
             if RAID_STATE["status"] != "LOBBY":
                 boss_data = random.choices(RAID_BOSS_POOL, weights=[b['weight'] for b in RAID_BOSS_POOL], k=1)[0]
                 RAID_STATE["active"] = True; RAID_STATE["status"] = "LOBBY"; RAID_STATE["boss"] = boss_data; RAID_STATE["max_hp"] = boss_data["hp"]; RAID_STATE["current_hp"] = boss_data["hp"]; RAID_STATE["players"] = {}; RAID_STATE["last_attack_time"] = get_now_tw(); RAID_STATE["attack_counter"] = 0
             return
+
+    # 判斷是否為「戰鬥期」 (00~10分)
     for (h, m) in RAID_SCHEDULE:
         start_total_mins = h * 60 + m
-        if 0 <= (curr_total_mins - start_total_mins) < 5:
+        if 0 <= (curr_total_mins - start_total_mins) < 10:
+            # 狀態切換 LOBBY -> FIGHTING
             if RAID_STATE["status"] == "LOBBY": RAID_STATE["status"] = "FIGHTING"; RAID_STATE["last_attack_time"] = get_now_tw()
+            # 如果錯過 LOBBY 直接進 FIGHTING (容錯)
             elif RAID_STATE["status"] == "IDLE": boss_data = random.choices(RAID_BOSS_POOL, weights=[b['weight'] for b in RAID_BOSS_POOL], k=1)[0]; RAID_STATE["active"] = True; RAID_STATE["status"] = "FIGHTING"; RAID_STATE["boss"] = boss_data; RAID_STATE["max_hp"] = boss_data["hp"]; RAID_STATE["current_hp"] = boss_data["hp"]; RAID_STATE["players"] = {}; RAID_STATE["last_attack_time"] = get_now_tw()
+            
+            # 自動扣血邏輯 (Boss 攻擊)
             if RAID_STATE["status"] == "FIGHTING":
                 last_time = RAID_STATE.get("last_attack_time")
                 if last_time and (get_now_tw() - last_time).total_seconds() >= 7:
@@ -213,6 +256,7 @@ def update_raid_logic(db: Session = None):
                             db.commit()
             if RAID_STATE["current_hp"] <= 0: RAID_STATE["status"] = "ENDED"
             return
+            
     if RAID_STATE["status"] != "IDLE": RAID_STATE["active"] = False; RAID_STATE["status"] = "IDLE"; RAID_STATE["boss"] = None
 
 @router.get("/data/skills")
@@ -405,7 +449,7 @@ def accept_invite(source_id: int, current_user: User = Depends(get_current_user)
         "start_time": datetime.utcnow().isoformat(),
         "countdown_end": (datetime.utcnow() + timedelta(seconds=12)).isoformat(),
         "turn": None, "p1_data": None, "p2_data": None,
-        "ended_at": None # 🔥 新增：結束時間標記
+        "ended_at": None 
     }
     del INVITES[current_user.id]
     return {"message": "接受成功", "room_id": room_id}
@@ -418,8 +462,6 @@ def reject_invite(source_id: int, current_user: User = Depends(get_current_user)
 @router.get("/duel/status")
 def check_duel_status(current_user: User = Depends(get_current_user), db: Session = Depends(get_db)):
     update_user_activity(current_user.id)
-    
-    # 🔥 自動清理舊房間 🔥
     now = datetime.utcnow()
     keys_to_del = []
     for rid, r in DUEL_ROOMS.items():
@@ -454,7 +496,6 @@ def check_duel_status(current_user: User = Depends(get_current_user), db: Sessio
         else: return {"status": "PREPARING", "remaining": remaining}
     return {"status": room["status"], "room": room}
 
-# 🔥 PvP 攻擊/補血 (新增 heal 參數) 🔥
 @router.post("/duel/attack")
 def duel_attack(damage: int = Query(0), heal: int = Query(0), db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
     room = None
@@ -473,14 +514,13 @@ def duel_attack(damage: int = Query(0), heal: int = Query(0), db: Session = Depe
     room[target_key]["hp"] = max(0, room[target_key]["hp"] - damage)
     target_user.hp = room[target_key]["hp"]
     
-    # 🔥 補血同步邏輯 🔥
     if heal > 0:
         room[my_key]["hp"] = min(room[my_key]["max_hp"], room[my_key]["hp"] + heal)
         current_user.hp = room[my_key]["hp"]
         
     if room[target_key]["hp"] <= 0:
         room["status"] = "ENDED"
-        room["ended_at"] = datetime.utcnow().isoformat() # 標記結束時間
+        room["ended_at"] = datetime.utcnow().isoformat() 
         current_user.money += 300; current_user.exp += 500
         db.commit()
         return {"result": "WIN", "reward": "獲得 300G & 500 XP"}
@@ -490,23 +530,96 @@ def duel_attack(damage: int = Query(0), heal: int = Query(0), db: Session = Depe
     return {"result": "NEXT", "damage": damage, "heal": heal}
 
 # =================================================================
-# 8. 每日獎勵與線上玩家 (V2.9.2 修復版)
+# 10. 團體戰加入 (V2.9.6 更新：只能在戰鬥期加入)
 # =================================================================
+@router.post("/raid/join")
+def join_raid(current_user: User = Depends(get_current_user), db: Session = Depends(get_db)):
+    update_raid_logic(db)
+    if RAID_STATE["status"] == "LOBBY": return {"message": "戰鬥尚未開始，請稍候..."}
+    if RAID_STATE["status"] != "FIGHTING": raise HTTPException(status_code=400, detail="目前戰鬥尚未開始")
+    if current_user.id in RAID_STATE["players"]: return {"message": "已經加入過了"}
+    if current_user.money < 1000: raise HTTPException(status_code=400, detail="金幣不足 (需 1000 G)")
+    current_user.money -= 1000
+    RAID_STATE["players"][current_user.id] = { "name": current_user.username, "dmg": 0, "dead_at": None, "claimed": False }
+    db.commit()
+    return {"message": "成功加入團體戰！"}
+
+@router.post("/raid/attack")
+def attack_raid_boss(damage: int = Query(...), current_user: User = Depends(get_current_user)):
+    update_raid_logic(None)
+    if current_user.id not in RAID_STATE["players"]: raise HTTPException(status_code=400, detail="你不在大廳中")
+    p_data = RAID_STATE["players"][current_user.id]
+    if p_data.get("dead_at"): raise HTTPException(status_code=400, detail="你已死亡，請盡快復活！")
+    if RAID_STATE["status"] != "FIGHTING": return {"message": "戰鬥尚未開始或已結束", "boss_hp": RAID_STATE["current_hp"]}
+    RAID_STATE["current_hp"] = max(0, RAID_STATE["current_hp"] - damage)
+    return {"message": f"造成 {damage} 點傷害", "boss_hp": RAID_STATE["current_hp"]}
+
+@router.post("/raid/recover")
+def raid_recover(current_user: User = Depends(get_current_user), db: Session = Depends(get_db)):
+    heal_amount = int(current_user.max_hp * 0.2)
+    current_user.hp = min(current_user.max_hp, current_user.hp + heal_amount)
+    db.commit()
+    return {"message": f"回復了 {heal_amount} HP", "hp": current_user.hp}
+
+@router.post("/raid/revive")
+def revive_raid(current_user: User = Depends(get_current_user), db: Session = Depends(get_db)):
+    if current_user.id not in RAID_STATE["players"]: raise HTTPException(status_code=400, detail="你不在大廳中")
+    if current_user.money < 500: raise HTTPException(status_code=400, detail="金幣不足 500G")
+    current_user.money -= 500
+    RAID_STATE["players"][current_user.id]["dead_at"] = None
+    current_user.hp = current_user.max_hp
+    db.commit()
+    return {"message": "復活成功！"}
+
+# 🔥 領獎自動補滿血 (V2.9.6) 🔥
+@router.post("/raid/claim")
+def claim_raid_reward(choice: int = Query(...), current_user: User = Depends(get_current_user), db: Session = Depends(get_db)):
+    if RAID_STATE["status"] != "ENDED": raise HTTPException(status_code=400, detail="戰鬥尚未結束")
+    if current_user.id not in RAID_STATE["players"]: raise HTTPException(status_code=400, detail="你沒有參與這場戰鬥")
+    p_data = RAID_STATE["players"][current_user.id]
+    if p_data.get("claimed"): return {"message": "已經領過獎勵了"}
+    reward_pool = ["gold_candy", "money", "pet"]
+    prize = random.choice(reward_pool)
+    msg = ""
+    inv = json.loads(current_user.inventory)
+    if prize == "gold_candy":
+        inv["golden_candy"] = inv.get("golden_candy", 0) + 2
+        msg = "獲得 ✨ 黃金糖果 x2"
+    elif prize == "money":
+        current_user.money += 5000
+        msg = "獲得 💰 5000 Gold"
+    elif prize == "pet":
+        boss_name = RAID_STATE["boss"]["name"].split(" ")[1] 
+        new_lv = random.randint(1, current_user.level)
+        new_mon = { "uid": str(uuid.uuid4()), "name": boss_name, "iv": int(random.randint(60, 100)), "lv": new_lv, "exp": 0 }
+        try:
+            box = json.loads(current_user.pokemon_storage)
+            box.append(new_mon)
+            current_user.pokemon_storage = json.dumps(box)
+            msg = f"獲得 Boss 寶可夢：{boss_name} (Lv.{new_lv})！"
+        except:
+            msg = "背包滿了，獲得 5000G 代替"
+            current_user.money += 5000
+    RAID_STATE["players"][current_user.id]["claimed"] = True
+    current_user.inventory = json.dumps(inv)
+    current_user.exp += 3000; current_user.pet_exp += 3000
+    current_user.hp = current_user.max_hp # 🔥 補滿血
+    db.commit()
+    return {"message": msg, "prize": prize}
+
 @router.post("/social/daily_checkin")
 def daily_checkin(current_user: User = Depends(get_current_user), db: Session = Depends(get_db)):
     now = get_now_tw()
     today_str = now.strftime("%Y-%m-%d")
-    
-    if current_user.last_checkin_date == today_str:
-        return {"message": "今天已經簽到過了"}
-    
+    if current_user.last_checkin_date == today_str: return {"message": "今天已經簽到過了"}
     prizes = ["1500G", "3000G", "candy", "golden", "8000G", "legendary"]
     weights = [30, 20, 20, 20, 6, 4]
     result = random.choices(prizes, weights=weights, k=1)[0]
-    
-    # 🔥 500 Error 修復：Null check
-    inv = json.loads(current_user.inventory) if current_user.inventory else {}
-        
+    try:
+        inv_data = current_user.inventory
+        if not inv_data: inv = {}
+        else: inv = json.loads(inv_data)
+    except: inv = {}
     msg = ""
     if result == "1500G": current_user.money += 1500; msg = "獲得 1500 Gold"
     elif result == "3000G": current_user.money += 3000; msg = "獲得 3000 Gold"
@@ -514,38 +627,46 @@ def daily_checkin(current_user: User = Depends(get_current_user), db: Session = 
     elif result == "golden": inv["golden_candy"] = inv.get("golden_candy", 0) + 1; msg = "獲得 ✨ 黃金糖果 x1"
     elif result == "8000G": current_user.money += 8000; msg = "大獎！獲得 💰 8000 Gold"
     elif result == "legendary": inv["legendary_candy"] = inv.get("legendary_candy", 0) + 1; msg = "超級大獎！獲得 🔮 傳說糖果 x1"
-        
     current_user.last_checkin_date = today_str
     current_user.inventory = json.dumps(inv)
     db.commit()
     return {"message": f"簽到成功！{msg}"}
 
+@router.post("/social/add/{target_id}")
+def add_friend(target_id: int, current_user: User = Depends(get_current_user), db: Session = Depends(get_db)):
+    if target_id == current_user.id: raise HTTPException(status_code=400, detail="不能加自己")
+    existing = db.query(Friendship).filter(or_((Friendship.user_id == current_user.id) & (Friendship.friend_id == target_id), (Friendship.user_id == target_id) & (Friendship.friend_id == current_user.id))).first()
+    if existing: return {"message": "已經是好友或已發送邀請"}
+    new_fs = Friendship(user_id=current_user.id, friend_id=target_id, status="PENDING")
+    db.add(new_fs); db.commit()
+    return {"message": "已發送好友邀請"}
+
+@router.get("/social/requests")
+def get_friend_requests(current_user: User = Depends(get_current_user), db: Session = Depends(get_db)):
+    reqs = db.query(Friendship).filter(Friendship.friend_id == current_user.id, Friendship.status == "PENDING").all()
+    result = []
+    for r in reqs:
+        sender = db.query(User).filter(User.id == r.user_id).first()
+        if sender: result.append({"request_id": r.id, "username": sender.username, "pokemon_image": sender.pokemon_image})
+    return result
+
+@router.post("/social/accept/{req_id}")
+def accept_friend(req_id: int, current_user: User = Depends(get_current_user), db: Session = Depends(get_db)):
+    fs = db.query(Friendship).filter(Friendship.id == req_id, Friendship.friend_id == current_user.id).first()
+    if not fs: raise HTTPException(status_code=404, detail="找不到邀請")
+    fs.status = "ACCEPTED"
+    db.commit()
+    return {"message": "已接受好友"}
+
 @router.get("/social/list")
 def get_friend_list(current_user: User = Depends(get_current_user), db: Session = Depends(get_db)):
-    # 🔥 雙向好友查詢 🔥
-    try:
-        if Friendship:
-            friends_query = db.query(Friendship).filter(
-                or_(Friendship.user_id == current_user.id, Friendship.friend_id == current_user.id),
-                Friendship.status == "ACCEPTED"
-            ).all()
-            
-            result = []
-            for f in friends_query:
-                target_id = f.friend_id if f.user_id == current_user.id else f.user_id
-                target = db.query(User).filter(User.id == target_id).first()
-                if target:
-                    result.append({
-                        "id": target.id,
-                        "username": target.username,
-                        "pokemon_image": target.pokemon_image,
-                        "can_gift": True
-                    })
-            return result
-        else:
-            return [] # 若無模型則回傳空
-    except:
-        return []
+    friends_query = db.query(Friendship).filter(or_(Friendship.user_id == current_user.id, Friendship.friend_id == current_user.id), Friendship.status == "ACCEPTED").all()
+    result = []
+    for f in friends_query:
+        target_id = f.friend_id if f.user_id == current_user.id else f.user_id
+        target = db.query(User).filter(User.id == target_id).first()
+        if target: result.append({"id": target.id, "username": target.username, "pokemon_image": target.pokemon_image, "can_gift": True})
+    return result
 
 @router.get("/social/players")
 def get_online_players(current_user: User = Depends(get_current_user), db: Session = Depends(get_db)):
@@ -560,9 +681,6 @@ def get_online_players(current_user: User = Depends(get_current_user), db: Sessi
         result.append({ "id": u.id, "username": u.username, "pokemon_image": u.pokemon_image, "is_online": is_online })
     return result
 
-# =================================================================
-# 10. 管理員刪除帳號 API
-# =================================================================
 @router.delete("/admin/delete_user")
 def delete_user_by_name(username: str, db: Session = Depends(get_db)):
     target = db.query(User).filter(User.username == username).first()
@@ -578,7 +696,7 @@ def delete_user_by_name(username: str, db: Session = Depends(get_db)):
     for rid in rooms_to_del: del DUEL_ROOMS[rid]
     if uid in RAID_STATE["players"]: del RAID_STATE["players"][uid]
     try:
-        if Friendship: db.query(Friendship).filter(or_(Friendship.user_id == uid, Friendship.friend_id == uid)).delete()
+        db.query(Friendship).filter(or_(Friendship.user_id == uid, Friendship.friend_id == uid)).delete()
         db.delete(target)
         db.commit()
         return {"message": f"✅ 已成功刪除玩家 [{username}] 及其所有資料"}
