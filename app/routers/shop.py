@@ -110,6 +110,7 @@ SKILL_DB = {
 # 2. 圖鑑資料庫
 # =================================================================
 POKEDEX_DATA = {
+    # 關都野怪
     "小拉達": {"hp": 90, "atk": 80, "img": "https://img.pokemondb.net/artwork/large/rattata.jpg", "skills": ["抓", "出奇一擊", "撞擊"]},
     "波波": {"hp": 94, "atk": 84, "img": "https://img.pokemondb.net/artwork/large/pidgey.jpg", "skills": ["抓", "啄", "燕返"]},
     "烈雀": {"hp": 88, "atk": 92, "img": "https://img.pokemondb.net/artwork/large/spearow.jpg", "skills": ["抓", "啄", "燕返"]},
@@ -131,6 +132,7 @@ POKEDEX_DATA = {
     "怪力": {"hp": 140, "atk": 145, "img": "https://img.pokemondb.net/artwork/large/machamp.jpg", "skills": ["雙倍奉還", "岩石封鎖", "近身戰"]},
     "暴鯉龍": {"hp": 150, "atk": 150, "img": "https://img.pokemondb.net/artwork/large/gyarados.jpg", "skills": ["水槍", "水流尾", "勇鳥猛攻"]},
 
+    # 玩家/寵物
     "妙蛙種子": {"hp": 130, "atk": 112, "img": "https://img.pokemondb.net/artwork/large/bulbasaur.jpg", "skills": ["藤鞭", "種子炸彈", "污泥炸彈"]},
     "小火龍": {"hp": 112, "atk": 130, "img": "https://img.pokemondb.net/artwork/large/charmander.jpg", "skills": ["火花", "噴射火焰", "大字爆炎"]},
     "傑尼龜": {"hp": 121, "atk": 121, "img": "https://img.pokemondb.net/artwork/large/squirtle.jpg", "skills": ["水槍", "水流噴射", "水流尾"]},
@@ -173,7 +175,7 @@ WILD_UNLOCK_LEVELS = {
 }
 
 # =================================================================
-# 3. 扭蛋機率與池子
+# 3. 扭蛋機率與池子 (V2.10.0 更新：拆分糖果與金幣池)
 # =================================================================
 GACHA_NORMAL = [{"name": "妙蛙種子", "rate": 5}, {"name": "小火龍", "rate": 5}, {"name": "傑尼龜", "rate": 5}, {"name": "六尾", "rate": 5}, {"name": "毛辮羊", "rate": 5}, {"name": "伊布", "rate": 10}, {"name": "皮卡丘", "rate": 10}, {"name": "皮皮", "rate": 10}, {"name": "胖丁", "rate": 10}, {"name": "大蔥鴨", "rate": 10}, {"name": "呆呆獸", "rate": 12.5}, {"name": "可達鴨", "rate": 12.5}]
 GACHA_MEDIUM = [{"name": "妙蛙種子", "rate": 10}, {"name": "小火龍", "rate": 10}, {"name": "傑尼龜", "rate": 10}, {"name": "伊布", "rate": 10}, {"name": "皮卡丘", "rate": 10}, {"name": "呆呆獸", "rate": 10}, {"name": "可達鴨", "rate": 10}, {"name": "毛辮羊", "rate": 10}, {"name": "卡比獸", "rate": 5}, {"name": "吉利蛋", "rate": 3}, {"name": "拉普拉斯", "rate": 3}, {"name": "妙蛙花", "rate": 3}, {"name": "噴火龍", "rate": 3}, {"name": "水箭龜", "rate": 3}]
@@ -219,7 +221,7 @@ def create_xp_map():
 LEVEL_XP_MAP = create_xp_map()
 
 # =================================================================
-# 4. 團體戰邏輯 (移除 15:00)
+# 4. 團體戰邏輯
 # =================================================================
 RAID_SCHEDULE = [(8, 0), (14, 0), (18, 0), (21, 0), (22, 0), (23, 0)] 
 RAID_STATE = {"active": False, "status": "IDLE", "boss": None, "current_hp": 0, "max_hp": 0, "players": {}, "last_attack_time": None, "attack_counter": 0}
@@ -315,36 +317,71 @@ async def wild_attack_api(is_win: bool = Query(...), is_powerful: bool = Query(F
     if is_win:
         target_data = POKEDEX_DATA.get(target_name, POKEDEX_DATA["小拉達"])
         base_stat_sum = target_data["hp"] + target_data["atk"]
-        xp = int((base_stat_sum / 4) * target_level)
+        
+        # 🔥 V2.10.3 數值平衡 (XP/12)
+        xp = int((base_stat_sum / 12) * target_level)
         money = int(xp * 0.5) 
-        current_user.exp += xp; current_user.pet_exp += xp; current_user.money += money
+        
+        current_user.exp += xp
+        current_user.pet_exp += xp
+        current_user.money += money
+        
         msg = f"獲得 {xp} XP, {money} G"
         inv = json.loads(current_user.inventory)
-        if random.random() < 0.4: inv["candy"] = inv.get("candy", 0) + 1; msg += " & 🍬 獲得神奇糖果!"
-        if is_powerful: inv["growth_candy"] = inv.get("growth_candy", 0) + 1; msg += " & 🍬 成長糖果 x1"
+        if random.random() < 0.4:
+            inv["candy"] = inv.get("candy", 0) + 1
+            msg += " & 🍬 獲得神奇糖果!"
+            
+        if is_powerful:
+            inv["growth_candy"] = inv.get("growth_candy", 0) + 1
+            msg += " & 🍬 成長糖果 x1"
+        
         current_user.inventory = json.dumps(inv)
+        
         quests = json.loads(current_user.quests) if current_user.quests else []
         quest_updated = False
         for q in quests:
             is_name_match = (q.get("target") in target_name) or (target_name in q.get("target"))
             is_level_match = target_level >= q.get("level", 1)
-            if q["status"] != "COMPLETED" and is_name_match and is_level_match: q["now"] += 1; quest_updated = True
+            if q["status"] != "COMPLETED" and is_name_match and is_level_match:
+                q["now"] += 1
+                quest_updated = True
+        
         if quest_updated: current_user.quests = json.dumps(quests)
+        
         req_xp_p = get_req_xp(current_user.level)
-        while current_user.exp >= req_xp_p and current_user.level < 100: current_user.exp -= req_xp_p; current_user.level += 1; req_xp_p = get_req_xp(current_user.level); msg += f" | 訓練師升級 Lv.{current_user.level}!"
+        while current_user.exp >= req_xp_p and current_user.level < 100:
+            current_user.exp -= req_xp_p
+            current_user.level += 1
+            req_xp_p = get_req_xp(current_user.level)
+            msg += f" | 訓練師升級 Lv.{current_user.level}!"
+        
         req_xp_pet = get_req_xp(current_user.pet_level)
         pet_leveled_up = False
-        while current_user.pet_exp >= req_xp_pet and current_user.pet_level < 100: current_user.pet_exp -= req_xp_pet; current_user.pet_level += 1; req_xp_pet = get_req_xp(current_user.pet_level); pet_leveled_up = True; msg += f" | 寶可夢升級 Lv.{current_user.pet_level}!"
+        while current_user.pet_exp >= req_xp_pet and current_user.pet_level < 100:
+            current_user.pet_exp -= req_xp_pet
+            current_user.pet_level += 1
+            req_xp_pet = get_req_xp(current_user.pet_level)
+            pet_leveled_up = True
+            msg += f" | 寶可夢升級 Lv.{current_user.pet_level}!"
+        
         box = json.loads(current_user.pokemon_storage)
         active_pet = next((p for p in box if p['uid'] == current_user.active_pokemon_uid), None)
         if active_pet:
-            active_pet["exp"] = current_user.pet_exp; active_pet["lv"] = current_user.pet_level
+            active_pet["exp"] = current_user.pet_exp
+            active_pet["lv"] = current_user.pet_level
+            
             if pet_leveled_up:
                 base = POKEDEX_DATA.get(active_pet["name"])
-                if base: current_user.max_hp = apply_iv_stats(base["hp"], active_pet["iv"], current_user.pet_level, is_hp=True, is_player=True); current_user.attack = apply_iv_stats(base["atk"], active_pet["iv"], current_user.pet_level, is_hp=False, is_player=True); current_user.hp = current_user.max_hp
+                if base:
+                    current_user.max_hp = apply_iv_stats(base["hp"], active_pet["iv"], current_user.pet_level, is_hp=True, is_player=True)
+                    current_user.attack = apply_iv_stats(base["atk"], active_pet["iv"], current_user.pet_level, is_hp=False, is_player=True)
+                    current_user.hp = current_user.max_hp
+                    
         current_user.pokemon_storage = json.dumps(box)
         db.commit()
         return {"message": f"勝利！HP已回復。{msg}"}
+    
     db.commit()
     return {"message": "戰鬥結束，HP已回復。"}
 
@@ -558,13 +595,9 @@ def duel_attack(damage: int = Query(0), heal: int = Query(0), db: Session = Depe
     db.commit()
     return {"result": "NEXT", "damage": damage, "heal": heal}
 
-# 🔥 新增：團體戰狀態查詢接口 (核心修復) 🔥
 @router.get("/raid/status")
 def get_raid_status(current_user: User = Depends(get_current_user), db: Session = Depends(get_db)):
-    # 每次前端查詢時，主動更新後端邏輯
     update_raid_logic(db)
-    
-    # 回傳玩家個人的參與狀態
     my_status = {}
     if current_user.id in RAID_STATE["players"]:
         my_status = RAID_STATE["players"][current_user.id]
@@ -736,8 +769,8 @@ def redeem_code(code: str, current_user: User = Depends(get_current_user), db: S
     if code in inv["redeemed_codes"]: raise HTTPException(status_code=400, detail="此序號已經使用過了！")
     msg = ""; success = False
     if code == "1PF563GFK2":
-        inv["legendary_candy"] = inv.get("legendary_candy", 0) + 10
-        msg = "兌換成功！獲得 🔮 傳說糖果 x10"; success = True
+        inv["legendary_candy"] = inv.get("legendary_candy", 0) + 25
+        msg = "兌換成功！獲得 🔮 傳說糖果 x25"; success = True
     else: raise HTTPException(status_code=400, detail="無效的序號")
     if success:
         inv["redeemed_codes"].append(code)
