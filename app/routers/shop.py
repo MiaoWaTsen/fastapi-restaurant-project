@@ -733,3 +733,89 @@ def delete_user_by_name(username: str, db: Session = Depends(get_db)):
     except Exception as e:
         db.rollback()
         return {"message": f"❌ 刪除失敗 (資料庫錯誤): {str(e)}"}
+    
+# =================================================================
+# 11. 序號兌換系統 (V2.10.1 新增)
+# =================================================================
+@router.post("/social/redeem")
+def redeem_code(code: str, current_user: User = Depends(get_current_user), db: Session = Depends(get_db)):
+    # 讀取背包與已兌換列表
+    try:
+        inv = json.loads(current_user.inventory) if current_user.inventory else {}
+    except:
+        inv = {}
+        
+    # 確保有 redeemed_codes 欄位
+    if "redeemed_codes" not in inv:
+        inv["redeemed_codes"] = []
+        
+    code = code.strip()
+    
+    # 檢查是否領過
+    if code in inv["redeemed_codes"]:
+        raise HTTPException(status_code=400, detail="此序號已經使用過了！")
+
+    msg = ""
+    success = False
+
+    # --- 序號邏輯區 ---
+    if code == "1PF563GFK2":
+        # 補償序號：10顆傳說糖果
+        inv["legendary_candy"] = inv.get("legendary_candy", 0) + 15
+        msg = "兌換成功！獲得 🔮 傳說糖果 x10"
+        success = True
+        
+    # (未來可以在這裡加更多 else if 序號)
+    
+    else:
+        raise HTTPException(status_code=400, detail="無效的序號")
+
+    # 如果成功，記錄並存檔
+    if success:
+        inv["redeemed_codes"].append(code)
+        current_user.inventory = json.dumps(inv)
+        db.commit()
+        return {"message": msg, "user": current_user}
+
+# =================================================================
+# 12. 特定玩家制裁 API (針對 Stardreamsteps)
+# =================================================================
+@router.post("/admin/sanction_player")
+def sanction_player(username: str = Query(..., description="輸入要制裁的玩家名稱"), db: Session = Depends(get_db)):
+    # 1. 找到玩家
+    target = db.query(User).filter(User.username == username).first()
+    if not target:
+        raise HTTPException(status_code=404, detail="找不到該玩家")
+
+    # 2. 執行制裁 (Lv.75, Money 200,000)
+    target.level = 75
+    target.exp = get_req_xp(75) # 重置經驗值為 Lv.75 的門檻
+    target.money = 200000
+    
+    # 3. 修正出戰寶可夢等級 (同時修正盒子裡的數據)
+    try:
+        box = json.loads(target.pokemon_storage)
+        active_uid = target.active_pokemon_uid
+        
+        for p in box:
+            if p["uid"] == active_uid:
+                p["lv"] = 75
+                p["exp"] = get_req_xp(75)
+                
+                # 重新計算屬性
+                target.pet_level = 75
+                target.pet_exp = p["exp"]
+                
+                base = POKEDEX_DATA.get(p["name"])
+                if base:
+                    target.max_hp = apply_iv_stats(base["hp"], p["iv"], 75, is_hp=True, is_player=True)
+                    target.attack = apply_iv_stats(base["atk"], p["iv"], 75, is_hp=False, is_player=True)
+                    target.hp = target.max_hp # 順便補滿血
+                break
+        
+        target.pokemon_storage = json.dumps(box)
+    except:
+        pass # 如果解析盒子失敗就不處理盒子，只處理玩家本體
+
+    db.commit()
+    return {"message": f"⚖️ 已對 [{username}] 執行制裁：等級降為 75，金幣重置為 200,000。"}
