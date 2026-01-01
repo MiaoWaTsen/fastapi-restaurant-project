@@ -16,9 +16,7 @@ from app.common.websocket import manager
 
 router = APIRouter()
 
-# =================================================================
 # 0. 自動建立好友資料表
-# =================================================================
 Base = declarative_base()
 
 class Friendship(Base):
@@ -33,9 +31,7 @@ try:
 except:
     pass
 
-# =================================================================
 # 全域變數
-# =================================================================
 ONLINE_USERS = {}
 INVITES = {}
 DUEL_ROOMS = {}
@@ -53,7 +49,7 @@ def get_now_tw():
     return datetime.utcnow() + timedelta(hours=8)
 
 # =================================================================
-# 1. 技能資料庫
+# 1. 技能與圖鑑
 # =================================================================
 SKILL_DB = {
     "水槍": {"dmg": 16, "effect": "heal", "prob": 0.5, "val": 0.15, "desc": "50%回血15%"},
@@ -247,7 +243,6 @@ def update_raid_logic(db: Session = None):
 @router.get("/data/skills")
 def get_skill_data(): return SKILL_DB
 
-# 🔥 新增圖鑑 API (V2.11.0)
 @router.get("/pokedex/collection")
 def get_pokedex_collection(current_user: User = Depends(get_current_user)):
     unlocked = current_user.unlocked_monsters.split(',') if current_user.unlocked_monsters else []
@@ -262,8 +257,6 @@ def get_pokedex_collection(current_user: User = Depends(get_current_user)):
             })
     return result
 
-# ... (Wild, Attack, Gacha 保持 V2.10.7 不變) ...
-# (為了縮短篇幅，這裡省略中間重複的 API，請保留原有的 wild_list, wild_attack, gacha, swap, box_action, gamble, heal 等)
 @router.get("/wild/list")
 def get_wild_list(level: int, current_user: User = Depends(get_current_user)):
     update_user_activity(current_user.id)
@@ -535,6 +528,7 @@ def duel_attack(damage: int = Query(0), heal: int = Query(0), db: Session = Depe
     db.commit()
     return {"result": "NEXT", "damage": damage, "heal": heal}
 
+# 🔥 🔥 修正：回傳 user_hp 讓前端同步 Boss 攻擊傷害 🔥 🔥
 @router.get("/raid/status")
 def get_raid_status(current_user: User = Depends(get_current_user), db: Session = Depends(get_db)):
     update_raid_logic(db)
@@ -549,7 +543,8 @@ def get_raid_status(current_user: User = Depends(get_current_user), db: Session 
         "hp": RAID_STATE["current_hp"],
         "max_hp": RAID_STATE["max_hp"],
         "image": RAID_STATE["boss"]["img"] if RAID_STATE["boss"] else "",
-        "my_status": my_status
+        "my_status": my_status,
+        "user_hp": current_user.hp  # 🔥 新增這個欄位
     }
 
 @router.post("/raid/join")
@@ -679,7 +674,6 @@ def accept_friend(req_id: int, current_user: User = Depends(get_current_user), d
     db.commit()
     return {"message": "已接受好友"}
 
-# 🔥 補完：拒絕好友請求
 @router.post("/social/reject/{req_id}")
 def reject_friend_request(req_id: int, current_user: User = Depends(get_current_user), db: Session = Depends(get_db)):
     fs = db.query(Friendship).filter(Friendship.id == req_id, Friendship.friend_id == current_user.id).first()
@@ -688,7 +682,6 @@ def reject_friend_request(req_id: int, current_user: User = Depends(get_current_
     db.commit()
     return {"message": "已拒絕"}
 
-# 🔥 補完：刪除好友
 @router.post("/social/remove/{friend_id}")
 def remove_friend(friend_id: int, current_user: User = Depends(get_current_user), db: Session = Depends(get_db)):
     fs = db.query(Friendship).filter(
