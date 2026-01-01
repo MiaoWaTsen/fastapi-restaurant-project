@@ -623,3 +623,53 @@ def get_online_players(current_user: User = Depends(get_current_user), db: Sessi
         if last_seen and (now - last_seen).total_seconds() < 30: is_online = True
         result.append({ "id": u.id, "username": u.username, "pokemon_image": u.pokemon_image, "is_online": is_online })
     return result
+# =================================================================
+# 10. 管理員刪除帳號 API (放在 shop.py 最下面)
+# =================================================================
+@router.delete("/admin/delete_user")
+def delete_user_by_name(username: str, db: Session = Depends(get_db)):
+    # 1. 搜尋玩家
+    target = db.query(User).filter(User.username == username).first()
+    if not target:
+        raise HTTPException(status_code=404, detail=f"找不到名為 [{username}] 的玩家")
+    
+    uid = target.id
+    
+    # 2. 清理記憶體快取 (讓他在線上名單消失)
+    if uid in ONLINE_USERS: del ONLINE_USERS[uid]
+    
+    # 3. 清理 PvP 邀請與房間
+    if uid in INVITES: del INVITES[uid]
+    # 清理作為來源發出的邀請
+    keys_to_del = [k for k, v in INVITES.items() if v == uid]
+    for k in keys_to_del: del INVITES[k]
+    
+    # 強制結束他參與的房間
+    rooms_to_del = []
+    for rid, r in DUEL_ROOMS.items():
+        if r["p1"] == uid or r["p2"] == uid:
+            rooms_to_del.append(rid)
+    for rid in rooms_to_del:
+        del DUEL_ROOMS[rid]
+
+    # 4. 清理團體戰紀錄
+    if uid in RAID_STATE["players"]:
+        del RAID_STATE["players"][uid]
+
+    # 5. 從資料庫刪除
+    try:
+        # 如果有建立 Friendship 資料表且沒有設 CASCADE，這裡可能會報錯
+        # 嘗試先刪除相關好友紀錄 (如果有 Friendship 模型的話)
+        try:
+            from app.models.social import Friendship
+            db.query(Friendship).filter(or_(Friendship.user_id == uid, Friendship.friend_id == uid)).delete()
+        except:
+            pass # 忽略錯誤 (可能沒有該模型或表)
+
+        db.delete(target)
+        db.commit()
+        return {"message": f"✅ 已成功刪除玩家 [{username}] 及其所有資料"}
+        
+    except Exception as e:
+        db.rollback()
+        return {"message": f"❌ 刪除失敗 (資料庫錯誤): {str(e)}"}
