@@ -49,7 +49,7 @@ def get_now_tw():
     return datetime.utcnow() + timedelta(hours=8)
 
 # =================================================================
-# 1. 技能與圖鑑
+# 1. 技能資料庫
 # =================================================================
 SKILL_DB = {
     "水槍": {"dmg": 16, "effect": "heal", "prob": 0.5, "val": 0.15, "desc": "50%回血15%"},
@@ -106,7 +106,7 @@ SKILL_DB = {
 # 2. 圖鑑資料庫
 # =================================================================
 POKEDEX_DATA = {
-    # 關都野怪 (練功用，不計入圖鑑)
+    # 關都野怪
     "小拉達": {"hp": 90, "atk": 80, "img": "https://img.pokemondb.net/artwork/large/rattata.jpg", "skills": ["抓", "出奇一擊", "撞擊"]},
     "波波": {"hp": 94, "atk": 84, "img": "https://img.pokemondb.net/artwork/large/pidgey.jpg", "skills": ["抓", "啄", "燕返"]},
     "烈雀": {"hp": 88, "atk": 92, "img": "https://img.pokemondb.net/artwork/large/spearow.jpg", "skills": ["抓", "啄", "燕返"]},
@@ -128,7 +128,6 @@ POKEDEX_DATA = {
     "怪力": {"hp": 140, "atk": 145, "img": "https://img.pokemondb.net/artwork/large/machamp.jpg", "skills": ["雙倍奉還", "岩石封鎖", "近身戰"]},
     "暴鯉龍": {"hp": 150, "atk": 150, "img": "https://img.pokemondb.net/artwork/large/gyarados.jpg", "skills": ["水槍", "水流尾", "勇鳥猛攻"]},
 
-    # 玩家可收集 (御三家/一般/稀有/傳說)
     "妙蛙種子": {"hp": 130, "atk": 112, "img": "https://img.pokemondb.net/artwork/large/bulbasaur.jpg", "skills": ["藤鞭", "種子炸彈", "污泥炸彈"]},
     "小火龍": {"hp": 112, "atk": 130, "img": "https://img.pokemondb.net/artwork/large/charmander.jpg", "skills": ["火花", "噴射火焰", "大字爆炎"]},
     "傑尼龜": {"hp": 121, "atk": 121, "img": "https://img.pokemondb.net/artwork/large/squirtle.jpg", "skills": ["水槍", "水流噴射", "水流尾"]},
@@ -159,7 +158,6 @@ POKEDEX_DATA = {
     "洛奇亞": {"hp": 155, "atk": 150, "img": "https://img.pokemondb.net/artwork/large/lugia.jpg", "skills": ["龍尾", "水砲", "氣旋攻擊"]},
 }
 
-# 🔥 定義圖鑑範圍 (排除練功野怪)
 COLLECTION_MONS = [
     "妙蛙種子", "小火龍", "傑尼龜", "妙蛙花", "噴火龍", "水箭龜",
     "毛辮羊", "皮卡丘", "伊布", "六尾", "胖丁", "皮皮", "大蔥鴨", "呆呆獸", "可達鴨",
@@ -170,7 +168,6 @@ COLLECTION_MONS = [
 LEGENDARY_MONS = ["急凍鳥", "火焰鳥", "閃電鳥", "超夢", "夢幻", "鳳王", "洛奇亞"]
 OBTAINABLE_MONS = [k for k in POKEDEX_DATA.keys()]
 
-# ... (WILD_UNLOCK_LEVELS, GACHA Lists, XP Maps 保持不變) ...
 WILD_UNLOCK_LEVELS = {
     1: ["小拉達"], 6: ["波波"], 11: ["烈雀"], 16: ["阿柏蛇"], 21: ["瓦斯彈"],
     26: ["海星星"], 31: ["角金魚"], 36: ["走路草"], 41: ["穿山鼠"], 46: ["蚊香蝌蚪"],
@@ -226,6 +223,7 @@ def update_raid_logic(db: Session = None):
             elif RAID_STATE["status"] == "IDLE": boss_data = random.choices(RAID_BOSS_POOL, weights=[b['weight'] for b in RAID_BOSS_POOL], k=1)[0]; RAID_STATE["active"] = True; RAID_STATE["status"] = "FIGHTING"; RAID_STATE["boss"] = boss_data; RAID_STATE["max_hp"] = boss_data["hp"]; RAID_STATE["current_hp"] = boss_data["hp"]; RAID_STATE["players"] = {}; RAID_STATE["last_attack_time"] = get_now_tw()
             if RAID_STATE["status"] == "FIGHTING":
                 last_time = RAID_STATE.get("last_attack_time")
+                # 🔥 這裡修復：確保每次檢查都執行
                 if last_time and (get_now_tw() - last_time).total_seconds() >= 7:
                     if db:
                         RAID_STATE["last_attack_time"] = get_now_tw(); RAID_STATE["attack_counter"] += 1; base_dmg = int(RAID_STATE["boss"]["atk"] * 0.2); boss_dmg = int(base_dmg * random.uniform(0.95, 1.05))
@@ -528,7 +526,6 @@ def duel_attack(damage: int = Query(0), heal: int = Query(0), db: Session = Depe
     db.commit()
     return {"result": "NEXT", "damage": damage, "heal": heal}
 
-# 🔥 🔥 修正：回傳 user_hp 讓前端同步 Boss 攻擊傷害 🔥 🔥
 @router.get("/raid/status")
 def get_raid_status(current_user: User = Depends(get_current_user), db: Session = Depends(get_db)):
     update_raid_logic(db)
@@ -544,7 +541,7 @@ def get_raid_status(current_user: User = Depends(get_current_user), db: Session 
         "max_hp": RAID_STATE["max_hp"],
         "image": RAID_STATE["boss"]["img"] if RAID_STATE["boss"] else "",
         "my_status": my_status,
-        "user_hp": current_user.hp  # 🔥 新增這個欄位
+        "user_hp": current_user.hp
     }
 
 @router.post("/raid/join")
