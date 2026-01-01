@@ -15,17 +15,23 @@ from app.common.websocket import manager
 router = APIRouter()
 
 # =================================================================
+# 全域變數：線上玩家追蹤 (記憶體快取)
+# =================================================================
+ONLINE_USERS = {}
+
+def update_user_activity(user_id):
+    """更新玩家最後活躍時間"""
+    ONLINE_USERS[user_id] = datetime.utcnow()
+
+# =================================================================
 # 1. 技能資料庫 (SKILL_DB) - V2.6.0 平衡版
 # =================================================================
 SKILL_DB = {
-    # [16傷害區]
     "水槍":     {"dmg": 16, "effect": "heal", "prob": 0.5, "val": 0.15, "desc": "50%回血15%"},
     "撒嬌":     {"dmg": 16, "effect": "heal", "prob": 0.5, "val": 0.15, "desc": "50%回血15%"},
     "念力":     {"dmg": 16, "effect": "heal", "prob": 0.5, "val": 0.15, "desc": "50%回血15%"},
     "岩石封鎖": {"dmg": 16, "effect": "heal", "prob": 0.5, "val": 0.15, "desc": "50%回血15%"},
     "毒針":     {"dmg": 16, "effect": "buff_atk", "prob": 0.5, "val": 0.15, "desc": "50%加攻15%"},
-
-    # [18傷害區]
     "藤鞭":     {"dmg": 18, "effect": "buff_atk", "prob": 0.35, "val": 0.15, "desc": "35%加攻15%"},
     "火花":     {"dmg": 18, "effect": "buff_atk", "prob": 0.35, "val": 0.15, "desc": "35%加攻15%"},
     "電光":     {"dmg": 18, "effect": "buff_atk", "prob": 0.35, "val": 0.15, "desc": "35%加攻15%"},
@@ -33,8 +39,6 @@ SKILL_DB = {
     "驚嚇":     {"dmg": 18, "effect": "buff_atk", "prob": 0.35, "val": 0.15, "desc": "35%加攻15%"},
     "地震":     {"dmg": 18, "effect": "heal", "prob": 0.35, "val": 0.15, "desc": "35%回血15%"},
     "冰礫":     {"dmg": 18, "effect": "heal", "prob": 0.35, "val": 0.15, "desc": "35%回血15%"},
-
-    # [20傷害區]
     "泥巴射擊": {"dmg": 20, "effect": "buff_atk", "prob": 0.3, "val": 0.15, "desc": "30%加攻15%"},
     "污泥炸彈": {"dmg": 20, "effect": "buff_atk", "prob": 0.3, "val": 0.15, "desc": "30%加攻15%"},
     "噴射火焰": {"dmg": 20, "effect": "buff_atk", "prob": 0.3, "val": 0.15, "desc": "30%加攻15%"},
@@ -42,14 +46,10 @@ SKILL_DB = {
     "精神強念": {"dmg": 20, "effect": "buff_atk", "prob": 0.3, "val": 0.15, "desc": "30%加攻15%"},
     "近身戰":   {"dmg": 20, "effect": "buff_atk", "prob": 0.3, "val": 0.15, "desc": "30%加攻15%"},
     "電擊":     {"dmg": 20, "effect": "buff_atk", "prob": 0.3, "val": 0.15, "desc": "30%加攻15%"},
-
-    # [24傷害區]
     "撞擊": {"dmg": 24, "effect": None, "prob": 0, "val": 0, "desc": "無特效"},
     "啄":   {"dmg": 24, "effect": None, "prob": 0, "val": 0, "desc": "無特效"},
     "緊束": {"dmg": 24, "effect": None, "prob": 0, "val": 0, "desc": "無特效"},
     "葉刃": {"dmg": 24, "effect": None, "prob": 0, "val": 0, "desc": "無特效"},
-
-    # [26傷害區]
     "抓":       {"dmg": 26, "effect": None, "prob": 0, "val": 0, "desc": "無特效"},
     "放電":     {"dmg": 26, "effect": None, "prob": 0, "val": 0, "desc": "無特效"},
     "出奇一擊": {"dmg": 26, "effect": None, "prob": 0, "val": 0, "desc": "無特效"},
@@ -64,14 +64,10 @@ SKILL_DB = {
     "泥巴炸彈": {"dmg": 26, "effect": None, "prob": 0, "val": 0, "desc": "無特效"},
     "冰凍光束": {"dmg": 26, "effect": None, "prob": 0, "val": 0, "desc": "無特效"},
     "瘋狂伏特": {"dmg": 26, "effect": None, "prob": 0, "val": 0, "desc": "無特效"},
-
-    # [28傷害區]
     "雙倍奉還": {"dmg": 28, "effect": None, "prob": 0, "val": 0, "desc": "無特效"},
     "逆鱗":     {"dmg": 28, "effect": None, "prob": 0, "val": 0, "desc": "無特效"},
     "精神撃破": {"dmg": 28, "effect": None, "prob": 0, "val": 0, "desc": "無特效"},
     "破壞光線": {"dmg": 28, "effect": None, "prob": 0, "val": 0, "desc": "無特效"},
-
-    # [34傷害區]
     "暗影球":   {"dmg": 34, "effect": "debuff_self", "prob": 1.0, "val": 0.1, "desc": "降自身10%攻"},
     "勇鳥猛攻": {"dmg": 34, "effect": "recoil", "prob": 1.0, "val": 0.15, "desc": "扣自身15%血"}
 }
@@ -133,32 +129,18 @@ POKEDEX_DATA = {
     "夢幻":   {"hp": 155, "atk": 152, "img": "https://img.pokemondb.net/artwork/large/mew.jpg", "skills": ["念力", "暗影球", "精神撃破"]},
 }
 
+# 傳說寶可夢清單
+LEGENDARY_MONS = ["急凍鳥", "火焰鳥", "閃電鳥", "超夢", "夢幻"]
 OBTAINABLE_MONS = [k for k in POKEDEX_DATA.keys()]
 
 # =================================================================
 # 3. 關都地區解鎖表 (WILD_UNLOCK_LEVELS) - V2.7.0
 # =================================================================
 WILD_UNLOCK_LEVELS = {
-    1: ["小拉達"],
-    6: ["波波"],
-    11: ["烈雀"],
-    16: ["阿柏蛇"],
-    21: ["瓦斯彈"],
-    26: ["海星星"],
-    31: ["角金魚"],
-    36: ["走路草"],
-    41: ["穿山鼠"],
-    46: ["蚊香蝌蚪"],
-    51: ["小磁怪"],
-    56: ["卡拉卡拉"],
-    61: ["喵喵"],
-    66: ["瑪瑙水母"],
-    71: ["海刺龍"],
-    76: ["電擊獸"],
-    81: ["鴨嘴火獸"],
-    86: ["化石翼龍"],
-    91: ["怪力"],
-    96: ["暴鯉龍"]
+    1: ["小拉達"], 6: ["波波"], 11: ["烈雀"], 16: ["阿柏蛇"], 21: ["瓦斯彈"],
+    26: ["海星星"], 31: ["角金魚"], 36: ["走路草"], 41: ["穿山鼠"], 46: ["蚊香蝌蚪"],
+    51: ["小磁怪"], 56: ["卡拉卡拉"], 61: ["喵喵"], 66: ["瑪瑙水母"], 71: ["海刺龍"],
+    76: ["電擊獸"], 81: ["鴨嘴火獸"], 86: ["化石翼龍"], 91: ["怪力"], 96: ["暴鯉龍"]
 }
 
 GACHA_NORMAL = [
@@ -197,22 +179,14 @@ ACTIVE_BATTLES = {}
 # 4. 經驗值曲線生成 (create_xp_map) - V2.7.0
 # =================================================================
 def create_xp_map():
-    xp_map = {
-        1: 50, 2: 120, 3: 200, 4: 350, 5: 600, 
-        6: 900, 7: 1360, 8: 1800, 9: 2300, 10: 2300 # Lv10基數
-    }
-    
-    # Lv 11~50: 每級 +600
+    xp_map = { 1: 50, 2: 120, 3: 200, 4: 350, 5: 600, 6: 900, 7: 1360, 8: 1800, 9: 2300, 10: 2300 }
     current_req = 2300
     for lv in range(11, 51):
         current_req += 600
         xp_map[lv] = current_req
-        
-    # Lv 51~100: 每級 +2000
     for lv in range(51, 101):
         current_req += 2000
         xp_map[lv] = current_req
-        
     return xp_map
 
 LEVEL_XP_MAP = create_xp_map()
@@ -240,14 +214,10 @@ def get_req_xp(lv):
 # =================================================================
 def apply_iv_stats(base_val, iv, level, is_hp=False, is_player=True):
     iv_mult = 0.9 + (iv / 100) * 0.2
-    
-    if is_player:
-        # 玩家：HP 1.03 / ATK 1.031
-        growth_rate = 1.03 if is_hp else 1.031
-    else:
-        # 寵物/野怪：HP 1.033 / ATK 1.034
-        growth_rate = 1.033 if is_hp else 1.034
-        
+    # 玩家: 1.03 / 1.031
+    if is_player: growth_rate = 1.03 if is_hp else 1.031
+    # 寵物/野怪: 1.033 / 1.034
+    else: growth_rate = 1.033 if is_hp else 1.034
     return int(base_val * iv_mult * (growth_rate ** (level - 1)))
 
 def update_raid_logic(db: Session = None):
@@ -270,11 +240,9 @@ def update_raid_logic(db: Session = None):
                 RAID_STATE["attack_counter"] = 0
             return
     
-    in_fighting_window = False
     for (h, m) in RAID_SCHEDULE:
         start_total_mins = h * 60 + m
         if 0 <= (curr_total_mins - start_total_mins) < 5:
-            in_fighting_window = True
             if RAID_STATE["status"] == "LOBBY":
                  RAID_STATE["status"] = "FIGHTING"
                  RAID_STATE["last_attack_time"] = get_now_tw()
@@ -293,24 +261,18 @@ def update_raid_logic(db: Session = None):
                 if last_time and (get_now_tw() - last_time).total_seconds() >= 7:
                     RAID_STATE["last_attack_time"] = get_now_tw()
                     RAID_STATE["attack_counter"] += 1 
-                    
                     base_dmg = int(RAID_STATE["boss"]["atk"] * 0.2)
                     boss_dmg = int(base_dmg * random.uniform(0.95, 1.05)) 
-                    
                     if db:
                         active_uids = [uid for uid, p in RAID_STATE["players"].items() if not p.get("dead_at")]
                         if active_uids:
                             users_to_hit = db.query(User).filter(User.id.in_(active_uids)).all()
                             for u in users_to_hit:
                                 u.hp = max(0, u.hp - boss_dmg)
-                                if u.hp <= 0:
-                                    RAID_STATE["players"][u.id]["dead_at"] = get_now_tw().isoformat()
+                                if u.hp <= 0: RAID_STATE["players"][u.id]["dead_at"] = get_now_tw().isoformat()
                             db.commit()
-
-            if RAID_STATE["current_hp"] <= 0:
-                RAID_STATE["status"] = "ENDED"
+            if RAID_STATE["current_hp"] <= 0: RAID_STATE["status"] = "ENDED"
             return
-            
     if RAID_STATE["status"] != "IDLE":
         RAID_STATE["active"] = False
         RAID_STATE["status"] = "IDLE"
@@ -332,48 +294,34 @@ def get_all_pokedex():
 # =================================================================
 @router.get("/wild/list")
 def get_wild_list(level: int, current_user: User = Depends(get_current_user)):
-    # 確保 level 不超過玩家等級
+    # 🔥 更新活躍時間
+    update_user_activity(current_user.id)
+    
     if level > current_user.level: level = current_user.level
     
     unique_species = set()
-    
-    # 收集所有符合等級的解鎖怪
     for lv in range(1, level + 1):
         if lv in WILD_UNLOCK_LEVELS:
             for name in WILD_UNLOCK_LEVELS[lv]:
                 unique_species.add(name)
                 
-    # 如果沒怪 (防呆)，給小拉達
     if not unique_species: unique_species.add("小拉達")
     
     wild_list = []
     for name in unique_species:
         if name not in POKEDEX_DATA: continue
         base = POKEDEX_DATA[name]
-        
-        # 🔥 野怪專屬 Buff：ATK*1.15 / HP*1.3 🔥
         buffed_base_hp = int(base["hp"] * 1.3)
         buffed_base_atk = int(base["atk"] * 1.15)
-        
-        # 🔥 動態等級成長：使用玩家當前等級 (level) 計算 🔥
-        # 公式：Base * Growth ^ (Lv-1)
         wild_hp = int(buffed_base_hp * (1.033 ** (level - 1)))
         wild_atk = int(buffed_base_atk * (1.034 ** (level - 1)))
-        
         wild_skills = base.get("skills", ["撞擊", "撞擊", "撞擊"])
         
         wild_list.append({
-            "name": name, 
-            "raw_name": name, 
-            "is_powerful": False,
-            "level": level, # 顯示為當前選擇的區域等級 (即玩家等級)
-            "hp": wild_hp, 
-            "max_hp": wild_hp, 
-            "attack": wild_atk,
-            "image_url": base["img"], 
-            "skills": wild_skills 
+            "name": name, "raw_name": name, "is_powerful": False,
+            "level": level, "hp": wild_hp, "max_hp": wild_hp, "attack": wild_atk,
+            "image_url": base["img"], "skills": wild_skills 
         })
-        
     return wild_list
 
 @router.post("/wild/attack")
@@ -385,6 +333,7 @@ async def wild_attack_api(
     db: Session = Depends(get_db), 
     current_user: User = Depends(get_current_user)
 ):
+    update_user_activity(current_user.id)
     current_user.hp = current_user.max_hp
     if is_win:
         target_data = POKEDEX_DATA.get(target_name, POKEDEX_DATA["小拉達"])
@@ -445,22 +394,14 @@ async def wild_attack_api(
 
 @router.post("/gacha/{gacha_type}")
 async def play_gacha(gacha_type: str, db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
-    try:
-        box = json.loads(current_user.pokemon_storage) if current_user.pokemon_storage else []
-    except:
-        box = []
-
-    if len(box) >= 25: 
-        raise HTTPException(status_code=400, detail="盒子滿了！請先放生")
-    
-    try:
-        inventory = json.loads(current_user.inventory) if current_user.inventory else {}
-    except:
-        inventory = {}
+    try: box = json.loads(current_user.pokemon_storage) if current_user.pokemon_storage else []
+    except: box = []
+    if len(box) >= 25: raise HTTPException(status_code=400, detail="盒子滿了！請先放生")
+    try: inventory = json.loads(current_user.inventory) if current_user.inventory else {}
+    except: inventory = {}
 
     cost = 0
     pool = []
-    
     if gacha_type == 'normal': pool = GACHA_NORMAL; cost = 1500
     elif gacha_type == 'medium': pool = GACHA_MEDIUM; cost = 3000
     elif gacha_type == 'high': pool = GACHA_HIGH; cost = 10000
@@ -482,14 +423,11 @@ async def play_gacha(gacha_type: str, db: Session = Depends(get_db), current_use
     prize_name = pool[0]["name"]
     for p in pool:
         acc += p["rate"]
-        if r <= acc: 
-            prize_name = p["name"]
-            break
+        if r <= acc: prize_name = p["name"]; break
     
     # 🔥 隨機等級：1 ~ 玩家當前等級 🔥
     new_lv = random.randint(1, current_user.level)
     iv = int(random.triangular(0, 100, 50))
-    
     new_mon = { "uid": str(uuid.uuid4()), "name": prize_name, "iv": iv, "lv": new_lv, "exp": 0 }
     box.append(new_mon)
     
@@ -497,18 +435,13 @@ async def play_gacha(gacha_type: str, db: Session = Depends(get_db), current_use
     current_user.inventory = json.dumps(inventory)
     
     unlocked = current_user.unlocked_monsters.split(',') if current_user.unlocked_monsters else []
-    if prize_name not in unlocked: 
-        unlocked.append(prize_name)
-        current_user.unlocked_monsters = ",".join(unlocked)
-    
+    if prize_name not in unlocked: unlocked.append(prize_name); current_user.unlocked_monsters = ",".join(unlocked)
     db.commit()
     
     try:
         if gacha_type in ['golden', 'high'] or prize_name in ['快龍', '超夢', '夢幻', '拉普拉斯', '幸福蛋', '耿鬼']:
             await manager.broadcast(f"🎰 恭喜 [{current_user.username}] 獲得了稀有的 [{prize_name}] (Lv.{new_lv})！")
-    except:
-        pass
-        
+    except: pass
     return {"message": f"獲得 {prize_name} (Lv.{new_lv}, IV: {iv})!", "prize": new_mon, "user": current_user}
 
 @router.post("/box/swap/{pokemon_uid}")
@@ -527,14 +460,16 @@ async def swap_active_pokemon(pokemon_uid: str, db: Session = Depends(get_db), c
     if base:
         current_user.max_hp = apply_iv_stats(base["hp"], target["iv"], target["lv"], is_hp=True, is_player=True)
         current_user.attack = apply_iv_stats(base["atk"], target["iv"], target["lv"], is_hp=False, is_player=True)
-    else:
-        current_user.max_hp = 100; current_user.attack = 10
+    else: current_user.max_hp = 100; current_user.attack = 10
         
     current_user.hp = current_user.max_hp
     db.commit()
     await manager.broadcast(f"EVENT:PVP_SWAP|{current_user.id}")
     return {"message": f"就決定是你了，{target['name']}！"}
 
+# =================================================================
+# 7. 放生邏輯 (box_action) - V2.8.0 傳說糖果
+# =================================================================
 @router.post("/box/action/{action}/{pokemon_uid}")
 async def box_action(action: str, pokemon_uid: str, db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
     box = json.loads(current_user.pokemon_storage)
@@ -545,29 +480,30 @@ async def box_action(action: str, pokemon_uid: str, db: Session = Depends(get_db
     if action == "release":
         if pokemon_uid == current_user.active_pokemon_uid: raise HTTPException(status_code=400, detail="出戰中無法放生")
         box = [p for p in box if p["uid"] != pokemon_uid]
-        current_user.money += 100
-        msg = "放生成功，獲得 100 Gold"
+        
+        # 🔥 傳說糖果邏輯 🔥
+        if target["name"] in LEGENDARY_MONS:
+            inv["legendary_candy"] = inv.get("legendary_candy", 0) + 1
+            msg = "✨ 放生傳說寶可夢，獲得 🔮 傳說糖果 x1"
+        else:
+            current_user.money += 100
+            msg = "放生成功，獲得 100 Gold"
         
     elif action == "candy":
-        if target["lv"] >= current_user.level:
-            raise HTTPException(status_code=400, detail=f"等級已達上限 (訓練師 Lv.{current_user.level})")
-
+        if target["lv"] >= current_user.level: raise HTTPException(status_code=400, detail=f"等級已達上限 (訓練師 Lv.{current_user.level})")
         if inv.get("growth_candy", 0) < 1: raise HTTPException(status_code=400, detail="成長糖果不足")
         inv["growth_candy"] -= 1
         target["exp"] += 1000
-        
         req = get_req_xp(target["lv"])
         while target["exp"] >= req and target["lv"] < 100:
             if target["lv"] >= current_user.level: break
             target["lv"] += 1; target["exp"] -= req; req = get_req_xp(target["lv"])
-            
         if pokemon_uid == current_user.active_pokemon_uid:
             base = POKEDEX_DATA.get(target["name"])
             if base:
                 current_user.pet_level = target["lv"]; current_user.pet_exp = target["exp"]
                 current_user.max_hp = apply_iv_stats(base["hp"], target["iv"], target["lv"], is_hp=True, is_player=True)
                 current_user.attack = apply_iv_stats(base["atk"], target["iv"], target["lv"], is_hp=False, is_player=True)
-                
         msg = f"使用成長糖果，經驗+1000 (Lv.{target['lv']})"
         
     current_user.pokemon_storage = json.dumps(box)
@@ -616,10 +552,10 @@ async def pvp_attack(target_id: int, damage: int = Query(0), heal: int = Query(0
 
 @router.get("/raid/status")
 def get_raid_status(current_user: User = Depends(get_current_user), db: Session = Depends(get_db)):
+    update_user_activity(current_user.id) # Heartbeat
     update_raid_logic(db)
     boss = RAID_STATE.get("boss")
-    if not boss: 
-        return {"active": False, "status": "IDLE"}
+    if not boss: return {"active": False, "status": "IDLE"}
     
     my_status = {}
     if current_user.id in RAID_STATE["players"]:
@@ -632,53 +568,29 @@ def get_raid_status(current_user: User = Depends(get_current_user), db: Session 
         my_status = p_data
 
     return {
-        "active": True,
-        "status": RAID_STATE["status"],
-        "boss_name": boss["name"],
-        "boss_atk": boss["atk"], 
-        "hp": RAID_STATE["current_hp"],
-        "max_hp": RAID_STATE["max_hp"],
-        "image": boss["img"],
-        "my_status": my_status,
-        "attack_counter": RAID_STATE.get("attack_counter", 0)
+        "active": True, "status": RAID_STATE["status"], "boss_name": boss["name"], "boss_atk": boss["atk"], 
+        "hp": RAID_STATE["current_hp"], "max_hp": RAID_STATE["max_hp"], "image": boss["img"],
+        "my_status": my_status, "attack_counter": RAID_STATE.get("attack_counter", 0)
     }
 
 @router.post("/raid/join")
 def join_raid(current_user: User = Depends(get_current_user), db: Session = Depends(get_db)):
     update_raid_logic(db)
-    if RAID_STATE["status"] != "FIGHTING": 
-        raise HTTPException(status_code=400, detail="目前戰鬥尚未開始")
-    
-    if current_user.id in RAID_STATE["players"]: 
-        return {"message": "已經加入過了"}
-    
-    if current_user.money < 1000: 
-        raise HTTPException(status_code=400, detail="金幣不足 (需 1000 G)")
-    
+    if RAID_STATE["status"] != "FIGHTING": raise HTTPException(status_code=400, detail="目前戰鬥尚未開始")
+    if current_user.id in RAID_STATE["players"]: return {"message": "已經加入過了"}
+    if current_user.money < 1000: raise HTTPException(status_code=400, detail="金幣不足 (需 1000 G)")
     current_user.money -= 1000
-    RAID_STATE["players"][current_user.id] = {
-        "name": current_user.username, 
-        "dmg": 0,
-        "dead_at": None,
-        "claimed": False
-    }
+    RAID_STATE["players"][current_user.id] = { "name": current_user.username, "dmg": 0, "dead_at": None, "claimed": False }
     db.commit()
     return {"message": "成功加入團體戰大廳！"}
 
 @router.post("/raid/attack")
 def attack_raid_boss(damage: int = Query(...), current_user: User = Depends(get_current_user)):
     update_raid_logic(None)
-    
-    if current_user.id not in RAID_STATE["players"]:
-        raise HTTPException(status_code=400, detail="你不在大廳中")
-        
+    if current_user.id not in RAID_STATE["players"]: raise HTTPException(status_code=400, detail="你不在大廳中")
     p_data = RAID_STATE["players"][current_user.id]
-    if p_data.get("dead_at"):
-        raise HTTPException(status_code=400, detail="你已死亡，請盡快復活！")
-
-    if RAID_STATE["status"] != "FIGHTING": 
-        return {"message": "戰鬥尚未開始或已結束", "boss_hp": RAID_STATE["current_hp"]}
-    
+    if p_data.get("dead_at"): raise HTTPException(status_code=400, detail="你已死亡，請盡快復活！")
+    if RAID_STATE["status"] != "FIGHTING": return {"message": "戰鬥尚未開始或已結束", "boss_hp": RAID_STATE["current_hp"]}
     RAID_STATE["current_hp"] = max(0, RAID_STATE["current_hp"] - damage)
     return {"message": f"造成 {damage} 點傷害", "boss_hp": RAID_STATE["current_hp"]}
 
@@ -691,12 +603,8 @@ def raid_recover(current_user: User = Depends(get_current_user), db: Session = D
 
 @router.post("/raid/revive")
 def revive_raid(current_user: User = Depends(get_current_user), db: Session = Depends(get_db)):
-    if current_user.id not in RAID_STATE["players"]:
-        raise HTTPException(status_code=400, detail="你不在大廳中")
-    
-    if current_user.money < 500:
-        raise HTTPException(status_code=400, detail="金幣不足 500G")
-        
+    if current_user.id not in RAID_STATE["players"]: raise HTTPException(status_code=400, detail="你不在大廳中")
+    if current_user.money < 500: raise HTTPException(status_code=400, detail="金幣不足 500G")
     current_user.money -= 500
     RAID_STATE["players"][current_user.id]["dead_at"] = None
     current_user.hp = current_user.max_hp
@@ -705,22 +613,14 @@ def revive_raid(current_user: User = Depends(get_current_user), db: Session = De
 
 @router.post("/raid/claim")
 def claim_raid_reward(choice: int = Query(...), current_user: User = Depends(get_current_user), db: Session = Depends(get_db)):
-    if RAID_STATE["status"] != "ENDED":
-        raise HTTPException(status_code=400, detail="戰鬥尚未結束")
-    
-    if current_user.id not in RAID_STATE["players"]:
-        raise HTTPException(status_code=400, detail="你沒有參與這場戰鬥")
-        
+    if RAID_STATE["status"] != "ENDED": raise HTTPException(status_code=400, detail="戰鬥尚未結束")
+    if current_user.id not in RAID_STATE["players"]: raise HTTPException(status_code=400, detail="你沒有參與這場戰鬥")
     p_data = RAID_STATE["players"][current_user.id]
-    if p_data.get("claimed"):
-        return {"message": "已經領過獎勵了"}
-        
+    if p_data.get("claimed"): return {"message": "已經領過獎勵了"}
     reward_pool = ["gold_candy", "money", "pet"]
     prize = random.choice(reward_pool)
-    
     msg = ""
     inv = json.loads(current_user.inventory)
-    
     if prize == "gold_candy":
         inv["golden_candy"] = inv.get("golden_candy", 0) + 2
         msg = "獲得 ✨ 黃金糖果 x2"
@@ -729,15 +629,8 @@ def claim_raid_reward(choice: int = Query(...), current_user: User = Depends(get
         msg = "獲得 💰 5000 Gold"
     elif prize == "pet":
         boss_name = RAID_STATE["boss"]["name"].split(" ")[1] 
-        # 🔥 隨機等級：1 ~ 玩家當前等級 🔥
-        new_lv = random.randint(1, current_user.level)
-        new_mon = { 
-            "uid": str(uuid.uuid4()), 
-            "name": boss_name, 
-            "iv": int(random.randint(60, 100)),
-            "lv": new_lv, 
-            "exp": 0 
-        }
+        new_lv = random.randint(1, current_user.level) # 🔥 隨機等級
+        new_mon = { "uid": str(uuid.uuid4()), "name": boss_name, "iv": int(random.randint(60, 100)), "lv": new_lv, "exp": 0 }
         try:
             box = json.loads(current_user.pokemon_storage)
             box.append(new_mon)
@@ -746,12 +639,68 @@ def claim_raid_reward(choice: int = Query(...), current_user: User = Depends(get
         except:
             msg = "背包滿了，獲得 5000G 代替"
             current_user.money += 5000
-
     RAID_STATE["players"][current_user.id]["claimed"] = True
     current_user.inventory = json.dumps(inv)
-    
-    current_user.exp += 3000
-    current_user.pet_exp += 3000
-    
+    current_user.exp += 3000; current_user.pet_exp += 3000
     db.commit()
     return {"message": msg, "prize": prize}
+
+# =================================================================
+# 8. 每日獎勵與線上玩家 API - V2.8.0
+# =================================================================
+@router.post("/social/daily_checkin")
+def daily_checkin(current_user: User = Depends(get_current_user), db: Session = Depends(get_db)):
+    now = get_now_tw()
+    today_str = now.strftime("%Y-%m-%d")
+    
+    if current_user.last_checkin_date == today_str:
+        return {"message": "今天已經簽到過了"}
+    
+    # 權重抽獎：[1500G, 3000G, Candy*5, Golden*1, 8000G, Legendary*1]
+    # Weights: [30, 20, 20, 20, 6, 4]
+    prizes = ["1500G", "3000G", "candy", "golden", "8000G", "legendary"]
+    weights = [30, 20, 20, 20, 6, 4]
+    result = random.choices(prizes, weights=weights, k=1)[0]
+    
+    inv = json.loads(current_user.inventory) if current_user.inventory else {}
+    msg = ""
+    
+    if result == "1500G":
+        current_user.money += 1500; msg = "獲得 1500 Gold"
+    elif result == "3000G":
+        current_user.money += 3000; msg = "獲得 3000 Gold"
+    elif result == "candy":
+        inv["candy"] = inv.get("candy", 0) + 5; msg = "獲得 🍬 神奇糖果 x5"
+    elif result == "golden":
+        inv["golden_candy"] = inv.get("golden_candy", 0) + 1; msg = "獲得 ✨ 黃金糖果 x1"
+    elif result == "8000G":
+        current_user.money += 8000; msg = "大獎！獲得 💰 8000 Gold"
+    elif result == "legendary":
+        inv["legendary_candy"] = inv.get("legendary_candy", 0) + 1; msg = "超級大獎！獲得 🔮 傳說糖果 x1"
+        
+    current_user.last_checkin_date = today_str
+    current_user.inventory = json.dumps(inv)
+    db.commit()
+    return {"message": f"簽到成功！{msg}"}
+
+@router.get("/social/players")
+def get_online_players(current_user: User = Depends(get_current_user), db: Session = Depends(get_db)):
+    # 這是給競技場用的，取代 /auth/all，並加上在線狀態
+    update_user_activity(current_user.id)
+    all_users = db.query(User).all()
+    result = []
+    now = datetime.utcnow()
+    
+    for u in all_users:
+        last_seen = ONLINE_USERS.get(u.id)
+        is_online = False
+        if last_seen and (now - last_seen).total_seconds() < 30:
+            is_online = True
+            
+        result.append({
+            "id": u.id,
+            "username": u.username,
+            "pokemon_image": u.pokemon_image,
+            "is_online": is_online
+        })
+    return result
