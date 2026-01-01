@@ -298,8 +298,8 @@ async def wild_attack_api(is_win: bool = Query(...), is_powerful: bool = Query(F
     if is_win:
         target_data = POKEDEX_DATA.get(target_name, POKEDEX_DATA["小拉達"])
         base_stat_sum = target_data["hp"] + target_data["atk"]
-        xp = int((base_stat_sum / 3) * (1.1 ** (target_level - 1)))
-        money = int(xp * 0.6) 
+        xp = int((base_stat_sum / 4) * target_level)
+        money = int(xp * 0.5)
         current_user.exp += xp; current_user.pet_exp += xp; current_user.money += money
         msg = f"獲得 {xp} XP, {money} G"
         inv = json.loads(current_user.inventory)
