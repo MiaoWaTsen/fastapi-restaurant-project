@@ -11,11 +11,11 @@ import uuid
 from app.db.session import get_db
 from app.common.deps import get_current_user
 from app.models.user import User
-# 假設好友模型在此，若無請確保專案結構正確，或自行調整 import
+# 嘗試匯入 Friendship 模型，若無則略過 (避免報錯)
 try:
     from app.models.social import Friendship
 except ImportError:
-    pass # 如果沒有分開的 social model，稍後用 SQL 處理
+    Friendship = None
 
 from app.common.websocket import manager 
 
@@ -32,7 +32,6 @@ def update_user_activity(user_id):
     ONLINE_USERS[user_id] = datetime.utcnow()
 
 def is_user_busy(user_id):
-    # 檢查是否在戰鬥中 (包含 PREPARING 和 FIGHTING)
     for room in DUEL_ROOMS.values():
         if (room["p1"] == user_id or room["p2"] == user_id) and room["status"] != "ENDED":
             return True
@@ -405,7 +404,8 @@ def accept_invite(source_id: int, current_user: User = Depends(get_current_user)
         "p1": source_id, "p2": current_user.id, "status": "PREPARING",
         "start_time": datetime.utcnow().isoformat(),
         "countdown_end": (datetime.utcnow() + timedelta(seconds=12)).isoformat(),
-        "turn": None, "p1_data": None, "p2_data": None
+        "turn": None, "p1_data": None, "p2_data": None,
+        "ended_at": None # 🔥 新增：結束時間標記
     }
     del INVITES[current_user.id]
     return {"message": "接受成功", "room_id": room_id}
@@ -418,12 +418,21 @@ def reject_invite(source_id: int, current_user: User = Depends(get_current_user)
 @router.get("/duel/status")
 def check_duel_status(current_user: User = Depends(get_current_user), db: Session = Depends(get_db)):
     update_user_activity(current_user.id)
+    
+    # 🔥 自動清理舊房間 🔥
+    now = datetime.utcnow()
+    keys_to_del = []
+    for rid, r in DUEL_ROOMS.items():
+        if r.get("ended_at") and (now - datetime.fromisoformat(r["ended_at"])).total_seconds() > 60:
+            keys_to_del.append(rid)
+    for k in keys_to_del: del DUEL_ROOMS[k]
+
     my_room_id = None; room = None
     for rid, r in DUEL_ROOMS.items():
         if r["p1"] == current_user.id or r["p2"] == current_user.id:
             my_room_id = rid; room = r; break
+            
     if not room: return {"status": "NONE"}
-    now = datetime.utcnow()
     
     if room["status"] == "PREPARING":
         end_time = datetime.fromisoformat(room["countdown_end"])
@@ -455,104 +464,30 @@ def duel_attack(damage: int = Query(0), heal: int = Query(0), db: Session = Depe
     if not room: raise HTTPException(status_code=400, detail="不在對戰中")
     if room["turn"] != current_user.id: raise HTTPException(status_code=400, detail="還沒輪到你")
     
-    # 判斷雙方
     is_p1 = (current_user.id == room["p1"])
     target_key = "p2_data" if is_p1 else "p1_data"
     target_id = room["p2"] if is_p1 else room["p1"]
     my_key = "p1_data" if is_p1 else "p2_data"
     
-    # 扣血
     target_user = db.query(User).filter(User.id == target_id).first()
     room[target_key]["hp"] = max(0, room[target_key]["hp"] - damage)
     target_user.hp = room[target_key]["hp"]
     
-    # 補血
+    # 🔥 補血同步邏輯 🔥
     if heal > 0:
         room[my_key]["hp"] = min(room[my_key]["max_hp"], room[my_key]["hp"] + heal)
         current_user.hp = room[my_key]["hp"]
         
     if room[target_key]["hp"] <= 0:
         room["status"] = "ENDED"
+        room["ended_at"] = datetime.utcnow().isoformat() # 標記結束時間
         current_user.money += 300; current_user.exp += 500
         db.commit()
-        # 不立即刪除房間，讓輸家能看到狀態
         return {"result": "WIN", "reward": "獲得 300G & 500 XP"}
         
     room["turn"] = target_id
     db.commit()
     return {"result": "NEXT", "damage": damage, "heal": heal}
-
-@router.post("/raid/join")
-def join_raid(current_user: User = Depends(get_current_user), db: Session = Depends(get_db)):
-    update_raid_logic(db)
-    if RAID_STATE["status"] != "FIGHTING": raise HTTPException(status_code=400, detail="目前戰鬥尚未開始")
-    if current_user.id in RAID_STATE["players"]: return {"message": "已經加入過了"}
-    if current_user.money < 1000: raise HTTPException(status_code=400, detail="金幣不足 (需 1000 G)")
-    current_user.money -= 1000
-    RAID_STATE["players"][current_user.id] = { "name": current_user.username, "dmg": 0, "dead_at": None, "claimed": False }
-    db.commit()
-    return {"message": "成功加入團體戰大廳！"}
-
-@router.post("/raid/attack")
-def attack_raid_boss(damage: int = Query(...), current_user: User = Depends(get_current_user)):
-    update_raid_logic(None)
-    if current_user.id not in RAID_STATE["players"]: raise HTTPException(status_code=400, detail="你不在大廳中")
-    p_data = RAID_STATE["players"][current_user.id]
-    if p_data.get("dead_at"): raise HTTPException(status_code=400, detail="你已死亡，請盡快復活！")
-    if RAID_STATE["status"] != "FIGHTING": return {"message": "戰鬥尚未開始或已結束", "boss_hp": RAID_STATE["current_hp"]}
-    RAID_STATE["current_hp"] = max(0, RAID_STATE["current_hp"] - damage)
-    return {"message": f"造成 {damage} 點傷害", "boss_hp": RAID_STATE["current_hp"]}
-
-@router.post("/raid/recover")
-def raid_recover(current_user: User = Depends(get_current_user), db: Session = Depends(get_db)):
-    heal_amount = int(current_user.max_hp * 0.2)
-    current_user.hp = min(current_user.max_hp, current_user.hp + heal_amount)
-    db.commit()
-    return {"message": f"回復了 {heal_amount} HP", "hp": current_user.hp}
-
-@router.post("/raid/revive")
-def revive_raid(current_user: User = Depends(get_current_user), db: Session = Depends(get_db)):
-    if current_user.id not in RAID_STATE["players"]: raise HTTPException(status_code=400, detail="你不在大廳中")
-    if current_user.money < 500: raise HTTPException(status_code=400, detail="金幣不足 500G")
-    current_user.money -= 500
-    RAID_STATE["players"][current_user.id]["dead_at"] = None
-    current_user.hp = current_user.max_hp
-    db.commit()
-    return {"message": "復活成功！"}
-
-@router.post("/raid/claim")
-def claim_raid_reward(choice: int = Query(...), current_user: User = Depends(get_current_user), db: Session = Depends(get_db)):
-    if RAID_STATE["status"] != "ENDED": raise HTTPException(status_code=400, detail="戰鬥尚未結束")
-    if current_user.id not in RAID_STATE["players"]: raise HTTPException(status_code=400, detail="你沒有參與這場戰鬥")
-    p_data = RAID_STATE["players"][current_user.id]
-    if p_data.get("claimed"): return {"message": "已經領過獎勵了"}
-    reward_pool = ["gold_candy", "money", "pet"]
-    prize = random.choice(reward_pool)
-    msg = ""
-    inv = json.loads(current_user.inventory)
-    if prize == "gold_candy":
-        inv["golden_candy"] = inv.get("golden_candy", 0) + 2
-        msg = "獲得 ✨ 黃金糖果 x2"
-    elif prize == "money":
-        current_user.money += 5000
-        msg = "獲得 💰 5000 Gold"
-    elif prize == "pet":
-        boss_name = RAID_STATE["boss"]["name"].split(" ")[1] 
-        new_lv = random.randint(1, current_user.level)
-        new_mon = { "uid": str(uuid.uuid4()), "name": boss_name, "iv": int(random.randint(60, 100)), "lv": new_lv, "exp": 0 }
-        try:
-            box = json.loads(current_user.pokemon_storage)
-            box.append(new_mon)
-            current_user.pokemon_storage = json.dumps(box)
-            msg = f"獲得 Boss 寶可夢：{boss_name} (Lv.{new_lv})！"
-        except:
-            msg = "背包滿了，獲得 5000G 代替"
-            current_user.money += 5000
-    RAID_STATE["players"][current_user.id]["claimed"] = True
-    current_user.inventory = json.dumps(inv)
-    current_user.exp += 3000; current_user.pet_exp += 3000
-    db.commit()
-    return {"message": msg, "prize": prize}
 
 # =================================================================
 # 8. 每日獎勵與線上玩家 (V2.9.2 修復版)
@@ -588,28 +523,29 @@ def daily_checkin(current_user: User = Depends(get_current_user), db: Session = 
 @router.get("/social/list")
 def get_friend_list(current_user: User = Depends(get_current_user), db: Session = Depends(get_db)):
     # 🔥 雙向好友查詢 🔥
-    # 如果有 Friendship 模型：
     try:
-        from app.models.social import Friendship
-        friends_query = db.query(Friendship).filter(
-            or_(Friendship.user_id == current_user.id, Friendship.friend_id == current_user.id),
-            Friendship.status == "ACCEPTED"
-        ).all()
-        
-        result = []
-        for f in friends_query:
-            target_id = f.friend_id if f.user_id == current_user.id else f.user_id
-            target = db.query(User).filter(User.id == target_id).first()
-            if target:
-                result.append({
-                    "id": target.id,
-                    "username": target.username,
-                    "pokemon_image": target.pokemon_image,
-                    "can_gift": True # 簡化邏輯
-                })
-        return result
+        if Friendship:
+            friends_query = db.query(Friendship).filter(
+                or_(Friendship.user_id == current_user.id, Friendship.friend_id == current_user.id),
+                Friendship.status == "ACCEPTED"
+            ).all()
+            
+            result = []
+            for f in friends_query:
+                target_id = f.friend_id if f.user_id == current_user.id else f.user_id
+                target = db.query(User).filter(User.id == target_id).first()
+                if target:
+                    result.append({
+                        "id": target.id,
+                        "username": target.username,
+                        "pokemon_image": target.pokemon_image,
+                        "can_gift": True
+                    })
+            return result
+        else:
+            return [] # 若無模型則回傳空
     except:
-        return [] # 若無模型則回傳空
+        return []
 
 @router.get("/social/players")
 def get_online_players(current_user: User = Depends(get_current_user), db: Session = Depends(get_db)):
@@ -623,53 +559,29 @@ def get_online_players(current_user: User = Depends(get_current_user), db: Sessi
         if last_seen and (now - last_seen).total_seconds() < 30: is_online = True
         result.append({ "id": u.id, "username": u.username, "pokemon_image": u.pokemon_image, "is_online": is_online })
     return result
+
 # =================================================================
-# 10. 管理員刪除帳號 API (放在 shop.py 最下面)
+# 10. 管理員刪除帳號 API
 # =================================================================
 @router.delete("/admin/delete_user")
 def delete_user_by_name(username: str, db: Session = Depends(get_db)):
-    # 1. 搜尋玩家
     target = db.query(User).filter(User.username == username).first()
-    if not target:
-        raise HTTPException(status_code=404, detail=f"找不到名為 [{username}] 的玩家")
-    
+    if not target: raise HTTPException(status_code=404, detail=f"找不到名為 [{username}] 的玩家")
     uid = target.id
-    
-    # 2. 清理記憶體快取 (讓他在線上名單消失)
     if uid in ONLINE_USERS: del ONLINE_USERS[uid]
-    
-    # 3. 清理 PvP 邀請與房間
     if uid in INVITES: del INVITES[uid]
-    # 清理作為來源發出的邀請
     keys_to_del = [k for k, v in INVITES.items() if v == uid]
     for k in keys_to_del: del INVITES[k]
-    
-    # 強制結束他參與的房間
     rooms_to_del = []
     for rid, r in DUEL_ROOMS.items():
-        if r["p1"] == uid or r["p2"] == uid:
-            rooms_to_del.append(rid)
-    for rid in rooms_to_del:
-        del DUEL_ROOMS[rid]
-
-    # 4. 清理團體戰紀錄
-    if uid in RAID_STATE["players"]:
-        del RAID_STATE["players"][uid]
-
-    # 5. 從資料庫刪除
+        if r["p1"] == uid or r["p2"] == uid: rooms_to_del.append(rid)
+    for rid in rooms_to_del: del DUEL_ROOMS[rid]
+    if uid in RAID_STATE["players"]: del RAID_STATE["players"][uid]
     try:
-        # 如果有建立 Friendship 資料表且沒有設 CASCADE，這裡可能會報錯
-        # 嘗試先刪除相關好友紀錄 (如果有 Friendship 模型的話)
-        try:
-            from app.models.social import Friendship
-            db.query(Friendship).filter(or_(Friendship.user_id == uid, Friendship.friend_id == uid)).delete()
-        except:
-            pass # 忽略錯誤 (可能沒有該模型或表)
-
+        if Friendship: db.query(Friendship).filter(or_(Friendship.user_id == uid, Friendship.friend_id == uid)).delete()
         db.delete(target)
         db.commit()
         return {"message": f"✅ 已成功刪除玩家 [{username}] 及其所有資料"}
-        
     except Exception as e:
         db.rollback()
         return {"message": f"❌ 刪除失敗 (資料庫錯誤): {str(e)}"}
