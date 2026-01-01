@@ -3,13 +3,14 @@
 from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.orm import Session
 from sqlalchemy import or_, Column, Integer, String, ForeignKey
+from sqlalchemy.ext.declarative import declarative_base # 🔥 新增這個
 from datetime import datetime, timedelta
 import random
 import json
 import uuid
 
 from app.db.session import get_db, engine
-from app.db.base_class import Base
+# from app.db.base_class import Base  <-- 🔥 刪除這行，這是報錯的主因
 from app.common.deps import get_current_user
 from app.models.user import User
 from app.common.websocket import manager 
@@ -17,8 +18,11 @@ from app.common.websocket import manager
 router = APIRouter()
 
 # =================================================================
-# 0. 自動建立好友資料表 (防止資料庫報錯)
+# 0. 自動建立好友資料表 (修復版)
 # =================================================================
+# 🔥 在這裡定義一個本地的 Base，避免引用錯誤
+Base = declarative_base()
+
 class Friendship(Base):
     __tablename__ = "friendships"
     id = Column(Integer, primary_key=True, index=True)
@@ -26,7 +30,6 @@ class Friendship(Base):
     friend_id = Column(Integer, ForeignKey("users.id"))
     status = Column(String, default="PENDING")
 
-# 嘗試建立表格，若失敗則略過 (避免重複建立報錯)
 try:
     Friendship.__table__.create(bind=engine, checkfirst=True)
 except:
@@ -109,7 +112,6 @@ SKILL_DB = {
 # 2. 圖鑑資料庫
 # =================================================================
 POKEDEX_DATA = {
-    # 關都野怪
     "小拉達": {"hp": 90, "atk": 80, "img": "https://img.pokemondb.net/artwork/large/rattata.jpg", "skills": ["抓", "出奇一擊", "撞擊"]},
     "波波": {"hp": 94, "atk": 84, "img": "https://img.pokemondb.net/artwork/large/pidgey.jpg", "skills": ["抓", "啄", "燕返"]},
     "烈雀": {"hp": 88, "atk": 92, "img": "https://img.pokemondb.net/artwork/large/spearow.jpg", "skills": ["抓", "啄", "燕返"]},
@@ -131,7 +133,6 @@ POKEDEX_DATA = {
     "怪力": {"hp": 140, "atk": 145, "img": "https://img.pokemondb.net/artwork/large/machamp.jpg", "skills": ["雙倍奉還", "岩石封鎖", "近身戰"]},
     "暴鯉龍": {"hp": 150, "atk": 150, "img": "https://img.pokemondb.net/artwork/large/gyarados.jpg", "skills": ["水槍", "水流尾", "勇鳥猛攻"]},
 
-    # 玩家/寵物
     "妙蛙種子": {"hp": 130, "atk": 112, "img": "https://img.pokemondb.net/artwork/large/bulbasaur.jpg", "skills": ["藤鞭", "種子炸彈", "污泥炸彈"]},
     "小火龍": {"hp": 112, "atk": 130, "img": "https://img.pokemondb.net/artwork/large/charmander.jpg", "skills": ["火花", "噴射火焰", "大字爆炎"]},
     "傑尼龜": {"hp": 121, "atk": 121, "img": "https://img.pokemondb.net/artwork/large/squirtle.jpg", "skills": ["水槍", "水流噴射", "水流尾"]},
@@ -154,7 +155,6 @@ POKEDEX_DATA = {
     "拉普拉斯": {"hp": 165, "atk": 140, "img": "https://img.pokemondb.net/artwork/large/lapras.jpg", "skills": ["水槍", "水流噴射", "冰凍光束"]},
     "快龍": {"hp": 150, "atk": 148, "img": "https://img.pokemondb.net/artwork/large/dragonite.jpg", "skills": ["龍息", "逆鱗", "勇鳥猛攻"]},
     
-    # 傳說
     "急凍鳥": {"hp": 150, "atk": 150, "img": "https://img.pokemondb.net/artwork/large/articuno.jpg", "skills": ["冰礫", "冰凍光束", "勇鳥猛攻"]},
     "火焰鳥": {"hp": 150, "atk": 150, "img": "https://img.pokemondb.net/artwork/large/moltres.jpg", "skills": ["噴射火焰", "大字爆炎", "勇鳥猛攻"]},
     "閃電鳥": {"hp": 150, "atk": 150, "img": "https://img.pokemondb.net/artwork/large/zapdos.jpg", "skills": ["電光", "瘋狂伏特", "勇鳥猛攻"]},
@@ -175,14 +175,16 @@ WILD_UNLOCK_LEVELS = {
 }
 
 # =================================================================
-# 3. 扭蛋機率與池子 (V2.9.8)
+# 3. 扭蛋機率與池子 (V2.10.0 更新：拆分糖果與金幣池)
 # =================================================================
 GACHA_NORMAL = [{"name": "妙蛙種子", "rate": 5}, {"name": "小火龍", "rate": 5}, {"name": "傑尼龜", "rate": 5}, {"name": "六尾", "rate": 5}, {"name": "毛辮羊", "rate": 5}, {"name": "伊布", "rate": 10}, {"name": "皮卡丘", "rate": 10}, {"name": "皮皮", "rate": 10}, {"name": "胖丁", "rate": 10}, {"name": "大蔥鴨", "rate": 10}, {"name": "呆呆獸", "rate": 12.5}, {"name": "可達鴨", "rate": 12.5}]
 GACHA_MEDIUM = [{"name": "妙蛙種子", "rate": 10}, {"name": "小火龍", "rate": 10}, {"name": "傑尼龜", "rate": 10}, {"name": "伊布", "rate": 10}, {"name": "皮卡丘", "rate": 10}, {"name": "呆呆獸", "rate": 10}, {"name": "可達鴨", "rate": 10}, {"name": "毛辮羊", "rate": 10}, {"name": "卡比獸", "rate": 5}, {"name": "吉利蛋", "rate": 3}, {"name": "拉普拉斯", "rate": 3}, {"name": "妙蛙花", "rate": 3}, {"name": "噴火龍", "rate": 3}, {"name": "水箭龜", "rate": 3}]
 GACHA_HIGH = [{"name": "卡比獸", "rate": 20}, {"name": "吉利蛋", "rate": 20}, {"name": "幸福蛋", "rate": 10}, {"name": "拉普拉斯", "rate": 10}, {"name": "妙蛙花", "rate": 10}, {"name": "噴火龍", "rate": 10}, {"name": "水箭龜", "rate": 10}, {"name": "快龍", "rate": 5}, {"name": "耿鬼", "rate": 5}]
 GACHA_CANDY = [{"name": "伊布", "rate": 20}, {"name": "皮卡丘", "rate": 20}, {"name": "妙蛙花", "rate": 10}, {"name": "噴火龍", "rate": 10}, {"name": "水箭龜", "rate": 10}, {"name": "卡比獸", "rate": 10}, {"name": "吉利蛋", "rate": 10}, {"name": "幸福蛋", "rate": 4}, {"name": "拉普拉斯", "rate": 3}, {"name": "快龍", "rate": 3}]
 GACHA_GOLDEN = [{"name": "卡比獸", "rate": 30}, {"name": "吉利蛋", "rate": 35}, {"name": "幸福蛋", "rate": 20}, {"name": "拉普拉斯", "rate": 5}, {"name": "快龍", "rate": 5}, {"name": "耿鬼", "rate": 5}]
-GACHA_LEGENDARY = [
+
+# 🔥 傳說扭蛋 (糖果版)
+GACHA_LEGENDARY_CANDY = [
     {"name": "急凍鳥", "rate": 25},
     {"name": "火焰鳥", "rate": 25},
     {"name": "閃電鳥", "rate": 25},
@@ -190,6 +192,19 @@ GACHA_LEGENDARY = [
     {"name": "洛奇亞", "rate": 7.5},
     {"name": "超夢", "rate": 5},
     {"name": "夢幻", "rate": 5}
+]
+
+# 🔥 傳奇扭蛋 (金幣版)
+GACHA_LEGENDARY_GOLD = [
+    {"name": "快龍", "rate": 30},
+    {"name": "耿鬼", "rate": 20},
+    {"name": "急凍鳥", "rate": 15},
+    {"name": "火焰鳥", "rate": 15},
+    {"name": "閃電鳥", "rate": 15},
+    {"name": "鳳王", "rate": 2},
+    {"name": "洛奇亞", "rate": 2},
+    {"name": "超夢", "rate": 0.5},
+    {"name": "夢幻", "rate": 0.5}
 ]
 
 def create_xp_map():
@@ -208,7 +223,7 @@ LEVEL_XP_MAP = create_xp_map()
 # =================================================================
 # 4. 團體戰邏輯
 # =================================================================
-RAID_SCHEDULE = [(8, 0), (14, 0), (15, 0), (18, 0), (21, 0), (22, 0), (23, 0)] 
+RAID_SCHEDULE = [(8, 0), (14, 0), (16, 0), (18, 0), (21, 0), (22, 0), (23, 0)] 
 RAID_STATE = {"active": False, "status": "IDLE", "boss": None, "current_hp": 0, "max_hp": 0, "players": {}, "last_attack_time": None, "attack_counter": 0}
 RAID_BOSS_POOL = [
     {"name": "❄️ 急凍鳥", "hp": 15000, "atk": 500, "img": "https://img.pokemondb.net/sprites/home/normal/articuno.png", "weight": 25},
@@ -335,6 +350,7 @@ async def wild_attack_api(is_win: bool = Query(...), is_powerful: bool = Query(F
     db.commit()
     return {"message": "戰鬥結束，HP已回復。"}
 
+# 🔥 扭蛋邏輯 (V2.10.0 更新：拆分糖果與金幣池) 🔥
 @router.post("/gacha/{gacha_type}")
 async def play_gacha(gacha_type: str, db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
     try: box = json.loads(current_user.pokemon_storage) if current_user.pokemon_storage else []
@@ -343,12 +359,14 @@ async def play_gacha(gacha_type: str, db: Session = Depends(get_db), current_use
     try: inventory = json.loads(current_user.inventory) if current_user.inventory else {}
     except: inventory = {}
     cost = 0; pool = []
+    
     if gacha_type == 'normal': pool = GACHA_NORMAL; cost = 1500
     elif gacha_type == 'medium': pool = GACHA_MEDIUM; cost = 3000
     elif gacha_type == 'high': pool = GACHA_HIGH; cost = 10000
     elif gacha_type == 'candy': pool = GACHA_CANDY; cost = 12
     elif gacha_type == 'golden': pool = GACHA_GOLDEN; cost = 3
-    elif gacha_type == 'legendary': pool = GACHA_LEGENDARY; cost = 5 # 🔥 新增傳說池
+    elif gacha_type == 'legendary_candy': pool = GACHA_LEGENDARY_CANDY; cost = 5
+    elif gacha_type == 'legendary_gold': pool = GACHA_LEGENDARY_GOLD; cost = 400000
     else: raise HTTPException(status_code=400, detail="未知類型")
     
     if gacha_type == 'candy':
@@ -357,10 +375,11 @@ async def play_gacha(gacha_type: str, db: Session = Depends(get_db), current_use
     elif gacha_type == 'golden':
         if inventory.get("golden_candy", 0) < cost: raise HTTPException(status_code=400, detail="黃金糖果不足")
         inventory["golden_candy"] -= cost
-    elif gacha_type == 'legendary':
+    elif gacha_type == 'legendary_candy':
         if inventory.get("legendary_candy", 0) < cost: raise HTTPException(status_code=400, detail="傳說糖果不足")
         inventory["legendary_candy"] -= cost
     else:
+        # normal, medium, high, legendary_gold (金幣扣款)
         if current_user.money < cost: raise HTTPException(status_code=400, detail="金幣不足")
         current_user.money -= cost
         
@@ -370,8 +389,8 @@ async def play_gacha(gacha_type: str, db: Session = Depends(get_db), current_use
         if r <= acc: prize_name = p["name"]; break
         
     new_lv = random.randint(1, current_user.level)
-    # 🔥 傳說保底 IV 60
-    if gacha_type == 'legendary': iv = random.randint(60, 100)
+    # 傳說類扭蛋保底 IV 60
+    if 'legendary' in gacha_type: iv = random.randint(60, 100)
     else: iv = int(random.triangular(0, 100, 50))
     
     new_mon = { "uid": str(uuid.uuid4()), "name": prize_name, "iv": iv, "lv": new_lv, "exp": 0 }
@@ -381,7 +400,8 @@ async def play_gacha(gacha_type: str, db: Session = Depends(get_db), current_use
     if prize_name not in unlocked: unlocked.append(prize_name); current_user.unlocked_monsters = ",".join(unlocked)
     db.commit()
     try:
-        if gacha_type in ['golden', 'high', 'legendary'] or prize_name in ['快龍', '超夢', '夢幻', '拉普拉斯', '幸福蛋', '耿鬼', '鳳王', '洛奇亞']: await manager.broadcast(f"🎰 恭喜 [{current_user.username}] 獲得了稀有的 [{prize_name}] (Lv.{new_lv})！")
+        if 'legendary' in gacha_type or gacha_type in ['golden', 'high'] or prize_name in ['快龍', '超夢', '夢幻', '拉普拉斯', '幸福蛋', '耿鬼', '鳳王', '洛奇亞']: 
+            await manager.broadcast(f"🎰 恭喜 [{current_user.username}] 獲得了稀有的 [{prize_name}] (Lv.{new_lv})！")
     except: pass
     return {"message": f"獲得 {prize_name} (Lv.{new_lv}, IV: {iv})!", "prize": new_mon, "user": current_user}
 
@@ -440,9 +460,6 @@ async def buy_heal(db: Session = Depends(get_db), current_user: User = Depends(g
     current_user.money -= 50; current_user.hp = current_user.max_hp; db.commit()
     return {"message": "體力已補滿"}
 
-# =================================================================
-# 9. PvP 狀態機 API
-# =================================================================
 @router.post("/social/invite/{target_id}")
 def invite_player(target_id: int, current_user: User = Depends(get_current_user)):
     if is_user_busy(target_id): raise HTTPException(status_code=400, detail="對方正在戰鬥中")
