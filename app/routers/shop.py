@@ -49,9 +49,10 @@ def get_now_tw():
     return datetime.utcnow() + timedelta(hours=8)
 
 # =================================================================
-# 1. 技能資料庫
+# 1. 技能資料庫 (V2.11.6 數值調整)
 # =================================================================
 SKILL_DB = {
+    # --- 通用/舊技能 ---
     "水槍": {"dmg": 16, "effect": "heal", "prob": 0.5, "val": 0.15, "desc": "50%回血15%"},
     "撒嬌": {"dmg": 16, "effect": "heal", "prob": 0.5, "val": 0.15, "desc": "50%回血15%"},
     "念力": {"dmg": 16, "effect": "heal", "prob": 0.5, "val": 0.15, "desc": "50%回血15%"},
@@ -72,8 +73,6 @@ SKILL_DB = {
     "近身戰": {"dmg": 20, "effect": "buff_atk", "prob": 0.3, "val": 0.15, "desc": "30%加攻15%"},
     "電擊": {"dmg": 20, "effect": "buff_atk", "prob": 0.3, "val": 0.15, "desc": "30%加攻15%"},
     "龍息": {"dmg": 20, "effect": "buff_atk", "prob": 0.3, "val": 0.15, "desc": "30%加攻15%"},
-    "神聖之火": {"dmg": 22, "effect": "buff_atk", "prob": 1.0, "val": 0.1, "desc": "100%加攻10%"},
-    "氣旋攻擊": {"dmg": 22, "effect": "buff_atk", "prob": 1.0, "val": 0.1, "desc": "100%加攻10%"},
     "撞擊": {"dmg": 24, "effect": None, "prob": 0, "val": 0, "desc": "無特效"},
     "啄": {"dmg": 24, "effect": None, "prob": 0, "val": 0, "desc": "無特效"},
     "緊束": {"dmg": 24, "effect": None, "prob": 0, "val": 0, "desc": "無特效"},
@@ -96,17 +95,21 @@ SKILL_DB = {
     "瘋狂伏特": {"dmg": 26, "effect": None, "prob": 0, "val": 0, "desc": "無特效"},
     "雙倍奉還": {"dmg": 28, "effect": None, "prob": 0, "val": 0, "desc": "無特效"},
     "逆鱗": {"dmg": 28, "effect": None, "prob": 0, "val": 0, "desc": "無特效"},
-    "精神擊破": {"dmg": 28, "effect": None, "prob": 0, "val": 0, "desc": "無特效"},
     "暗影球": {"dmg": 34, "effect": "debuff_self", "prob": 1.0, "val": 0.1, "desc": "降自身10%攻"},
     "水砲": {"dmg": 34, "effect": "debuff_self", "prob": 1.0, "val": 0.1, "desc": "降自身10%攻"},
-    "勇鳥猛攻": {"dmg": 34, "effect": "recoil", "prob": 1.0, "val": 0.15, "desc": "扣自身15%血"}
+    "勇鳥猛攻": {"dmg": 34, "effect": "recoil", "prob": 1.0, "val": 0.15, "desc": "扣自身15%血"},
+    
+    # 🔥 V2.11.6 平衡調整 🔥
+    "精神擊破": {"dmg": 30, "effect": None, "prob": 0, "val": 0, "desc": "無特效"},
+    "神聖之火": {"dmg": 22, "effect": "buff_atk", "prob": 1.0, "val": 0.05, "desc": "100%加攻5%"},
+    "氣旋攻擊": {"dmg": 22, "effect": "buff_atk", "prob": 1.0, "val": 0.05, "desc": "100%加攻5%"},
 }
 
 # =================================================================
-# 2. 圖鑑資料庫
+# 2. 圖鑑資料庫 (V2.11.6 數值調整)
 # =================================================================
 POKEDEX_DATA = {
-    # 關都野怪
+    # --- 練功野怪 (不變) ---
     "小拉達": {"hp": 90, "atk": 80, "img": "https://img.pokemondb.net/artwork/large/rattata.jpg", "skills": ["抓", "出奇一擊", "撞擊"]},
     "波波": {"hp": 94, "atk": 84, "img": "https://img.pokemondb.net/artwork/large/pidgey.jpg", "skills": ["抓", "啄", "燕返"]},
     "烈雀": {"hp": 88, "atk": 92, "img": "https://img.pokemondb.net/artwork/large/spearow.jpg", "skills": ["抓", "啄", "燕返"]},
@@ -128,12 +131,15 @@ POKEDEX_DATA = {
     "怪力": {"hp": 140, "atk": 145, "img": "https://img.pokemondb.net/artwork/large/machamp.jpg", "skills": ["雙倍奉還", "岩石封鎖", "近身戰"]},
     "暴鯉龍": {"hp": 150, "atk": 150, "img": "https://img.pokemondb.net/artwork/large/gyarados.jpg", "skills": ["水槍", "水流尾", "勇鳥猛攻"]},
 
+    # --- 🔥 V2.11.6 重大數值更新區 🔥 ---
     "妙蛙種子": {"hp": 130, "atk": 112, "img": "https://img.pokemondb.net/artwork/large/bulbasaur.jpg", "skills": ["藤鞭", "種子炸彈", "污泥炸彈"]},
     "小火龍": {"hp": 112, "atk": 130, "img": "https://img.pokemondb.net/artwork/large/charmander.jpg", "skills": ["火花", "噴射火焰", "大字爆炎"]},
     "傑尼龜": {"hp": 121, "atk": 121, "img": "https://img.pokemondb.net/artwork/large/squirtle.jpg", "skills": ["水槍", "水流噴射", "水流尾"]},
-    "妙蛙花": {"hp": 152, "atk": 130, "img": "https://img.pokemondb.net/artwork/large/venusaur.jpg", "skills": ["藤鞭", "種子炸彈", "污泥炸彈"]},
-    "噴火龍": {"hp": 130, "atk": 152, "img": "https://img.pokemondb.net/artwork/large/charizard.jpg", "skills": ["火花", "噴射火焰", "大字爆炎"]},
-    "水箭龜": {"hp": 141, "atk": 141, "img": "https://img.pokemondb.net/artwork/large/blastoise.jpg", "skills": ["水槍", "水流噴射", "水流尾"]},
+    
+    "妙蛙花": {"hp": 142, "atk": 130, "img": "https://img.pokemondb.net/artwork/large/venusaur.jpg", "skills": ["藤鞭", "種子炸彈", "污泥炸彈"]},
+    "噴火龍": {"hp": 130, "atk": 142, "img": "https://img.pokemondb.net/artwork/large/charizard.jpg", "skills": ["火花", "噴射火焰", "大字爆炎"]},
+    "水箭龜": {"hp": 136, "atk": 136, "img": "https://img.pokemondb.net/artwork/large/blastoise.jpg", "skills": ["水槍", "水流噴射", "水流尾"]},
+    
     "毛辮羊": {"hp": 120, "atk": 120, "img": "https://img.pokemondb.net/artwork/large/wooloo.jpg", "skills": ["撞擊", "撒嬌", "電擊"]},
     "皮卡丘": {"hp": 125, "atk": 125, "img": "https://img.pokemondb.net/artwork/large/pikachu.jpg", "skills": ["電光", "放電", "電擊"]},
     "伊布": {"hp": 125, "atk": 125, "img": "https://img.pokemondb.net/artwork/large/eevee.jpg", "skills": ["撞擊", "挖洞", "高速星星"]},
@@ -147,17 +153,20 @@ POKEDEX_DATA = {
     "卡比獸": {"hp": 175, "atk": 112, "img": "https://img.pokemondb.net/artwork/large/snorlax.jpg", "skills": ["泰山壓頂", "地震", "撞擊"]},
     "吉利蛋": {"hp": 220, "atk": 90, "img": "https://img.pokemondb.net/artwork/large/chansey.jpg", "skills": ["抓", "精神強念", "撞擊"]},
     "幸福蛋": {"hp": 230, "atk": 90, "img": "https://img.pokemondb.net/artwork/large/blissey.jpg", "skills": ["抓", "精神強念", "撞擊"]},
-    "拉普拉斯": {"hp": 165, "atk": 140, "img": "https://img.pokemondb.net/artwork/large/lapras.jpg", "skills": ["水槍", "水流噴射", "冰凍光束"]},
-    "快龍": {"hp": 150, "atk": 148, "img": "https://img.pokemondb.net/artwork/large/dragonite.jpg", "skills": ["龍息", "逆鱗", "勇鳥猛攻"]},
-    "急凍鳥": {"hp": 150, "atk": 150, "img": "https://img.pokemondb.net/artwork/large/articuno.jpg", "skills": ["冰礫", "冰凍光束", "勇鳥猛攻"]},
-    "火焰鳥": {"hp": 150, "atk": 150, "img": "https://img.pokemondb.net/artwork/large/moltres.jpg", "skills": ["噴射火焰", "大字爆炎", "勇鳥猛攻"]},
-    "閃電鳥": {"hp": 150, "atk": 150, "img": "https://img.pokemondb.net/artwork/large/zapdos.jpg", "skills": ["電光", "瘋狂伏特", "勇鳥猛攻"]},
+    
+    "拉普拉斯": {"hp": 160, "atk": 138, "img": "https://img.pokemondb.net/artwork/large/lapras.jpg", "skills": ["水槍", "水流噴射", "冰凍光束"]},
+    "快龍": {"hp": 144, "atk": 142, "img": "https://img.pokemondb.net/artwork/large/dragonite.jpg", "skills": ["龍息", "逆鱗", "勇鳥猛攻"]},
+    
+    "急凍鳥": {"hp": 145, "atk": 145, "img": "https://img.pokemondb.net/artwork/large/articuno.jpg", "skills": ["冰礫", "冰凍光束", "勇鳥猛攻"]},
+    "火焰鳥": {"hp": 145, "atk": 145, "img": "https://img.pokemondb.net/artwork/large/moltres.jpg", "skills": ["噴射火焰", "大字爆炎", "勇鳥猛攻"]},
+    "閃電鳥": {"hp": 145, "atk": 145, "img": "https://img.pokemondb.net/artwork/large/zapdos.jpg", "skills": ["電光", "瘋狂伏特", "勇鳥猛攻"]},
+    "鳳王": {"hp": 150, "atk": 150, "img": "https://img.pokemondb.net/artwork/large/ho-oh.jpg", "skills": ["燒盡", "勇鳥猛攻", "神聖之火"]},
+    "洛奇亞": {"hp": 150, "atk": 150, "img": "https://img.pokemondb.net/artwork/large/lugia.jpg", "skills": ["龍尾", "水砲", "氣旋攻擊"]},
     "超夢": {"hp": 152, "atk": 155, "img": "https://img.pokemondb.net/artwork/large/mewtwo.jpg", "skills": ["念力", "精神強念", "精神擊破"]},
     "夢幻": {"hp": 155, "atk": 152, "img": "https://img.pokemondb.net/artwork/large/mew.jpg", "skills": ["念力", "暗影球", "精神擊破"]},
-    "鳳王": {"hp": 155, "atk": 150, "img": "https://img.pokemondb.net/artwork/large/ho-oh.jpg", "skills": ["燒盡", "勇鳥猛攻", "神聖之火"]},
-    "洛奇亞": {"hp": 155, "atk": 150, "img": "https://img.pokemondb.net/artwork/large/lugia.jpg", "skills": ["龍尾", "水砲", "氣旋攻擊"]},
 }
 
+# 🔥 定義圖鑑範圍
 COLLECTION_MONS = [
     "妙蛙種子", "小火龍", "傑尼龜", "妙蛙花", "噴火龍", "水箭龜",
     "毛辮羊", "皮卡丘", "伊布", "六尾", "胖丁", "皮皮", "大蔥鴨", "呆呆獸", "可達鴨",
@@ -223,7 +232,6 @@ def update_raid_logic(db: Session = None):
             elif RAID_STATE["status"] == "IDLE": boss_data = random.choices(RAID_BOSS_POOL, weights=[b['weight'] for b in RAID_BOSS_POOL], k=1)[0]; RAID_STATE["active"] = True; RAID_STATE["status"] = "FIGHTING"; RAID_STATE["boss"] = boss_data; RAID_STATE["max_hp"] = boss_data["hp"]; RAID_STATE["current_hp"] = boss_data["hp"]; RAID_STATE["players"] = {}; RAID_STATE["last_attack_time"] = get_now_tw()
             if RAID_STATE["status"] == "FIGHTING":
                 last_time = RAID_STATE.get("last_attack_time")
-                # 🔥 這裡修復：確保每次檢查都執行
                 if last_time and (get_now_tw() - last_time).total_seconds() >= 7:
                     if db:
                         RAID_STATE["last_attack_time"] = get_now_tw(); RAID_STATE["attack_counter"] += 1; base_dmg = int(RAID_STATE["boss"]["atk"] * 0.2); boss_dmg = int(base_dmg * random.uniform(0.95, 1.05))
@@ -240,6 +248,14 @@ def update_raid_logic(db: Session = None):
 
 @router.get("/data/skills")
 def get_skill_data(): return SKILL_DB
+
+@router.get("/pokedex/all")
+def get_all_pokedex():
+    result = []
+    for name, data in POKEDEX_DATA.items():
+        is_obtainable = name in OBTAINABLE_MONS
+        result.append({ "name": name, "img": data["img"], "hp": data["hp"], "atk": data["atk"], "is_obtainable": is_obtainable })
+    return result
 
 @router.get("/pokedex/collection")
 def get_pokedex_collection(current_user: User = Depends(get_current_user)):
@@ -291,13 +307,20 @@ async def wild_attack_api(is_win: bool = Query(...), is_powerful: bool = Query(F
         if random.random() < 0.4: inv["candy"] = inv.get("candy", 0) + 1; msg += " & 🍬 獲得神奇糖果!"
         if is_powerful: inv["growth_candy"] = inv.get("growth_candy", 0) + 1; msg += " & 🍬 成長糖果 x1"
         current_user.inventory = json.dumps(inv)
+        
+        # 🔥 V2.11.6: 更新任務進度 (擊敗野怪)
         quests = json.loads(current_user.quests) if current_user.quests else []
         quest_updated = False
         for q in quests:
-            is_name_match = (q.get("target") in target_name) or (target_name in q.get("target"))
-            is_level_match = target_level >= q.get("level", 1)
-            if q["status"] != "COMPLETED" and is_name_match and is_level_match: q["now"] += 1; quest_updated = True
+            # 必須是 BATTLE_WILD 且目標名稱一致
+            if q["type"] == "BATTLE_WILD" and q["status"] != "COMPLETED":
+                # 模糊匹配 (例如任務目標是 '小拉達'，打倒 '🔥 強大的 小拉達' 也算)
+                if q.get("target") in target_name: 
+                    q["now"] += 1
+                    quest_updated = True
+        
         if quest_updated: current_user.quests = json.dumps(quests)
+        
         req_xp_p = get_req_xp(current_user.level)
         while current_user.exp >= req_xp_p and current_user.level < 100: current_user.exp -= req_xp_p; current_user.level += 1; req_xp_p = get_req_xp(current_user.level); msg += f" | 訓練師升級 Lv.{current_user.level}!"
         req_xp_pet = get_req_xp(current_user.pet_level)
@@ -360,6 +383,8 @@ async def play_gacha(gacha_type: str, db: Session = Depends(get_db), current_use
     current_user.pokemon_storage = json.dumps(box); current_user.inventory = json.dumps(inventory)
     unlocked = current_user.unlocked_monsters.split(',') if current_user.unlocked_monsters else []
     if prize_name not in unlocked: unlocked.append(prize_name); current_user.unlocked_monsters = ",".join(unlocked)
+    
+    # 🔥 V2.11.6: 移除 Gacha 任務邏輯，現在只剩戰鬥任務
     db.commit()
     try:
         if 'legendary' in gacha_type or gacha_type in ['golden', 'high'] or prize_name in ['快龍', '超夢', '夢幻', '拉普拉斯', '幸福蛋', '耿鬼', '鳳王', '洛奇亞']: await manager.broadcast(f"🎰 恭喜 [{current_user.username}] 獲得了稀有的 [{prize_name}] (Lv.{new_lv})！")
