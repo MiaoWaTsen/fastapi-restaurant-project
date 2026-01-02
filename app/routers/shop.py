@@ -250,13 +250,11 @@ def get_all_pokedex():
         result.append({ "name": name, "img": data["img"], "hp": data["hp"], "atk": data["atk"], "is_obtainable": is_obtainable })
     return result
 
-# 🔥 V2.11.8: 圖鑑自動同步修復
+# 🔥 V2.11.9: 圖鑑自動同步修復 (保留)
 @router.get("/pokedex/collection")
 def get_pokedex_collection(current_user: User = Depends(get_current_user), db: Session = Depends(get_db)):
-    # 1. 讀取目前解鎖的
     unlocked = current_user.unlocked_monsters.split(',') if current_user.unlocked_monsters else []
     
-    # 2. 自動掃描盒子 (修復漏網之魚)
     try:
         box = json.loads(current_user.pokemon_storage) if current_user.pokemon_storage else []
         is_updated = False
@@ -269,7 +267,7 @@ def get_pokedex_collection(current_user: User = Depends(get_current_user), db: S
             current_user.unlocked_monsters = ",".join(unlocked)
             db.commit()
     except:
-        pass # JSON Error ignore
+        pass 
         
     result = []
     for name in COLLECTION_MONS:
@@ -558,12 +556,15 @@ def duel_attack(damage: int = Query(0), heal: int = Query(0), db: Session = Depe
     db.commit()
     return {"result": "NEXT", "damage": damage, "heal": heal}
 
+# 🔥 V2.11.9: 新增 is_participant 欄位
 @router.get("/raid/status")
 def get_raid_status(current_user: User = Depends(get_current_user), db: Session = Depends(get_db)):
     update_raid_logic(db)
     my_status = {}
+    is_participant = False
     if current_user.id in RAID_STATE["players"]:
         my_status = RAID_STATE["players"][current_user.id]
+        is_participant = True
         
     return {
         "active": RAID_STATE["active"],
@@ -573,7 +574,8 @@ def get_raid_status(current_user: User = Depends(get_current_user), db: Session 
         "max_hp": RAID_STATE["max_hp"],
         "image": RAID_STATE["boss"]["img"] if RAID_STATE["boss"] else "",
         "my_status": my_status,
-        "user_hp": current_user.hp
+        "user_hp": current_user.hp,
+        "is_participant": is_participant # 🔥 新增
     }
 
 @router.post("/raid/join")
@@ -622,7 +624,6 @@ def claim_raid_reward(choice: int = Query(...), current_user: User = Depends(get
     p_data = RAID_STATE["players"][current_user.id]
     if p_data.get("claimed"): return {"message": "已經領過獎勵了"}
     
-    # 🔥 V2.11.8: 機率修正 (20% Pet, 40% Candy, 40% Money)
     weights = [20, 40, 40]
     options = ["pet", "candy", "money"]
     prize = random.choices(options, weights=weights, k=1)[0]
@@ -631,6 +632,7 @@ def claim_raid_reward(choice: int = Query(...), current_user: User = Depends(get
     try:
         if not current_user.inventory: inv = {}
         else: inv = json.loads(current_user.inventory)
+        if not isinstance(inv, dict): inv = {}
     except: inv = {}
 
     if prize == "candy":
@@ -659,35 +661,46 @@ def claim_raid_reward(choice: int = Query(...), current_user: User = Depends(get
     db.commit()
     return {"message": msg, "prize": prize}
 
-# 🔥 🔥 修正：簽到 500 Error (inventory 為空時崩潰) 🔥 🔥
+# 🔥 V2.11.9: 強制防呆與錯誤捕捉
 @router.post("/social/daily_checkin")
 def daily_checkin(current_user: User = Depends(get_current_user), db: Session = Depends(get_db)):
-    now = get_now_tw()
-    today_str = now.strftime("%Y-%m-%d")
-    if current_user.last_checkin_date == today_str: return {"message": "今天已經簽到過了"}
-    prizes = ["1500G", "3000G", "candy", "golden", "8000G", "legendary"]
-    weights = [30, 20, 20, 20, 6, 4]
-    result = random.choices(prizes, weights=weights, k=1)[0]
-    
     try:
-        if not current_user.inventory:
-            inv = {}
-        else:
-            inv = json.loads(current_user.inventory)
-    except:
-        inv = {}
+        now = get_now_tw()
+        today_str = now.strftime("%Y-%m-%d")
+        if current_user.last_checkin_date == today_str: return {"message": "今天已經簽到過了"}
         
-    msg = ""
-    if result == "1500G": current_user.money += 1500; msg = "獲得 1500 Gold"
-    elif result == "3000G": current_user.money += 3000; msg = "獲得 3000 Gold"
-    elif result == "candy": inv["candy"] = inv.get("candy", 0) + 5; msg = "獲得 🍬 神奇糖果 x5"
-    elif result == "golden": inv["golden_candy"] = inv.get("golden_candy", 0) + 1; msg = "獲得 ✨ 黃金糖果 x1"
-    elif result == "8000G": current_user.money += 8000; msg = "大獎！獲得 💰 8000 Gold"
-    elif result == "legendary": inv["legendary_candy"] = inv.get("legendary_candy", 0) + 1; msg = "超級大獎！獲得 🔮 傳說糖果 x1"
-    current_user.last_checkin_date = today_str
-    current_user.inventory = json.dumps(inv)
-    db.commit()
-    return {"message": f"簽到成功！{msg}"}
+        prizes = ["1500G", "3000G", "candy", "golden", "8000G", "legendary"]
+        weights = [30, 20, 20, 20, 6, 4]
+        result = random.choices(prizes, weights=weights, k=1)[0]
+        
+        # 1. Money 防呆
+        if current_user.money is None: current_user.money = 0
+            
+        # 2. Inventory 防呆
+        try:
+            if not current_user.inventory:
+                inv = {}
+            else:
+                inv = json.loads(current_user.inventory)
+                if not isinstance(inv, dict): inv = {} # 確保是字典
+        except:
+            inv = {}
+            
+        msg = ""
+        if result == "1500G": current_user.money += 1500; msg = "獲得 1500 Gold"
+        elif result == "3000G": current_user.money += 3000; msg = "獲得 3000 Gold"
+        elif result == "candy": inv["candy"] = inv.get("candy", 0) + 5; msg = "獲得 🍬 神奇糖果 x5"
+        elif result == "golden": inv["golden_candy"] = inv.get("golden_candy", 0) + 1; msg = "獲得 ✨ 黃金糖果 x1"
+        elif result == "8000G": current_user.money += 8000; msg = "大獎！獲得 💰 8000 Gold"
+        elif result == "legendary": inv["legendary_candy"] = inv.get("legendary_candy", 0) + 1; msg = "超級大獎！獲得 🔮 傳說糖果 x1"
+        
+        current_user.last_checkin_date = today_str
+        current_user.inventory = json.dumps(inv)
+        db.commit()
+        return {"message": f"簽到成功！{msg}"}
+    except Exception as e:
+        print(f"Checkin Error: {str(e)}") # 印出錯誤以便除錯
+        raise HTTPException(status_code=500, detail="簽到失敗，請聯繫管理員")
 
 @router.post("/social/add/{target_id}")
 def add_friend(target_id: int, current_user: User = Depends(get_current_user), db: Session = Depends(get_db)):
