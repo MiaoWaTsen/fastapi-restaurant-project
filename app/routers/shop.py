@@ -131,11 +131,9 @@ POKEDEX_DATA = {
     "妙蛙種子": {"hp": 130, "atk": 112, "img": "https://img.pokemondb.net/artwork/large/bulbasaur.jpg", "skills": ["藤鞭", "種子炸彈", "污泥炸彈"]},
     "小火龍": {"hp": 112, "atk": 130, "img": "https://img.pokemondb.net/artwork/large/charmander.jpg", "skills": ["火花", "噴射火焰", "大字爆炎"]},
     "傑尼龜": {"hp": 121, "atk": 121, "img": "https://img.pokemondb.net/artwork/large/squirtle.jpg", "skills": ["水槍", "水流噴射", "水流尾"]},
-    
     "妙蛙花": {"hp": 142, "atk": 130, "img": "https://img.pokemondb.net/artwork/large/venusaur.jpg", "skills": ["藤鞭", "種子炸彈", "污泥炸彈"]},
     "噴火龍": {"hp": 130, "atk": 142, "img": "https://img.pokemondb.net/artwork/large/charizard.jpg", "skills": ["火花", "噴射火焰", "大字爆炎"]},
     "水箭龜": {"hp": 136, "atk": 136, "img": "https://img.pokemondb.net/artwork/large/blastoise.jpg", "skills": ["水槍", "水流噴射", "水流尾"]},
-    
     "毛辮羊": {"hp": 120, "atk": 120, "img": "https://img.pokemondb.net/artwork/large/wooloo.jpg", "skills": ["撞擊", "撒嬌", "電擊"]},
     "皮卡丘": {"hp": 125, "atk": 125, "img": "https://img.pokemondb.net/artwork/large/pikachu.jpg", "skills": ["電光", "放電", "電擊"]},
     "伊布": {"hp": 125, "atk": 125, "img": "https://img.pokemondb.net/artwork/large/eevee.jpg", "skills": ["撞擊", "挖洞", "高速星星"]},
@@ -250,7 +248,7 @@ def get_all_pokedex():
         result.append({ "name": name, "img": data["img"], "hp": data["hp"], "atk": data["atk"], "is_obtainable": is_obtainable })
     return result
 
-# 🔥 V2.11.9: 圖鑑自動同步修復 (保留)
+# 🔥 V2.11.8: 圖鑑自動同步修復 (保留)
 @router.get("/pokedex/collection")
 def get_pokedex_collection(current_user: User = Depends(get_current_user), db: Session = Depends(get_db)):
     unlocked = current_user.unlocked_monsters.split(',') if current_user.unlocked_monsters else []
@@ -317,10 +315,12 @@ async def wild_attack_api(is_win: bool = Query(...), is_powerful: bool = Query(F
         if is_powerful: inv["growth_candy"] = inv.get("growth_candy", 0) + 1; msg += " & 🍬 成長糖果 x1"
         current_user.inventory = json.dumps(inv)
         
+        # 🔥 V2.11.10: 修正：Golden 任務也要判定
         quests = json.loads(current_user.quests) if current_user.quests else []
         quest_updated = False
         for q in quests:
-            if q["type"] == "BATTLE_WILD" and q["status"] != "COMPLETED":
+            # 只要是擊敗野怪類型 (包含 GOLDEN 也是擊敗野怪)
+            if q["type"] in ["BATTLE_WILD", "GOLDEN"] and q["status"] != "COMPLETED":
                 if q.get("target") in target_name: 
                     q["now"] += 1
                     quest_updated = True
@@ -556,7 +556,6 @@ def duel_attack(damage: int = Query(0), heal: int = Query(0), db: Session = Depe
     db.commit()
     return {"result": "NEXT", "damage": damage, "heal": heal}
 
-# 🔥 V2.11.9: 新增 is_participant 欄位
 @router.get("/raid/status")
 def get_raid_status(current_user: User = Depends(get_current_user), db: Session = Depends(get_db)):
     update_raid_logic(db)
@@ -575,7 +574,7 @@ def get_raid_status(current_user: User = Depends(get_current_user), db: Session 
         "image": RAID_STATE["boss"]["img"] if RAID_STATE["boss"] else "",
         "my_status": my_status,
         "user_hp": current_user.hp,
-        "is_participant": is_participant # 🔥 新增
+        "is_participant": is_participant
     }
 
 @router.post("/raid/join")
@@ -661,7 +660,6 @@ def claim_raid_reward(choice: int = Query(...), current_user: User = Depends(get
     db.commit()
     return {"message": msg, "prize": prize}
 
-# 🔥 V2.11.9: 強制防呆與錯誤捕捉
 @router.post("/social/daily_checkin")
 def daily_checkin(current_user: User = Depends(get_current_user), db: Session = Depends(get_db)):
     try:
