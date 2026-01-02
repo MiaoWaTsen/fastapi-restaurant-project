@@ -149,10 +149,8 @@ POKEDEX_DATA = {
     "卡比獸": {"hp": 175, "atk": 112, "img": "https://img.pokemondb.net/artwork/large/snorlax.jpg", "skills": ["泰山壓頂", "地震", "撞擊"]},
     "吉利蛋": {"hp": 220, "atk": 90, "img": "https://img.pokemondb.net/artwork/large/chansey.jpg", "skills": ["抓", "精神強念", "撞擊"]},
     "幸福蛋": {"hp": 230, "atk": 90, "img": "https://img.pokemondb.net/artwork/large/blissey.jpg", "skills": ["抓", "精神強念", "撞擊"]},
-    
     "拉普拉斯": {"hp": 160, "atk": 138, "img": "https://img.pokemondb.net/artwork/large/lapras.jpg", "skills": ["水槍", "水流噴射", "冰凍光束"]},
     "快龍": {"hp": 144, "atk": 142, "img": "https://img.pokemondb.net/artwork/large/dragonite.jpg", "skills": ["龍息", "逆鱗", "勇鳥猛攻"]},
-    
     "急凍鳥": {"hp": 145, "atk": 145, "img": "https://img.pokemondb.net/artwork/large/articuno.jpg", "skills": ["冰礫", "冰凍光束", "勇鳥猛攻"]},
     "火焰鳥": {"hp": 145, "atk": 145, "img": "https://img.pokemondb.net/artwork/large/moltres.jpg", "skills": ["噴射火焰", "大字爆炎", "勇鳥猛攻"]},
     "閃電鳥": {"hp": 145, "atk": 145, "img": "https://img.pokemondb.net/artwork/large/zapdos.jpg", "skills": ["電光", "瘋狂伏特", "勇鳥猛攻"]},
@@ -252,9 +250,27 @@ def get_all_pokedex():
         result.append({ "name": name, "img": data["img"], "hp": data["hp"], "atk": data["atk"], "is_obtainable": is_obtainable })
     return result
 
+# 🔥 V2.11.8: 圖鑑自動同步修復
 @router.get("/pokedex/collection")
-def get_pokedex_collection(current_user: User = Depends(get_current_user)):
+def get_pokedex_collection(current_user: User = Depends(get_current_user), db: Session = Depends(get_db)):
+    # 1. 讀取目前解鎖的
     unlocked = current_user.unlocked_monsters.split(',') if current_user.unlocked_monsters else []
+    
+    # 2. 自動掃描盒子 (修復漏網之魚)
+    try:
+        box = json.loads(current_user.pokemon_storage) if current_user.pokemon_storage else []
+        is_updated = False
+        for p in box:
+            if p['name'] not in unlocked:
+                unlocked.append(p['name'])
+                is_updated = True
+        
+        if is_updated:
+            current_user.unlocked_monsters = ",".join(unlocked)
+            db.commit()
+    except:
+        pass # JSON Error ignore
+        
     result = []
     for name in COLLECTION_MONS:
         if name in POKEDEX_DATA:
@@ -303,13 +319,10 @@ async def wild_attack_api(is_win: bool = Query(...), is_powerful: bool = Query(F
         if is_powerful: inv["growth_candy"] = inv.get("growth_candy", 0) + 1; msg += " & 🍬 成長糖果 x1"
         current_user.inventory = json.dumps(inv)
         
-        # 🔥 V2.11.6: 更新任務進度 (擊敗野怪)
         quests = json.loads(current_user.quests) if current_user.quests else []
         quest_updated = False
         for q in quests:
-            # 必須是 BATTLE_WILD 且目標名稱一致
             if q["type"] == "BATTLE_WILD" and q["status"] != "COMPLETED":
-                # 模糊匹配 (例如任務目標是 '小拉達'，打倒 '🔥 強大的 小拉達' 也算)
                 if q.get("target") in target_name: 
                     q["now"] += 1
                     quest_updated = True
@@ -379,7 +392,6 @@ async def play_gacha(gacha_type: str, db: Session = Depends(get_db), current_use
     unlocked = current_user.unlocked_monsters.split(',') if current_user.unlocked_monsters else []
     if prize_name not in unlocked: unlocked.append(prize_name); current_user.unlocked_monsters = ",".join(unlocked)
     
-    # 🔥 V2.11.6: 移除 Gacha 任務邏輯，現在只剩戰鬥任務
     db.commit()
     try:
         if 'legendary' in gacha_type or gacha_type in ['golden', 'high'] or prize_name in ['快龍', '超夢', '夢幻', '拉普拉斯', '幸福蛋', '耿鬼', '鳳王', '洛奇亞']: await manager.broadcast(f"🎰 恭喜 [{current_user.username}] 獲得了稀有的 [{prize_name}] (Lv.{new_lv})！")
@@ -610,13 +622,17 @@ def claim_raid_reward(choice: int = Query(...), current_user: User = Depends(get
     p_data = RAID_STATE["players"][current_user.id]
     if p_data.get("claimed"): return {"message": "已經領過獎勵了"}
     
-    # 🔥 V2.11.7: 團體戰獎勵權重調整 (20% Boss / 40% Candy / 40% Money)
+    # 🔥 V2.11.8: 機率修正 (20% Pet, 40% Candy, 40% Money)
     weights = [20, 40, 40]
     options = ["pet", "candy", "money"]
     prize = random.choices(options, weights=weights, k=1)[0]
     
     msg = ""
-    inv = json.loads(current_user.inventory)
+    try:
+        if not current_user.inventory: inv = {}
+        else: inv = json.loads(current_user.inventory)
+    except: inv = {}
+
     if prize == "candy":
         inv["legendary_candy"] = inv.get("legendary_candy", 0) + 1
         msg = "獲得 🔮 傳說糖果 x1"
@@ -643,6 +659,7 @@ def claim_raid_reward(choice: int = Query(...), current_user: User = Depends(get
     db.commit()
     return {"message": msg, "prize": prize}
 
+# 🔥 🔥 修正：簽到 500 Error (inventory 為空時崩潰) 🔥 🔥
 @router.post("/social/daily_checkin")
 def daily_checkin(current_user: User = Depends(get_current_user), db: Session = Depends(get_db)):
     now = get_now_tw()
@@ -652,7 +669,6 @@ def daily_checkin(current_user: User = Depends(get_current_user), db: Session = 
     weights = [30, 20, 20, 20, 6, 4]
     result = random.choices(prizes, weights=weights, k=1)[0]
     
-    # 🔥 V2.11.7: 簽到防呆修復
     try:
         if not current_user.inventory:
             inv = {}

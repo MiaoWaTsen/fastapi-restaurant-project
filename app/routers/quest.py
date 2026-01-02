@@ -25,12 +25,10 @@ def get_daily_quests(db: Session = Depends(get_db), current_user: User = Depends
     
     # 隨時保持 3 個任務
     if len(quests) < 3:
-        # 1. 取得玩家當前出戰寵物等級
         target_level = current_user.pet_level
         if target_level < 1: target_level = 1
-        if target_level > 96: target_level = 96 # 鎖定上限
+        if target_level > 96: target_level = 96 
 
-        # 2. 找出所有「解鎖等級 <= 目標等級」的野怪
         valid_species = []
         for lv in range(1, target_level + 1):
             if lv in WILD_UNLOCK_LEVELS:
@@ -38,10 +36,8 @@ def get_daily_quests(db: Session = Depends(get_db), current_user: User = Depends
         
         if not valid_species: valid_species = ["小拉達"]
 
-        # 補滿到 3 個
         while len(quests) < 3:
             target_mon = random.choice(valid_species)
-            
             is_golden = random.random() < 0.05
             
             if is_golden:
@@ -52,13 +48,11 @@ def get_daily_quests(db: Session = Depends(get_db), current_user: User = Depends
             else:
                 req_count = random.randint(1, 3)
                 
-                # 🔥 V2.11.7: 獎勵大幅下修
-                # 舊: XP=Lv*30+150, Gold=Lv*40+200
-                # 新: XP=Lv*15+50,  Gold=Lv*10+100
-                base_xp = target_level * 15 + 50
-                base_gold = target_level * 10 + 100
+                # 🔥 V2.11.8: 獎勵再下修 (避免通膨)
+                # 新公式: XP=Lv*12+30, Gold=Lv*8+50
+                base_xp = target_level * 10 + 30
+                base_gold = target_level * 6 + 50
                 
-                # 數量加成：1隻=1.0x, 2隻=1.2x, 3隻=1.4x
                 multiplier = 1 + (req_count - 1) * 0.2
                 
                 total_xp = int(base_xp * req_count * multiplier)
@@ -120,7 +114,6 @@ def claim_quest(quest_id: str, db: Session = Depends(get_db), current_user: User
     if target_q["now"] < target_q["req"]:
         raise HTTPException(status_code=400, detail="任務尚未完成")
         
-    # 發放獎勵
     msg = ""
     if target_q.get("type") == "GOLDEN":
         try: 
@@ -138,7 +131,6 @@ def claim_quest(quest_id: str, db: Session = Depends(get_db), current_user: User
         current_user.money += gold
         msg = f"獲得 {xp} XP & {gold} Gold"
         
-    # 移除已完成任務
     new_quests = [q for q in quests if q["id"] != quest_id]
     current_user.quests = json.dumps(new_quests)
     db.commit()
