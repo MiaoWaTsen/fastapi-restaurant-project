@@ -49,10 +49,9 @@ def get_now_tw():
     return datetime.utcnow() + timedelta(hours=8)
 
 # =================================================================
-# 1. 技能資料庫 (V2.11.6 數值調整)
+# 1. 技能資料庫
 # =================================================================
 SKILL_DB = {
-    # --- 通用/舊技能 ---
     "水槍": {"dmg": 16, "effect": "heal", "prob": 0.5, "val": 0.15, "desc": "50%回血15%"},
     "撒嬌": {"dmg": 16, "effect": "heal", "prob": 0.5, "val": 0.15, "desc": "50%回血15%"},
     "念力": {"dmg": 16, "effect": "heal", "prob": 0.5, "val": 0.15, "desc": "50%回血15%"},
@@ -98,18 +97,16 @@ SKILL_DB = {
     "暗影球": {"dmg": 34, "effect": "debuff_self", "prob": 1.0, "val": 0.1, "desc": "降自身10%攻"},
     "水砲": {"dmg": 34, "effect": "debuff_self", "prob": 1.0, "val": 0.1, "desc": "降自身10%攻"},
     "勇鳥猛攻": {"dmg": 34, "effect": "recoil", "prob": 1.0, "val": 0.15, "desc": "扣自身15%血"},
-    
-    # 🔥 V2.11.6 平衡調整 🔥
     "精神擊破": {"dmg": 30, "effect": None, "prob": 0, "val": 0, "desc": "無特效"},
     "神聖之火": {"dmg": 22, "effect": "buff_atk", "prob": 1.0, "val": 0.05, "desc": "100%加攻5%"},
     "氣旋攻擊": {"dmg": 22, "effect": "buff_atk", "prob": 1.0, "val": 0.05, "desc": "100%加攻5%"},
 }
 
 # =================================================================
-# 2. 圖鑑資料庫 (V2.11.6 數值調整)
+# 2. 圖鑑資料庫
 # =================================================================
 POKEDEX_DATA = {
-    # --- 練功野怪 (不變) ---
+    # 關都野怪
     "小拉達": {"hp": 90, "atk": 80, "img": "https://img.pokemondb.net/artwork/large/rattata.jpg", "skills": ["抓", "出奇一擊", "撞擊"]},
     "波波": {"hp": 94, "atk": 84, "img": "https://img.pokemondb.net/artwork/large/pidgey.jpg", "skills": ["抓", "啄", "燕返"]},
     "烈雀": {"hp": 88, "atk": 92, "img": "https://img.pokemondb.net/artwork/large/spearow.jpg", "skills": ["抓", "啄", "燕返"]},
@@ -131,7 +128,6 @@ POKEDEX_DATA = {
     "怪力": {"hp": 140, "atk": 145, "img": "https://img.pokemondb.net/artwork/large/machamp.jpg", "skills": ["雙倍奉還", "岩石封鎖", "近身戰"]},
     "暴鯉龍": {"hp": 150, "atk": 150, "img": "https://img.pokemondb.net/artwork/large/gyarados.jpg", "skills": ["水槍", "水流尾", "勇鳥猛攻"]},
 
-    # --- 🔥 V2.11.6 重大數值更新區 🔥 ---
     "妙蛙種子": {"hp": 130, "atk": 112, "img": "https://img.pokemondb.net/artwork/large/bulbasaur.jpg", "skills": ["藤鞭", "種子炸彈", "污泥炸彈"]},
     "小火龍": {"hp": 112, "atk": 130, "img": "https://img.pokemondb.net/artwork/large/charmander.jpg", "skills": ["火花", "噴射火焰", "大字爆炎"]},
     "傑尼龜": {"hp": 121, "atk": 121, "img": "https://img.pokemondb.net/artwork/large/squirtle.jpg", "skills": ["水槍", "水流噴射", "水流尾"]},
@@ -166,7 +162,6 @@ POKEDEX_DATA = {
     "夢幻": {"hp": 155, "atk": 152, "img": "https://img.pokemondb.net/artwork/large/mew.jpg", "skills": ["念力", "暗影球", "精神擊破"]},
 }
 
-# 🔥 定義圖鑑範圍
 COLLECTION_MONS = [
     "妙蛙種子", "小火龍", "傑尼龜", "妙蛙花", "噴火龍", "水箭龜",
     "毛辮羊", "皮卡丘", "伊布", "六尾", "胖丁", "皮皮", "大蔥鴨", "呆呆獸", "可達鴨",
@@ -614,16 +609,20 @@ def claim_raid_reward(choice: int = Query(...), current_user: User = Depends(get
     if current_user.id not in RAID_STATE["players"]: raise HTTPException(status_code=400, detail="你沒有參與這場戰鬥")
     p_data = RAID_STATE["players"][current_user.id]
     if p_data.get("claimed"): return {"message": "已經領過獎勵了"}
-    reward_pool = ["gold_candy", "money", "pet"]
-    prize = random.choice(reward_pool)
+    
+    # 🔥 V2.11.7: 團體戰獎勵權重調整 (20% Boss / 40% Candy / 40% Money)
+    weights = [20, 40, 40]
+    options = ["pet", "candy", "money"]
+    prize = random.choices(options, weights=weights, k=1)[0]
+    
     msg = ""
     inv = json.loads(current_user.inventory)
-    if prize == "gold_candy":
-        inv["golden_candy"] = inv.get("golden_candy", 0) + 2
-        msg = "獲得 ✨ 黃金糖果 x2"
+    if prize == "candy":
+        inv["legendary_candy"] = inv.get("legendary_candy", 0) + 1
+        msg = "獲得 🔮 傳說糖果 x1"
     elif prize == "money":
-        current_user.money += 5000
-        msg = "獲得 💰 5000 Gold"
+        current_user.money += 6000
+        msg = "獲得 💰 6000 Gold"
     elif prize == "pet":
         boss_name = RAID_STATE["boss"]["name"].split(" ")[1] 
         new_lv = random.randint(1, current_user.level)
@@ -634,8 +633,9 @@ def claim_raid_reward(choice: int = Query(...), current_user: User = Depends(get
             current_user.pokemon_storage = json.dumps(box)
             msg = f"獲得 Boss 寶可夢：{boss_name} (Lv.{new_lv})！"
         except:
-            msg = "背包滿了，獲得 5000G 代替"
-            current_user.money += 5000
+            msg = "背包滿了，獲得 6000G 代替"
+            current_user.money += 6000
+
     RAID_STATE["players"][current_user.id]["claimed"] = True
     current_user.inventory = json.dumps(inv)
     current_user.exp += 3000; current_user.pet_exp += 3000
@@ -651,11 +651,16 @@ def daily_checkin(current_user: User = Depends(get_current_user), db: Session = 
     prizes = ["1500G", "3000G", "candy", "golden", "8000G", "legendary"]
     weights = [30, 20, 20, 20, 6, 4]
     result = random.choices(prizes, weights=weights, k=1)[0]
+    
+    # 🔥 V2.11.7: 簽到防呆修復
     try:
-        inv_data = current_user.inventory
-        if not inv_data: inv = {}
-        else: inv = json.loads(inv_data)
-    except: inv = {}
+        if not current_user.inventory:
+            inv = {}
+        else:
+            inv = json.loads(current_user.inventory)
+    except:
+        inv = {}
+        
     msg = ""
     if result == "1500G": current_user.money += 1500; msg = "獲得 1500 Gold"
     elif result == "3000G": current_user.money += 3000; msg = "獲得 3000 Gold"
