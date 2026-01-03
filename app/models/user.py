@@ -1,59 +1,68 @@
 # app/models/user.py
 
-from sqlalchemy import Column, Integer, String
+from sqlalchemy import Column, Integer, String, Text, Boolean
+from pydantic import BaseModel, ConfigDict
 from app.db.base_class import Base
-from pydantic import BaseModel
 
-# ==========================================
-# 1. 資料庫模型 (SQLAlchemy)
-# ==========================================
 class User(Base):
-    __tablename__ = "users"
+    # 🔥 強制建立新表格，清除所有舊資料與Bug
+    __tablename__ = "users_v11"
 
     id = Column(Integer, primary_key=True, index=True)
-    username = Column(String, unique=True, index=True, nullable=False)
-    hashed_password = Column(String, nullable=False)
+    username = Column(String(50), unique=True, index=True, nullable=False)
+    hashed_password = Column(String(255), nullable=False)
     
-    # 玩家基礎數值
+    # 權限
+    is_admin = Column(Boolean, default=False)
+    
+    # 玩家數值
     level = Column(Integer, default=1)
     exp = Column(Integer, default=0)
-    money = Column(Integer, default=1000)
+    money = Column(Integer, default=300) # 初始 300G
     
-    # 寶可夢相關
+    # 寵物狀態 (預設小火龍)
+    pokemon_name = Column(String(50), default="小火龍")
+    pokemon_image = Column(String(255), default="https://img.pokemondb.net/artwork/large/charmander.jpg")
     pet_level = Column(Integer, default=1)
     pet_exp = Column(Integer, default=0)
-    
-    # 戰鬥屬性
     hp = Column(Integer, default=100)
     max_hp = Column(Integer, default=100)
     attack = Column(Integer, default=10)
     
-    # 寶可夢資料
-    pokemon_name = Column(String, default="皮卡丘")
-    pokemon_image = Column(String, default="https://img.pokemondb.net/artwork/large/pikachu.jpg")
-    active_pokemon_uid = Column(String, nullable=True) 
+    # 核心資料
+    active_pokemon_uid = Column(String(100), default="") 
+    pokemon_storage = Column(Text, default="[]") 
     
-    # 倉庫與背包
-    pokemon_storage = Column(String, default="[]") 
-    inventory = Column(String, default="{}")       
-    unlocked_monsters = Column(String, default="") 
+    # 遊戲資料
+    inventory = Column(Text, default="{}") 
+    unlocked_monsters = Column(Text, default="")
+    quests = Column(Text, default="[]")
     
-    # 任務
-    quests = Column(String, default="[]")
+    # ❌ 已移除簽到欄位
 
-# ==========================================
-# 2. Pydantic 驗證模型 (補回遺失的部分!)
-# ==========================================
-class UserBase(BaseModel):
+class UserCreate(BaseModel):
     username: str
-
-class UserCreate(UserBase):
     password: str
+    starter_id: int
 
-class UserRead(UserBase):
+class UserRead(BaseModel):
     id: int
-    level: int
-    money: int
+    username: str
+    is_admin: bool
+    level: int 
+    exp: int
+    money: int 
     
-    class Config:
-        orm_mode = True
+    pokemon_name: str
+    pokemon_image: str
+    pet_level: int
+    pet_exp: int
+    hp: int
+    max_hp: int
+    attack: int
+    
+    inventory: str
+    pokemon_storage: str
+    active_pokemon_uid: str
+    
+    model_config = ConfigDict(from_attributes=True)

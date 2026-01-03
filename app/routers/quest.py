@@ -1,6 +1,6 @@
 # app/routers/quest.py
 
-from fastapi import APIRouter, Depends, HTTPException, Query
+from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 import random
 import json
@@ -9,9 +9,7 @@ import uuid
 from app.db.session import get_db
 from app.common.deps import get_current_user
 from app.models.user import User
-
-# 🔥 V2.11.19: 從共用檔匯入
-from app.common.game_data import POKEDEX_DATA, WILD_UNLOCK_LEVELS
+from app.routers.shop import POKEDEX_DATA, WILD_UNLOCK_LEVELS, apply_iv_stats
 
 router = APIRouter()
 
@@ -24,6 +22,7 @@ def get_daily_quests(db: Session = Depends(get_db), current_user: User = Depends
     except:
         quests = []
     
+    # 隨時保持 3 個任務
     if len(quests) < 3:
         target_level = current_user.pet_level
         if target_level < 1: target_level = 1
@@ -49,9 +48,8 @@ def get_daily_quests(db: Session = Depends(get_db), current_user: User = Depends
             else:
                 req_count = random.randint(1, 3)
                 
-                # 🔥 V2.11.19: 獎勵再下修
-                base_xp = target_level * 10 + 20
-                base_gold = target_level * 6 + 30
+                base_xp = target_level * 15 + 50
+                base_gold = target_level * 10 + 100
                 
                 multiplier = 1 + (req_count - 1) * 0.2
                 
