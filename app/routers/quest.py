@@ -9,7 +9,9 @@ import uuid
 from app.db.session import get_db
 from app.common.deps import get_current_user
 from app.models.user import User
-from app.routers.shop import POKEDEX_DATA, WILD_UNLOCK_LEVELS 
+
+# 🔥 V2.11.13: 從共用檔匯入
+from app.common.game_data import POKEDEX_DATA, WILD_UNLOCK_LEVELS
 
 router = APIRouter()
 
@@ -22,7 +24,6 @@ def get_daily_quests(db: Session = Depends(get_db), current_user: User = Depends
     except:
         quests = []
     
-    # 隨時保持 3 個任務
     if len(quests) < 3:
         target_level = current_user.pet_level
         if target_level < 1: target_level = 1
@@ -37,7 +38,6 @@ def get_daily_quests(db: Session = Depends(get_db), current_user: User = Depends
 
         while len(quests) < 3:
             target_mon = random.choice(valid_species)
-            
             is_golden = random.random() < 0.05
             
             if is_golden:
@@ -49,8 +49,6 @@ def get_daily_quests(db: Session = Depends(get_db), current_user: User = Depends
                 req_count = random.randint(1, 3)
                 
                 # 🔥 V2.11.11: 獎勵再再下修
-                # XP = Lv * 10 + 20
-                # Gold = Lv * 6 + 30
                 base_xp = target_level * 10 + 20
                 base_gold = target_level * 6 + 30
                 
