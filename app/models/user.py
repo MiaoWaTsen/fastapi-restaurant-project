@@ -1,11 +1,14 @@
 # app/models/user.py
 
-from sqlalchemy import Column, Integer, String, Text, Boolean
+from sqlalchemy import Column, Integer, String, Text, Boolean, DateTime, ForeignKey
 from pydantic import BaseModel, ConfigDict
 from app.db.base_class import Base
+from datetime import datetime
 
+# =================================================================
+# 1. 玩家模型 (User)
+# =================================================================
 class User(Base):
-    # 🔥 強制建立新表格，清除所有舊資料與Bug
     __tablename__ = "users_v11"
 
     id = Column(Integer, primary_key=True, index=True)
@@ -18,9 +21,9 @@ class User(Base):
     # 玩家數值
     level = Column(Integer, default=1)
     exp = Column(Integer, default=0)
-    money = Column(Integer, default=300) # 初始 300G
+    money = Column(Integer, default=300)
     
-    # 寵物狀態 (預設小火龍)
+    # 寵物狀態
     pokemon_name = Column(String(50), default="小火龍")
     pokemon_image = Column(String(255), default="https://img.pokemondb.net/artwork/large/charmander.jpg")
     pet_level = Column(Integer, default=1)
@@ -37,9 +40,40 @@ class User(Base):
     inventory = Column(Text, default="{}") 
     unlocked_monsters = Column(Text, default="")
     quests = Column(Text, default="[]")
-    
-    # ❌ 已移除簽到欄位
 
+# =================================================================
+# 2. 好友模型 (Friendship)
+# =================================================================
+class Friendship(Base):
+    __tablename__ = "friendships"
+    id = Column(Integer, primary_key=True, index=True)
+    user_id = Column(Integer, ForeignKey("users_v11.id")) 
+    friend_id = Column(Integer, ForeignKey("users_v11.id"))
+    status = Column(String, default="PENDING")
+
+# =================================================================
+# 3. 道館模型 (Gym)
+# =================================================================
+class Gym(Base):
+    __tablename__ = "gyms"
+    id = Column(Integer, primary_key=True, index=True)
+    name = Column(String)
+    buff_desc = Column(String)
+    income_rate = Column(Integer) # Gold per minute
+    
+    leader_id = Column(Integer, ForeignKey("users_v11.id"), nullable=True)
+    occupied_at = Column(DateTime, nullable=True)
+    protection_until = Column(DateTime, nullable=True) 
+    
+    # 鏡像數據
+    leader_name = Column(String, default="")
+    leader_pokemon = Column(String, default="") 
+    leader_hp = Column(Integer, default=0)
+    leader_max_hp = Column(Integer, default=0)
+    leader_atk = Column(Integer, default=0)
+    leader_img = Column(String, default="")
+
+# Pydantic Schemas
 class UserCreate(BaseModel):
     username: str
     password: str

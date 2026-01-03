@@ -3,7 +3,6 @@
 from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.orm import Session
 from sqlalchemy import or_, Column, Integer, String, ForeignKey, DateTime, Float, desc
-from sqlalchemy.ext.declarative import declarative_base
 from datetime import datetime, timedelta
 import random
 import json
@@ -11,9 +10,12 @@ import uuid
 
 from app.db.session import get_db, engine
 from app.common.deps import get_current_user
-from app.models.user import User
 from app.common.websocket import manager 
 
+# 🔥 V2.12.4 關鍵修正：從 user.py 匯入所有模型，確保資料庫能正確建立
+from app.models.user import User, Friendship, Gym
+
+# 匯入共用資料
 from app.common.game_data import (
     SKILL_DB, POKEDEX_DATA, COLLECTION_MONS, OBTAINABLE_MONS, LEGENDARY_MONS,
     WILD_UNLOCK_LEVELS, GACHA_NORMAL, GACHA_MEDIUM, GACHA_HIGH, 
@@ -23,42 +25,13 @@ from app.common.game_data import (
 
 router = APIRouter()
 
-# =================================================================
-# 0. 資料庫模型 (Friendship & Gym)
-# =================================================================
-Base = declarative_base()
+# (這裡不需要再定義 Base, Friendship, Gym 了，因為已經移到 models/user.py)
 
-class Friendship(Base):
-    __tablename__ = "friendships"
-    id = Column(Integer, primary_key=True, index=True)
-    user_id = Column(Integer, ForeignKey("users_v11.id")) 
-    friend_id = Column(Integer, ForeignKey("users_v11.id"))
-    status = Column(String, default="PENDING")
-
-class Gym(Base):
-    __tablename__ = "gyms"
-    id = Column(Integer, primary_key=True, index=True)
-    name = Column(String)
-    buff_desc = Column(String)
-    income_rate = Column(Integer) # Gold per minute
-    
-    leader_id = Column(Integer, ForeignKey("users_v11.id"), nullable=True)
-    occupied_at = Column(DateTime, nullable=True)
-    protection_until = Column(DateTime, nullable=True) 
-    
-    # 鏡像數據
-    leader_name = Column(String, default="")
-    leader_pokemon = Column(String, default="") 
-    leader_hp = Column(Integer, default=0)
-    leader_max_hp = Column(Integer, default=0)
-    leader_atk = Column(Integer, default=0)
-    leader_img = Column(String, default="")
-
-# 🔥 V2.12.3: 移除手動建表，交給 main.py 統一處理
 # 初始化 4 座道館 (將由 main.py 的 startup event 呼叫)
 def init_gyms():
     try:
         with Session(engine) as session:
+            # 檢查表格是否存在
             if session.query(Gym).count() == 0:
                 print("正在初始化道館資料...")
                 gyms = [
@@ -109,7 +82,6 @@ def get_now_tw():
 
 @router.get("/gym/list")
 def get_gym_list(db: Session = Depends(get_db)):
-    # V2.12.3: 增加防呆，如果表還沒建好不報錯
     try:
         gyms = db.query(Gym).all()
     except:
@@ -221,7 +193,7 @@ def gym_battle_attack(battle_id: str, damage: int = Query(0), heal: int = Query(
     return {"result": "NEXT", "boss_hp": room["boss_data"]["hp"], "user_hp": current_user.hp, "boss_dmg": boss_dmg}
 
 # =================================================================
-# 2. 其他 API
+# 2. 其他 API (保留原有功能)
 # =================================================================
 
 @router.get("/pokedex/all")
@@ -512,10 +484,12 @@ async def play_gacha(gacha_type: str, db: Session = Depends(get_db), current_use
     else:
         if current_user.money < cost: raise HTTPException(status_code=400, detail="金幣不足")
         current_user.money -= cost
+        
     total_rate = sum(p["rate"] for p in pool); r = random.uniform(0, total_rate); acc = 0; prize_name = pool[0]["name"]
     for p in pool:
         acc += p["rate"]
         if r <= acc: prize_name = p["name"]; break
+    
     new_lv = random.randint(1, current_user.level)
     if 'legendary' in gacha_type: iv = random.randint(60, 100)
     else: iv = int(random.triangular(0, 100, 50))
