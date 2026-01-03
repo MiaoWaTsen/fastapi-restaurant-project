@@ -12,9 +12,8 @@ import uuid
 from app.db.session import get_db, engine
 from app.common.deps import get_current_user
 from app.models.user import User
-from app.common.websocket import manager 
 
-# 🔥 V2.11.13: 匯入分離的資料
+# 匯入資料檔 (請確保 app/common/game_data.py 存在)
 from app.common.game_data import (
     SKILL_DB, POKEDEX_DATA, COLLECTION_MONS, OBTAINABLE_MONS,
     WILD_UNLOCK_LEVELS, GACHA_NORMAL, GACHA_MEDIUM, GACHA_HIGH, 
@@ -24,9 +23,8 @@ from app.common.game_data import (
 
 router = APIRouter()
 
-# 0. 自動建立好友資料表
+# 0. 強制檢查好友資料表
 Base = declarative_base()
-
 class Friendship(Base):
     __tablename__ = "friendships"
     id = Column(Integer, primary_key=True, index=True)
@@ -36,8 +34,8 @@ class Friendship(Base):
 
 try:
     Friendship.__table__.create(bind=engine, checkfirst=True)
-except Exception as e:
-    print(f"DB Init Warning: {e}")
+except:
+    pass
 
 # 全域變數
 ONLINE_USERS = {}
@@ -57,20 +55,23 @@ def get_now_tw():
     return datetime.utcnow() + timedelta(hours=8)
 
 # =================================================================
-# 1. 數值計算公式 (更新版)
+# 1. 數值計算公式 (V2.11.19 修正版)
 # =================================================================
 def apply_iv_stats(base_val, iv, level, is_hp=False, is_player=True):
-    # IV: 0.8 ~ 1.2
+    # 🔥 IV 影響範圍提升: 0.8 ~ 1.2
     iv_mult = 0.8 + (iv / 100) * 0.4
+    
     if is_player:
-        # 玩家: HP 1.03, ATK 1.031
+        # 玩家成長: 攻 1.031, 血 1.03
         growth_rate = 1.03 if is_hp else 1.031
     else:
-        # 野怪: HP 1.035, ATK 1.035
+        # 🔥 野怪成長: 1.035 (後期更強)
         growth_rate = 1.035
-    return int(base_val * iv_mult * (growth_rate ** (level - 1)))
 
-# ... (RAID Logic 保持不變) ...
+    val = int(base_val * iv_mult * (growth_rate ** (level - 1)))
+    return max(1, val) # 確保至少為 1，防止 0 導致 NaN
+
+# ... (RAID Logic 不變) ...
 RAID_SCHEDULE = [(8, 0), (14, 0), (18, 0), (21, 0), (22, 0), (23, 0)] 
 RAID_STATE = {"active": False, "status": "IDLE", "boss": None, "current_hp": 0, "max_hp": 0, "players": {}, "last_attack_time": None, "attack_counter": 0}
 RAID_BOSS_POOL = [{"name": "❄️ 急凍鳥", "hp": 15000, "atk": 500, "img": "https://img.pokemondb.net/sprites/home/normal/articuno.png", "weight": 25}, {"name": "🔥 火焰鳥", "hp": 15000, "atk": 500, "img": "https://img.pokemondb.net/sprites/home/normal/moltres.png", "weight": 25}, {"name": "⚡ 閃電鳥", "hp": 15000, "atk": 500, "img": "https://img.pokemondb.net/sprites/home/normal/zapdos.png", "weight": 25}, {"name": "🔮 超夢", "hp": 20000, "atk": 800, "img": "https://img.pokemondb.net/sprites/home/normal/mewtwo.png", "weight": 5}, {"name": "✨ 夢幻", "hp": 20000, "atk": 800, "img": "https://img.pokemondb.net/sprites/home/normal/mew.png", "weight": 5}, {"name": "🌈 鳳王", "hp": 18000, "atk": 600, "img": "https://img.pokemondb.net/sprites/home/normal/ho-oh.png", "weight": 7.5}, {"name": "🌪️ 洛奇亞", "hp": 18000, "atk": 600, "img": "https://img.pokemondb.net/sprites/home/normal/lugia.png", "weight": 7.5}]
@@ -120,17 +121,24 @@ def get_all_pokedex():
     return result
 
 @router.get("/pokedex/collection")
-def get_pokedex_collection(current_user: User = Depends(get_current_user)):
+def get_pokedex_collection(current_user: User = Depends(get_current_user), db: Session = Depends(get_db)):
     unlocked = current_user.unlocked_monsters.split(',') if current_user.unlocked_monsters else []
+    try:
+        box = json.loads(current_user.pokemon_storage) if current_user.pokemon_storage else []
+        is_updated = False
+        for p in box:
+            if p['name'] not in unlocked:
+                unlocked.append(p['name'])
+                is_updated = True
+        if is_updated:
+            current_user.unlocked_monsters = ",".join(unlocked)
+            db.commit()
+    except: pass 
     result = []
     for name in COLLECTION_MONS:
         if name in POKEDEX_DATA:
             data = POKEDEX_DATA[name]
-            result.append({
-                "name": name,
-                "img": data["img"],
-                "is_owned": name in unlocked
-            })
+            result.append({ "name": name, "img": data["img"], "is_owned": name in unlocked })
     return result
 
 @router.get("/wild/list")
@@ -148,8 +156,9 @@ def get_wild_list(level: int, current_user: User = Depends(get_current_user)):
         base = POKEDEX_DATA[name]
         buffed_base_hp = int(base["hp"] * 1.3)
         buffed_base_atk = int(base["atk"] * 1.15)
-        wild_hp = int(buffed_base_hp * (1.033 ** (level - 1)))
-        wild_atk = int(buffed_base_atk * (1.034 ** (level - 1)))
+        # 🔥 V2.11.19: 野怪成長公式 1.035
+        wild_hp = int(buffed_base_hp * (1.035 ** (level - 1)))
+        wild_atk = int(buffed_base_atk * (1.035 ** (level - 1)))
         wild_skills = base.get("skills", ["撞擊", "撞擊", "撞擊"])
         wild_list.append({ "name": name, "raw_name": name, "is_powerful": False, "level": level, "hp": wild_hp, "max_hp": wild_hp, "attack": wild_atk, "image_url": base["img"], "skills": wild_skills })
     return wild_list
@@ -159,7 +168,10 @@ async def wild_attack_api(is_win: bool = Query(...), is_powerful: bool = Query(F
     update_user_activity(current_user.id)
     current_user.hp = current_user.max_hp
     if is_win:
-        target_data = POKEDEX_DATA.get(target_name, POKEDEX_DATA["小拉達"])
+        # 移除前綴以確保正確計算
+        real_target_name = target_name.replace("🔥 強大的 ", "").replace("✨ ", "")
+        target_data = POKEDEX_DATA.get(real_target_name, POKEDEX_DATA["小拉達"])
+        
         base_stat_sum = target_data["hp"] + target_data["atk"]
         xp = int((base_stat_sum / 20) * target_level + 30)
         money = int(xp * 0.5) 
@@ -174,7 +186,7 @@ async def wild_attack_api(is_win: bool = Query(...), is_powerful: bool = Query(F
         quest_updated = False
         for q in quests:
             if q["type"] in ["BATTLE_WILD", "GOLDEN"] and q["status"] != "COMPLETED":
-                if q.get("target") in target_name: 
+                if q.get("target") in real_target_name: 
                     q["now"] += 1
                     quest_updated = True
         
@@ -191,7 +203,11 @@ async def wild_attack_api(is_win: bool = Query(...), is_powerful: bool = Query(F
             active_pet["exp"] = current_user.pet_exp; active_pet["lv"] = current_user.pet_level
             if pet_leveled_up:
                 base = POKEDEX_DATA.get(active_pet["name"])
-                if base: current_user.max_hp = apply_iv_stats(base["hp"], active_pet["iv"], current_user.pet_level, is_hp=True, is_player=True); current_user.attack = apply_iv_stats(base["atk"], active_pet["iv"], current_user.pet_level, is_hp=False, is_player=True); current_user.hp = current_user.max_hp
+                if base: 
+                    # 🔥 升級時重新計算能力 (V2.11.19 修正公式)
+                    current_user.max_hp = apply_iv_stats(base["hp"], active_pet["iv"], current_user.pet_level, is_hp=True, is_player=True)
+                    current_user.attack = apply_iv_stats(base["atk"], active_pet["iv"], current_user.pet_level, is_hp=False, is_player=True)
+                    current_user.hp = current_user.max_hp
         current_user.pokemon_storage = json.dumps(box)
         db.commit()
         return {"message": f"勝利！HP已回復。{msg}"}
@@ -206,8 +222,6 @@ async def play_gacha(gacha_type: str, db: Session = Depends(get_db), current_use
     try: inventory = json.loads(current_user.inventory) if current_user.inventory else {}
     except: inventory = {}
     cost = 0; pool = []
-    
-    # 根據不同池選擇機率 (從 game_data 匯入)
     if gacha_type == 'normal': pool = GACHA_NORMAL; cost = 1500
     elif gacha_type == 'medium': pool = GACHA_MEDIUM; cost = 3000
     elif gacha_type == 'high': pool = GACHA_HIGH; cost = 10000
@@ -255,12 +269,28 @@ async def play_gacha(gacha_type: str, db: Session = Depends(get_db), current_use
 async def swap_active_pokemon(pokemon_uid: str, db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
     box = json.loads(current_user.pokemon_storage); target = next((p for p in box if p["uid"] == pokemon_uid), None)
     if not target: raise HTTPException(status_code=404, detail="找不到")
-    current_user.active_pokemon_uid = pokemon_uid; current_user.pokemon_name = target["name"]
+    
+    current_user.active_pokemon_uid = pokemon_uid
+    current_user.pokemon_name = target["name"]
+    current_user.pet_level = target["lv"]
+    current_user.pet_exp = target["exp"]
+    
+    # 🔥 V2.11.19: 這裡會自動修復 NaN 和圖片問題
+    # 直接查 POKEDEX_DATA 取得原始資料
     base = POKEDEX_DATA.get(target["name"])
-    current_user.pokemon_image = base["img"] if base else "https://via.placeholder.com/150"
-    current_user.pet_level = target["lv"]; current_user.pet_exp = target["exp"]
-    if base: current_user.max_hp = apply_iv_stats(base["hp"], target["iv"], target["lv"], is_hp=True, is_player=True); current_user.attack = apply_iv_stats(base["atk"], target["iv"], target["lv"], is_hp=False, is_player=True)
-    else: current_user.max_hp = 100; current_user.attack = 10
+    
+    if base: 
+        # 1. 寫入正確圖片
+        current_user.pokemon_image = base["img"]
+        # 2. 重新計算血量與攻擊 (絕對不會是 NaN)
+        current_user.max_hp = apply_iv_stats(base["hp"], target["iv"], target["lv"], is_hp=True, is_player=True)
+        current_user.attack = apply_iv_stats(base["atk"], target["iv"], target["lv"], is_hp=False, is_player=True)
+    else: 
+        # 防呆
+        current_user.pokemon_image = "https://via.placeholder.com/150"
+        current_user.max_hp = 100
+        current_user.attack = 10
+
     current_user.hp = current_user.max_hp
     db.commit()
     await manager.broadcast(f"EVENT:PVP_SWAP|{current_user.id}")
@@ -286,7 +316,10 @@ async def box_action(action: str, pokemon_uid: str, db: Session = Depends(get_db
             target["lv"] += 1; target["exp"] -= req; req = get_req_xp(target["lv"])
         if pokemon_uid == current_user.active_pokemon_uid:
             base = POKEDEX_DATA.get(target["name"])
-            if base: current_user.pet_level = target["lv"]; current_user.pet_exp = target["exp"]; current_user.max_hp = apply_iv_stats(base["hp"], target["iv"], target["lv"], is_hp=True, is_player=True); current_user.attack = apply_iv_stats(base["atk"], target["iv"], target["lv"], is_hp=False, is_player=True)
+            if base: 
+                current_user.pet_level = target["lv"]; current_user.pet_exp = target["exp"]; 
+                current_user.max_hp = apply_iv_stats(base["hp"], target["iv"], target["lv"], is_hp=True, is_player=True); 
+                current_user.attack = apply_iv_stats(base["atk"], target["iv"], target["lv"], is_hp=False, is_player=True)
         msg = f"使用成長糖果，經驗+1000 (Lv.{target['lv']})"
     current_user.pokemon_storage = json.dumps(box); current_user.inventory = json.dumps(inv)
     db.commit()
@@ -515,26 +548,26 @@ def claim_raid_reward(choice: int = Query(...), current_user: User = Depends(get
     db.commit()
     return {"message": msg, "prize": prize}
 
-# 🔥 V2.11.13: 簽到邏輯 (不依賴 DB 欄位)
+# 🔥 V2.11.19: 簽到修復 (不依賴 DB 欄位)
 @router.post("/social/daily_checkin")
 def daily_checkin(current_user: User = Depends(get_current_user), db: Session = Depends(get_db)):
     try:
         now = get_now_tw()
         today_str = now.strftime("%Y-%m-%d")
         
-        # 1. 讀取 Inventory (含防呆)
+        # 讀取背包，若為空或格式錯誤則重置
         try:
             if not current_user.inventory: inv = {}
             else: inv = json.loads(current_user.inventory)
             if not isinstance(inv, dict): inv = {}
-        except: inv = {}
-        
-        # 2. 檢查是否已簽到 (從 Inventory 讀取)
+        except: 
+            inv = {}
+
+        # 檢查是否簽到過
         last_checkin = inv.get("last_checkin_date")
         if last_checkin == today_str:
             return {"message": "今天已經簽到過了"}
         
-        # 3. 執行簽到獎勵
         prizes = ["1500G", "3000G", "candy", "golden", "8000G", "legendary"]
         weights = [30, 20, 20, 20, 6, 4]
         result = random.choices(prizes, weights=weights, k=1)[0]
@@ -549,13 +582,11 @@ def daily_checkin(current_user: User = Depends(get_current_user), db: Session = 
         elif result == "8000G": current_user.money += 8000; msg = "大獎！獲得 💰 8000 Gold"
         elif result == "legendary": inv["legendary_candy"] = inv.get("legendary_candy", 0) + 1; msg = "超級大獎！獲得 🔮 傳說糖果 x1"
         
-        # 4. 寫入簽到日期到 Inventory
+        # 寫入簽到日期
         inv["last_checkin_date"] = today_str
         current_user.inventory = json.dumps(inv)
-        
         db.commit()
         return {"message": f"簽到成功！{msg}"}
-        
     except Exception as e:
         print(f"Checkin Error: {str(e)}") 
         raise HTTPException(status_code=500, detail="簽到失敗")
