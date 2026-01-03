@@ -5,7 +5,7 @@ from typing import Optional
 from jose import jwt
 from passlib.context import CryptContext
 
-# 設定 (請依需求修改 SECRET_KEY)
+# 設定
 SECRET_KEY = "CHANGE_THIS_TO_A_SUPER_SECRET_KEY"
 ALGORITHM = "HS256"
 ACCESS_TOKEN_EXPIRE_MINUTES = 43200  # 30天

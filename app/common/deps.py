@@ -6,7 +6,9 @@ from jose import jwt, JWTError
 from sqlalchemy.orm import Session
 from app.db.session import get_db
 from app.models.user import User
-from app.core.security import SECRET_KEY, ALGORITHM
+
+# 🔥 關鍵修正：這裡改成 app.common.security
+from app.common.security import SECRET_KEY, ALGORITHM
 
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/api/v1/auth/token")
 
@@ -24,7 +26,6 @@ def get_current_user(token: str = Depends(oauth2_scheme), db: Session = Depends(
     except JWTError:
         raise credentials_exception
     
-    # 這裡會自動查詢 users_v10 (因為 User model 已經更新)
     user = db.query(User).filter(User.username == username).first()
     if user is None:
         raise credentials_exception
