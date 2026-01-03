@@ -13,7 +13,6 @@ from app.routers.shop import POKEDEX_DATA, WILD_UNLOCK_LEVELS
 
 router = APIRouter()
 
-# 只有一種任務類型：擊敗野怪
 QUEST_TYPE = "BATTLE_WILD"
 
 @router.get("/")
@@ -38,6 +37,7 @@ def get_daily_quests(db: Session = Depends(get_db), current_user: User = Depends
 
         while len(quests) < 3:
             target_mon = random.choice(valid_species)
+            
             is_golden = random.random() < 0.05
             
             if is_golden:
@@ -48,10 +48,11 @@ def get_daily_quests(db: Session = Depends(get_db), current_user: User = Depends
             else:
                 req_count = random.randint(1, 3)
                 
-                # 🔥 V2.11.8: 獎勵再下修 (避免通膨)
-                # 新公式: XP=Lv*12+30, Gold=Lv*8+50
-                base_xp = target_level * 10 + 30
-                base_gold = target_level * 6 + 50
+                # 🔥 V2.11.11: 獎勵再再下修
+                # XP = Lv * 10 + 20
+                # Gold = Lv * 6 + 30
+                base_xp = target_level * 10 + 20
+                base_gold = target_level * 6 + 30
                 
                 multiplier = 1 + (req_count - 1) * 0.2
                 
