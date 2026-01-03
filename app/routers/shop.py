@@ -14,7 +14,6 @@ from app.common.deps import get_current_user
 from app.models.user import User
 from app.common.websocket import manager 
 
-# 匯入共用資料 (請確保 app/common/game_data.py 存在)
 from app.common.game_data import (
     SKILL_DB, POKEDEX_DATA, COLLECTION_MONS, OBTAINABLE_MONS, LEGENDARY_MONS,
     WILD_UNLOCK_LEVELS, GACHA_NORMAL, GACHA_MEDIUM, GACHA_HIGH, 
@@ -25,7 +24,7 @@ from app.common.game_data import (
 router = APIRouter()
 
 # =================================================================
-# 0. 資料庫模型 (Friendship & Gym) - 自動建表
+# 0. 資料庫模型 (Friendship & Gym)
 # =================================================================
 Base = declarative_base()
 
@@ -55,25 +54,24 @@ class Gym(Base):
     leader_atk = Column(Integer, default=0)
     leader_img = Column(String, default="")
 
-try:
-    Friendship.__table__.create(bind=engine, checkfirst=True)
-    Gym.__table__.create(bind=engine, checkfirst=True)
-except:
-    pass
-
-# 初始化 4 座道館
+# 🔥 V2.12.3: 移除手動建表，交給 main.py 統一處理
+# 初始化 4 座道館 (將由 main.py 的 startup event 呼叫)
 def init_gyms():
-    with Session(engine) as session:
-        if session.query(Gym).count() == 0:
-            gyms = [
-                Gym(id=2, name="華藍道館 (水)", buff_desc="防守方 HP +20%", income_rate=10),
-                Gym(id=3, name="枯葉道館 (電)", buff_desc="防守方 ATK +20%", income_rate=15),
-                Gym(id=4, name="彩虹道館 (草)", buff_desc="防守方 HP/ATK +10%", income_rate=15),
-                Gym(id=5, name="淺紅道館 (毒)", buff_desc="防守方 ATK +25%", income_rate=20),
-            ]
-            session.add_all(gyms)
-            session.commit()
-init_gyms()
+    try:
+        with Session(engine) as session:
+            if session.query(Gym).count() == 0:
+                print("正在初始化道館資料...")
+                gyms = [
+                    Gym(id=2, name="華藍道館 (水)", buff_desc="防守方 HP +20%", income_rate=10),
+                    Gym(id=3, name="枯葉道館 (電)", buff_desc="防守方 ATK +20%", income_rate=15),
+                    Gym(id=4, name="彩虹道館 (草)", buff_desc="防守方 HP/ATK +10%", income_rate=15),
+                    Gym(id=5, name="淺紅道館 (毒)", buff_desc="防守方 ATK +25%", income_rate=20),
+                ]
+                session.add_all(gyms)
+                session.commit()
+                print("道館初始化完成！")
+    except Exception as e:
+        print(f"道館初始化跳過 (可能表格尚未準備好): {e}")
 
 # =================================================================
 # 全域變數
@@ -111,7 +109,12 @@ def get_now_tw():
 
 @router.get("/gym/list")
 def get_gym_list(db: Session = Depends(get_db)):
-    gyms = db.query(Gym).all()
+    # V2.12.3: 增加防呆，如果表還沒建好不報錯
+    try:
+        gyms = db.query(Gym).all()
+    except:
+        return []
+        
     result = []
     now = get_now_tw()
     for g in gyms:
@@ -140,7 +143,6 @@ def start_gym_battle(gym_id: int, current_user: User = Depends(get_current_user)
     gym = db.query(Gym).filter(Gym.id == gym_id).first()
     if not gym: raise HTTPException(status_code=404, detail="道館不存在")
     
-    # 佔領空道館
     if not gym.leader_id:
         gym.leader_id = current_user.id; gym.leader_name = current_user.username
         gym.leader_pokemon = current_user.pokemon_name; gym.leader_hp = current_user.max_hp
@@ -150,7 +152,6 @@ def start_gym_battle(gym_id: int, current_user: User = Depends(get_current_user)
         db.commit()
         return {"result": "OCCUPIED", "message": f"成功佔領 {gym.name}！(保護期 5 分鐘)"}
 
-    # 收租
     if gym.leader_id == current_user.id:
         now = get_now_tw()
         mins = (now - gym.occupied_at).total_seconds() / 60
@@ -160,7 +161,6 @@ def start_gym_battle(gym_id: int, current_user: User = Depends(get_current_user)
         db.commit()
         return {"result": "COLLECTED", "message": f"收取了 {income} Gold！"}
 
-    # 踢館
     now = get_now_tw()
     if gym.protection_until and gym.protection_until > now:
         left = int((gym.protection_until - now).total_seconds())
@@ -169,7 +169,6 @@ def start_gym_battle(gym_id: int, current_user: User = Depends(get_current_user)
     battle_id = str(uuid.uuid4())
     boss_hp = gym.leader_max_hp; boss_atk = gym.leader_atk
     
-    # 場地加成
     if gym.id == 2: boss_hp = int(boss_hp * 1.2)
     elif gym.id == 3: boss_atk = int(boss_atk * 1.2)
     elif gym.id == 4: boss_hp = int(boss_hp * 1.1); boss_atk = int(boss_atk * 1.1)
@@ -222,7 +221,7 @@ def gym_battle_attack(battle_id: str, damage: int = Query(0), heal: int = Query(
     return {"result": "NEXT", "boss_hp": room["boss_data"]["hp"], "user_hp": current_user.hp, "boss_dmg": boss_dmg}
 
 # =================================================================
-# 2. 其他功能 API
+# 2. 其他 API
 # =================================================================
 
 @router.get("/pokedex/all")
@@ -263,7 +262,6 @@ def get_leaderboard(type: str = "level", db: Session = Depends(get_db)):
         users = db.query(User).order_by(desc(User.level)).limit(10).all()
         return [{"rank": i+1, "username": u.username, "value": f"Lv.{u.level}", "img": u.pokemon_image} for i, u in enumerate(users)]
 
-# ⚡ 潛能特訓
 @router.post("/box/action/train")
 async def train_pokemon(pokemon_uid: str, mode: str = Query(...), db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
     box = json.loads(current_user.pokemon_storage)
@@ -272,7 +270,6 @@ async def train_pokemon(pokemon_uid: str, mode: str = Query(...), db: Session = 
     target = next((p for p in box if p["uid"] == pokemon_uid), None)
     if not target: raise HTTPException(status_code=404, detail="找不到該寶可夢")
     is_legendary = target["name"] in LEGENDARY_MONS
-    
     cost_candy = 0; cost_gold_candy = 0; cost_leg_candy = 0; cost_money = 0
     if mode == 'normal':
         if is_legendary: cost_candy = 50; cost_leg_candy = 1; cost_money = 3000
@@ -280,33 +277,27 @@ async def train_pokemon(pokemon_uid: str, mode: str = Query(...), db: Session = 
     elif mode == 'hyper':
         if is_legendary: cost_candy = 250; cost_leg_candy = 5; cost_money = 15000
         else: cost_candy = 150; cost_gold_candy = 5; cost_money = 5000
-        
     if current_user.money < cost_money: raise HTTPException(status_code=400, detail=f"金幣不足")
     if inv.get("candy", 0) < cost_candy: raise HTTPException(status_code=400, detail=f"糖果不足")
-    
     current_user.money -= cost_money; inv["candy"] -= cost_candy
     inv["golden_candy"] = inv.get("golden_candy", 0) - cost_gold_candy
     inv["legendary_candy"] = inv.get("legendary_candy", 0) - cost_leg_candy
-    
     old_iv = target.get("iv", 0)
     if mode == 'normal': new_iv = random.randint(0, 100); msg = f"特訓完成！IV {old_iv} -> {new_iv}"
     else: 
         if old_iv >= 100: raise HTTPException(status_code=400, detail="IV 已滿")
         new_iv = random.randint(old_iv + 1, 100); msg = f"極限特訓成功！IV {old_iv} -> {new_iv}"
     target["iv"] = new_iv
-    
     if pokemon_uid == current_user.active_pokemon_uid:
         base = POKEDEX_DATA.get(target["name"])
         if base: 
             current_user.max_hp = apply_iv_stats(base["hp"], target["iv"], target["lv"], is_hp=True, is_player=True)
             current_user.attack = apply_iv_stats(base["atk"], target["iv"], target["lv"], is_hp=False, is_player=True)
             current_user.hp = current_user.max_hp
-            
     current_user.pokemon_storage = json.dumps(box); current_user.inventory = json.dumps(inv)
     db.commit()
     return {"message": msg, "iv": new_iv, "user": current_user}
 
-# 團體戰邏輯
 def update_raid_logic(db: Session = None):
     now = get_now_tw()
     curr_total_mins = now.hour * 60 + now.minute
@@ -508,6 +499,7 @@ async def play_gacha(gacha_type: str, db: Session = Depends(get_db), current_use
     elif gacha_type == 'legendary_candy': pool = GACHA_LEGENDARY_CANDY; cost = 5
     elif gacha_type == 'legendary_gold': pool = GACHA_LEGENDARY_GOLD; cost = 400000
     else: raise HTTPException(status_code=400, detail="未知類型")
+    
     if gacha_type == 'candy':
         if inventory.get("candy", 0) < cost: raise HTTPException(status_code=400, detail="糖果不足")
         inventory["candy"] -= cost
