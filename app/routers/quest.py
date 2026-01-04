@@ -34,23 +34,23 @@ def generate_quest(user_pet_level):
     is_golden = random.random() < 0.2
     
     if is_golden:
-        # 🔥 黃金任務設定：5隻，無經驗錢，只有糖果
+        # 🔥 黃金任務
         q_type = "GOLDEN"
         req = 5 
         xp = 0
         gold = 0
-        desc = f"✨ [黃金] 擊敗 {req} 隻 {target}"
+        # 🔥 新增等級顯示
+        desc = f"✨ [黃金] 擊敗 {req} 隻 Lv.{user_pet_level} {target}"
     else:
-        # 一般任務設定：1~3隻，有經驗錢
+        # 一般任務
         q_type = "BATTLE_WILD"
         req = random.randint(1, 3)
-        desc = f"擊敗 {req} 隻 {target}"
+        # 🔥 新增等級顯示
+        desc = f"擊敗 {req} 隻 Lv.{user_pet_level} {target}"
 
-        # 一般任務獎勵公式 (維持 V2.13.11 的曲線)
+        # 一般任務獎勵公式
         base_xp_per_unit = 60 + (user_pet_level * 8)
         base_gold_per_unit = 40 + (user_pet_level * 4)
-        
-        # 數量加成：req ^ 1.15 (讓 2 隻的獎勵微大於 1 隻的兩倍)
         count_multiplier = req ** 1.15
         
         xp = int(base_xp_per_unit * count_multiplier)
@@ -102,7 +102,7 @@ def claim_quest(quest_id: str, db: Session = Depends(get_db), current_user: User
     if target_q["now"] < target_q["req"]:
         raise HTTPException(status_code=400, detail="任務尚未完成")
         
-    # 發放獎勵 (XP & Gold，黃金任務這裡會加 0)
+    # 發放獎勵
     current_user.exp += target_q["xp"]
     current_user.pet_exp += target_q["xp"]
     current_user.money += target_q["gold"]
@@ -113,13 +113,13 @@ def claim_quest(quest_id: str, db: Session = Depends(get_db), current_user: User
     
     msg = ""
     
-    # 處理回傳訊息與特殊獎勵
+    # 黃金任務特殊獎勵
     if target_q["type"] == "GOLDEN":
         try: inv = json.loads(current_user.inventory)
         except: inv = {}
         inv["golden_candy"] = inv.get("golden_candy", 0) + 1
         current_user.inventory = json.dumps(inv)
-        msg = "獲得 ✨ 黃金糖果 x1" # 🔥 黃金任務專屬訊息
+        msg = "獲得 ✨ 黃金糖果 x1"
     else:
         msg = f"獲得 {target_q['xp']} XP, {target_q['gold']} G"
 

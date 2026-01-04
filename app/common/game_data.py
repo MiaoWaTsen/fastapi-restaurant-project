@@ -88,7 +88,7 @@ SKILL_DB = {
 # 3. 寶可夢圖鑑 (POKEDEX_DATA)
 # =================================================================
 POKEDEX_DATA = {
-    # 玩家寶可夢 (可獲得)
+    # 玩家寶可夢 (28隻)
     "妙蛙種子": {"hp": 130, "atk": 112, "img": "https://img.pokemondb.net/artwork/large/bulbasaur.jpg", "skills": ["藤鞭", "種子炸彈", "污泥炸彈"]},
     "小火龍": {"hp": 112, "atk": 130, "img": "https://img.pokemondb.net/artwork/large/charmander.jpg", "skills": ["火花", "噴射火焰", "大字爆炎"]},
     "傑尼龜": {"hp": 121, "atk": 121, "img": "https://img.pokemondb.net/artwork/large/squirtle.jpg", "skills": ["水槍", "水流噴射", "水流尾"]},
@@ -118,7 +118,7 @@ POKEDEX_DATA = {
     "超夢": {"hp": 152, "atk": 155, "img": "https://img.pokemondb.net/artwork/large/mewtwo.jpg", "skills": ["念力", "精神強念", "精神擊破"]},
     "夢幻": {"hp": 155, "atk": 152, "img": "https://img.pokemondb.net/artwork/large/mew.jpg", "skills": ["念力", "暗影球", "精神擊破"]},
     
-    # 野怪 (保留供戰鬥調用，但不計入圖鑑分母)
+    # 🔥 野怪數據 (保留供戰鬥使用)
     "小拉達": {"hp": 90, "atk": 80, "img": "https://img.pokemondb.net/artwork/large/rattata.jpg", "skills": ["抓", "出奇一擊", "撞擊"]},
     "波波": {"hp": 94, "atk": 84, "img": "https://img.pokemondb.net/artwork/large/pidgey.jpg", "skills": ["抓", "啄", "燕返"]},
     "烈雀": {"hp": 88, "atk": 92, "img": "https://img.pokemondb.net/artwork/large/spearow.jpg", "skills": ["抓", "啄", "燕返"]},
@@ -142,7 +142,7 @@ POKEDEX_DATA = {
 }
 
 # =================================================================
-# 4. 可收集名單 (COLLECTION_MONS) - 僅包含玩家可獲得的
+# 4. 可收集名單 (COLLECTION_MONS) - 🔥 僅包含 28 隻玩家可獲得的
 # =================================================================
 COLLECTION_MONS = [
     "妙蛙種子", "小火龍", "傑尼龜", "妙蛙花", "噴火龍", "水箭龜",
@@ -161,9 +161,7 @@ WILD_UNLOCK_LEVELS = {
     76: ["電擊獸"], 81: ["鴨嘴火獸"], 86: ["化石翼龍"], 91: ["怪力"], 96: ["暴鯉龍"]
 }
 
-# (扭蛋與RAID池保持 V2.13.4 版不變，省略以節省篇幅)
-# ... 請保留 GACHA_NORMAL 到 RAID_BOSS_POOL 的定義 ...
-# 為了避免錯誤，這邊補上這些變數的定義
+# (扭蛋與RAID池保持不變)
 GACHA_NORMAL = [{"name": "妙蛙種子", "weight": 5}, {"name": "小火龍", "weight": 5}, {"name": "傑尼龜", "weight": 5}, {"name": "六尾", "weight": 5}, {"name": "毛辮羊", "weight": 5}, {"name": "伊布", "weight": 10}, {"name": "皮卡丘", "weight": 10}, {"name": "皮皮", "weight": 10}, {"name": "胖丁", "weight": 10}, {"name": "大蔥鴨", "weight": 10}, {"name": "呆呆獸", "weight": 12.5}, {"name": "可達鴨", "weight": 12.5}]
 GACHA_MEDIUM = [{"name": "妙蛙種子", "weight": 10}, {"name": "小火龍", "weight": 10}, {"name": "傑尼龜", "weight": 10}, {"name": "伊布", "weight": 10}, {"name": "皮卡丘", "weight": 10}, {"name": "呆呆獸", "weight": 10}, {"name": "可達鴨", "weight": 10}, {"name": "毛辮羊", "weight": 10}, {"name": "卡比獸", "weight": 5}, {"name": "吉利蛋", "weight": 3}, {"name": "拉普拉斯", "weight": 3}, {"name": "妙蛙花", "weight": 3}, {"name": "噴火龍", "weight": 3}, {"name": "水箭龜", "weight": 3}]
 GACHA_HIGH = [{"name": "卡比獸", "weight": 20}, {"name": "吉利蛋", "weight": 20}, {"name": "幸福蛋", "weight": 10}, {"name": "拉普拉斯", "weight": 10}, {"name": "妙蛙花", "weight": 10}, {"name": "噴火龍", "weight": 10}, {"name": "水箭龜", "weight": 10}, {"name": "快龍", "weight": 5}, {"name": "耿鬼", "weight": 5}]
