@@ -23,7 +23,7 @@ class User(Base):
     exp = Column(Integer, default=0)
     money = Column(Integer, default=300)
     
-    # 寵物狀態
+    # 寵物狀態 (當前出戰)
     pokemon_name = Column(String(50), default="小火龍")
     pokemon_image = Column(String(255), default="https://img.pokemondb.net/artwork/large/charmander.jpg")
     pet_level = Column(Integer, default=1)
@@ -42,7 +42,7 @@ class User(Base):
     quests = Column(Text, default="[]")
 
 # =================================================================
-# 2. 道館模型 (Gym)
+# 2. 道館模型 (Gym) - 更新版
 # =================================================================
 class Gym(Base):
     __tablename__ = "gyms"
@@ -58,6 +58,10 @@ class Gym(Base):
     # 鏡像數據
     leader_name = Column(String, default="")
     leader_pokemon = Column(String, default="") 
+    
+    # 🔥 新增：紀錄守塔寶可夢的 UID
+    leader_pokemon_uid = Column(String, default="")
+    
     leader_hp = Column(Integer, default=0)
     leader_max_hp = Column(Integer, default=0)
     leader_atk = Column(Integer, default=0)

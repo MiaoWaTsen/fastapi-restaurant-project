@@ -22,7 +22,6 @@ def get_req_xp(lv):
     return 999999999 if lv >= 100 else LEVEL_XP_MAP.get(lv, 999999)
 
 def apply_iv_stats(base_val, iv, level, is_hp=False, is_player=True):
-    # IV: 0.8 ~ 1.2
     iv_mult = 0.8 + (iv / 100) * 0.4
     if is_player:
         growth_rate = 1.03 if is_hp else 1.031
@@ -32,7 +31,7 @@ def apply_iv_stats(base_val, iv, level, is_hp=False, is_player=True):
     return max(1, val)
 
 # =================================================================
-# 2. 技能資料庫 (SKILL_DB) - 保持 V2.13.4 設定
+# 2. 技能資料庫
 # =================================================================
 SKILL_DB = {
     "水槍": {"dmg": 16, "effect": "heal", "prob": 0.5, "val": 0.15, "desc": "50%機率回復15%血量"},
@@ -86,32 +85,10 @@ SKILL_DB = {
 }
 
 # =================================================================
-# 3. 寶可夢圖鑑 (POKEDEX_DATA) - 包含野怪與玩家可用
+# 3. 寶可夢圖鑑 (POKEDEX_DATA)
 # =================================================================
 POKEDEX_DATA = {
-    # 🔥 野怪階梯 (依照您的設定)
-    "小拉達": {"hp": 90, "atk": 80, "img": "https://img.pokemondb.net/artwork/large/rattata.jpg", "skills": ["抓", "出奇一擊", "撞擊"]},
-    "波波": {"hp": 94, "atk": 84, "img": "https://img.pokemondb.net/artwork/large/pidgey.jpg", "skills": ["抓", "啄", "燕返"]},
-    "烈雀": {"hp": 88, "atk": 92, "img": "https://img.pokemondb.net/artwork/large/spearow.jpg", "skills": ["抓", "啄", "燕返"]},
-    "阿柏蛇": {"hp": 98, "atk": 90, "img": "https://img.pokemondb.net/artwork/large/ekans.jpg", "skills": ["毒針", "毒擊", "緊束"]},
-    "瓦斯彈": {"hp": 108, "atk": 100, "img": "https://img.pokemondb.net/artwork/large/koffing.jpg", "skills": ["毒針", "毒針", "撞擊"]},
-    "海星星": {"hp": 120, "atk": 95, "img": "https://img.pokemondb.net/artwork/large/staryu.jpg", "skills": ["水槍", "幻象光線", "撞擊"]},
-    "角金魚": {"hp": 125, "atk": 100, "img": "https://img.pokemondb.net/artwork/large/goldeen.jpg", "skills": ["水槍", "幻象光線", "泥巴射擊"]},
-    "走路草": {"hp": 120, "atk": 110, "img": "https://img.pokemondb.net/artwork/large/oddish.jpg", "skills": ["種子炸彈", "撞擊", "毒擊"]},
-    "穿山鼠": {"hp": 120, "atk": 110, "img": "https://img.pokemondb.net/artwork/large/sandshrew.jpg", "skills": ["抓", "泥巴射擊", "泥巴炸彈"]},
-    "蚊香蝌蚪": {"hp": 122, "atk": 108, "img": "https://img.pokemondb.net/artwork/large/poliwag.jpg", "skills": ["雙倍奉還", "冰凍光束", "水槍"]},
-    "小磁怪": {"hp": 120, "atk": 114, "img": "https://img.pokemondb.net/artwork/large/magnemite.jpg", "skills": ["電擊", "放電", "撞擊"]},
-    "卡拉卡拉": {"hp": 120, "atk": 120, "img": "https://img.pokemondb.net/artwork/large/cubone.jpg", "skills": ["泥巴射擊", "泥巴炸彈", "挖洞"]},
-    "喵喵": {"hp": 124, "atk": 124, "img": "https://img.pokemondb.net/artwork/large/meowth.jpg", "skills": ["抓", "出奇一擊", "撞擊"]},
-    "瑪瑙水母": {"hp": 130, "atk": 130, "img": "https://img.pokemondb.net/artwork/large/tentacool.jpg", "skills": ["水槍", "水流尾", "緊束"]},
-    "海刺龍": {"hp": 135, "atk": 135, "img": "https://img.pokemondb.net/artwork/large/seadra.jpg", "skills": ["水槍", "水流尾", "逆鱗"]},
-    "電擊獸": {"hp": 135, "atk": 140, "img": "https://img.pokemondb.net/artwork/large/electabuzz.jpg", "skills": ["電光", "電擊", "瘋狂伏特"]},
-    "鴨嘴火獸": {"hp": 135, "atk": 140, "img": "https://img.pokemondb.net/artwork/large/magmar.jpg", "skills": ["火花", "噴射火焰", "大字爆炎"]},
-    "化石翼龍": {"hp": 140, "atk": 140, "img": "https://img.pokemondb.net/artwork/large/aerodactyl.jpg", "skills": ["挖洞", "岩石封鎖", "勇鳥猛攻"]},
-    "怪力": {"hp": 140, "atk": 145, "img": "https://img.pokemondb.net/artwork/large/machamp.jpg", "skills": ["雙倍奉還", "岩石封鎖", "近身戰"]},
-    "暴鯉龍": {"hp": 150, "atk": 150, "img": "https://img.pokemondb.net/artwork/large/gyarados.jpg", "skills": ["水槍", "水流尾", "勇鳥猛攻"]},
-
-    # 🔥 玩家與其他寶可夢
+    # 玩家寶可夢 (可獲得)
     "妙蛙種子": {"hp": 130, "atk": 112, "img": "https://img.pokemondb.net/artwork/large/bulbasaur.jpg", "skills": ["藤鞭", "種子炸彈", "污泥炸彈"]},
     "小火龍": {"hp": 112, "atk": 130, "img": "https://img.pokemondb.net/artwork/large/charmander.jpg", "skills": ["火花", "噴射火焰", "大字爆炎"]},
     "傑尼龜": {"hp": 121, "atk": 121, "img": "https://img.pokemondb.net/artwork/large/squirtle.jpg", "skills": ["水槍", "水流噴射", "水流尾"]},
@@ -140,37 +117,53 @@ POKEDEX_DATA = {
     "洛奇亞": {"hp": 150, "atk": 150, "img": "https://img.pokemondb.net/artwork/large/lugia.jpg", "skills": ["龍尾", "水砲", "氣旋攻擊"]},
     "超夢": {"hp": 152, "atk": 155, "img": "https://img.pokemondb.net/artwork/large/mewtwo.jpg", "skills": ["念力", "精神強念", "精神擊破"]},
     "夢幻": {"hp": 155, "atk": 152, "img": "https://img.pokemondb.net/artwork/large/mew.jpg", "skills": ["念力", "暗影球", "精神擊破"]},
+    
+    # 野怪 (保留供戰鬥調用，但不計入圖鑑分母)
+    "小拉達": {"hp": 90, "atk": 80, "img": "https://img.pokemondb.net/artwork/large/rattata.jpg", "skills": ["抓", "出奇一擊", "撞擊"]},
+    "波波": {"hp": 94, "atk": 84, "img": "https://img.pokemondb.net/artwork/large/pidgey.jpg", "skills": ["抓", "啄", "燕返"]},
+    "烈雀": {"hp": 88, "atk": 92, "img": "https://img.pokemondb.net/artwork/large/spearow.jpg", "skills": ["抓", "啄", "燕返"]},
+    "阿柏蛇": {"hp": 98, "atk": 90, "img": "https://img.pokemondb.net/artwork/large/ekans.jpg", "skills": ["毒針", "毒擊", "緊束"]},
+    "瓦斯彈": {"hp": 108, "atk": 100, "img": "https://img.pokemondb.net/artwork/large/koffing.jpg", "skills": ["毒針", "毒針", "撞擊"]},
+    "海星星": {"hp": 120, "atk": 95, "img": "https://img.pokemondb.net/artwork/large/staryu.jpg", "skills": ["水槍", "幻象光線", "撞擊"]},
+    "角金魚": {"hp": 125, "atk": 100, "img": "https://img.pokemondb.net/artwork/large/goldeen.jpg", "skills": ["水槍", "幻象光線", "泥巴射擊"]},
+    "走路草": {"hp": 120, "atk": 110, "img": "https://img.pokemondb.net/artwork/large/oddish.jpg", "skills": ["種子炸彈", "撞擊", "毒擊"]},
+    "穿山鼠": {"hp": 120, "atk": 110, "img": "https://img.pokemondb.net/artwork/large/sandshrew.jpg", "skills": ["抓", "泥巴射擊", "泥巴炸彈"]},
+    "蚊香蝌蚪": {"hp": 122, "atk": 108, "img": "https://img.pokemondb.net/artwork/large/poliwag.jpg", "skills": ["雙倍奉還", "冰凍光束", "水槍"]},
+    "小磁怪": {"hp": 120, "atk": 114, "img": "https://img.pokemondb.net/artwork/large/magnemite.jpg", "skills": ["電擊", "放電", "撞擊"]},
+    "卡拉卡拉": {"hp": 120, "atk": 120, "img": "https://img.pokemondb.net/artwork/large/cubone.jpg", "skills": ["泥巴射擊", "泥巴炸彈", "挖洞"]},
+    "喵喵": {"hp": 124, "atk": 124, "img": "https://img.pokemondb.net/artwork/large/meowth.jpg", "skills": ["抓", "出奇一擊", "撞擊"]},
+    "瑪瑙水母": {"hp": 130, "atk": 130, "img": "https://img.pokemondb.net/artwork/large/tentacool.jpg", "skills": ["水槍", "水流尾", "緊束"]},
+    "海刺龍": {"hp": 135, "atk": 135, "img": "https://img.pokemondb.net/artwork/large/seadra.jpg", "skills": ["水槍", "水流尾", "逆鱗"]},
+    "電擊獸": {"hp": 135, "atk": 140, "img": "https://img.pokemondb.net/artwork/large/electabuzz.jpg", "skills": ["電光", "電擊", "瘋狂伏特"]},
+    "鴨嘴火獸": {"hp": 135, "atk": 140, "img": "https://img.pokemondb.net/artwork/large/magmar.jpg", "skills": ["火花", "噴射火焰", "大字爆炎"]},
+    "化石翼龍": {"hp": 140, "atk": 140, "img": "https://img.pokemondb.net/artwork/large/aerodactyl.jpg", "skills": ["挖洞", "岩石封鎖", "勇鳥猛攻"]},
+    "怪力": {"hp": 140, "atk": 145, "img": "https://img.pokemondb.net/artwork/large/machamp.jpg", "skills": ["雙倍奉還", "岩石封鎖", "近身戰"]},
+    "暴鯉龍": {"hp": 150, "atk": 150, "img": "https://img.pokemondb.net/artwork/large/gyarados.jpg", "skills": ["水槍", "水流尾", "勇鳥猛攻"]},
 }
 
 # =================================================================
-# 4. 野怪解鎖階梯 (Strict Unlock Levels)
+# 4. 可收集名單 (COLLECTION_MONS) - 僅包含玩家可獲得的
 # =================================================================
+COLLECTION_MONS = [
+    "妙蛙種子", "小火龍", "傑尼龜", "妙蛙花", "噴火龍", "水箭龜",
+    "毛辮羊", "皮卡丘", "伊布", "六尾", "胖丁", "皮皮", "大蔥鴨", "呆呆獸", "可達鴨",
+    "耿鬼", "卡比獸", "吉利蛋", "幸福蛋", "拉普拉斯", "快龍",
+    "急凍鳥", "火焰鳥", "閃電鳥", "鳳王", "洛奇亞", "超夢", "夢幻"
+]
+
+OBTAINABLE_MONS = COLLECTION_MONS
+LEGENDARY_MONS = ["急凍鳥", "火焰鳥", "閃電鳥", "鳳王", "洛奇亞", "超夢", "夢幻"]
+
 WILD_UNLOCK_LEVELS = {
-    1: ["小拉達"],
-    6: ["波波"],
-    11: ["烈雀"],
-    16: ["阿柏蛇"],
-    21: ["瓦斯彈"],
-    26: ["海星星"],
-    31: ["角金魚"],
-    36: ["走路草"],
-    41: ["穿山鼠"],
-    46: ["蚊香蝌蚪"],
-    51: ["小磁怪"],
-    56: ["卡拉卡拉"],
-    61: ["喵喵"],
-    66: ["瑪瑙水母"],
-    71: ["海刺龍"],
-    76: ["電擊獸"],
-    81: ["鴨嘴火獸"],
-    86: ["化石翼龍"],
-    91: ["怪力"],
-    96: ["暴鯉龍"]
+    1: ["小拉達"], 6: ["波波"], 11: ["烈雀"], 16: ["阿柏蛇"], 21: ["瓦斯彈"],
+    26: ["海星星"], 31: ["角金魚"], 36: ["走路草"], 41: ["穿山鼠"], 46: ["蚊香蝌蚪"],
+    51: ["小磁怪"], 56: ["卡拉卡拉"], 61: ["喵喵"], 66: ["瑪瑙水母"], 71: ["海刺龍"],
+    76: ["電擊獸"], 81: ["鴨嘴火獸"], 86: ["化石翼龍"], 91: ["怪力"], 96: ["暴鯉龍"]
 }
 
-# =================================================================
-# 5. 其他資料 (保留)
-# =================================================================
+# (扭蛋與RAID池保持 V2.13.4 版不變，省略以節省篇幅)
+# ... 請保留 GACHA_NORMAL 到 RAID_BOSS_POOL 的定義 ...
+# 為了避免錯誤，這邊補上這些變數的定義
 GACHA_NORMAL = [{"name": "妙蛙種子", "weight": 5}, {"name": "小火龍", "weight": 5}, {"name": "傑尼龜", "weight": 5}, {"name": "六尾", "weight": 5}, {"name": "毛辮羊", "weight": 5}, {"name": "伊布", "weight": 10}, {"name": "皮卡丘", "weight": 10}, {"name": "皮皮", "weight": 10}, {"name": "胖丁", "weight": 10}, {"name": "大蔥鴨", "weight": 10}, {"name": "呆呆獸", "weight": 12.5}, {"name": "可達鴨", "weight": 12.5}]
 GACHA_MEDIUM = [{"name": "妙蛙種子", "weight": 10}, {"name": "小火龍", "weight": 10}, {"name": "傑尼龜", "weight": 10}, {"name": "伊布", "weight": 10}, {"name": "皮卡丘", "weight": 10}, {"name": "呆呆獸", "weight": 10}, {"name": "可達鴨", "weight": 10}, {"name": "毛辮羊", "weight": 10}, {"name": "卡比獸", "weight": 5}, {"name": "吉利蛋", "weight": 3}, {"name": "拉普拉斯", "weight": 3}, {"name": "妙蛙花", "weight": 3}, {"name": "噴火龍", "weight": 3}, {"name": "水箭龜", "weight": 3}]
 GACHA_HIGH = [{"name": "卡比獸", "weight": 20}, {"name": "吉利蛋", "weight": 20}, {"name": "幸福蛋", "weight": 10}, {"name": "拉普拉斯", "weight": 10}, {"name": "妙蛙花", "weight": 10}, {"name": "噴火龍", "weight": 10}, {"name": "水箭龜", "weight": 10}, {"name": "快龍", "weight": 5}, {"name": "耿鬼", "weight": 5}]
@@ -178,17 +171,4 @@ GACHA_CANDY = [{"name": "伊布", "weight": 20}, {"name": "皮卡丘", "weight":
 GACHA_GOLDEN = [{"name": "卡比獸", "weight": 30}, {"name": "吉利蛋", "weight": 35}, {"name": "幸福蛋", "weight": 20}, {"name": "拉普拉斯", "weight": 5}, {"name": "快龍", "weight": 5}, {"name": "耿鬼", "weight": 5}]
 GACHA_LEGENDARY_CANDY = [{"name": "急凍鳥", "weight": 25}, {"name": "火焰鳥", "weight": 25}, {"name": "閃電鳥", "weight": 25}, {"name": "鳳王", "weight": 7.5}, {"name": "洛奇亞", "weight": 7.5}, {"name": "超夢", "weight": 5}, {"name": "夢幻", "weight": 5}]
 GACHA_LEGENDARY_GOLD = [{"name": "快龍", "weight": 30}, {"name": "耿鬼", "weight": 20}, {"name": "急凍鳥", "weight": 15}, {"name": "火焰鳥", "weight": 15}, {"name": "閃電鳥", "weight": 15}, {"name": "鳳王", "weight": 2}, {"name": "洛奇亞", "weight": 2}, {"name": "超夢", "weight": 0.5}, {"name": "夢幻", "weight": 0.5}]
-
-RAID_BOSS_POOL = [
-    {"name": "❄️ 急凍鳥", "hp": 15000, "atk": 500, "weight": 25},
-    {"name": "🔥 火焰鳥", "hp": 15000, "atk": 500, "weight": 25},
-    {"name": "⚡ 閃電鳥", "hp": 15000, "atk": 500, "weight": 25},
-    {"name": "🌈 鳳王", "hp": 18000, "atk": 600, "weight": 7.5},
-    {"name": "🌪️ 洛奇亞", "hp": 18000, "atk": 600, "weight": 7.5},
-    {"name": "🔮 超夢", "hp": 20000, "atk": 800, "weight": 5},
-    {"name": "✨ 夢幻", "hp": 20000, "atk": 800, "weight": 5}
-]
-
-COLLECTION_MONS = list(POKEDEX_DATA.keys())
-OBTAINABLE_MONS = COLLECTION_MONS
-LEGENDARY_MONS = ["急凍鳥", "火焰鳥", "閃電鳥", "鳳王", "洛奇亞", "超夢", "夢幻"]
+RAID_BOSS_POOL = [{"name": "❄️ 急凍鳥", "hp": 15000, "atk": 500, "weight": 25}, {"name": "🔥 火焰鳥", "hp": 15000, "atk": 500, "weight": 25}, {"name": "⚡ 閃電鳥", "hp": 15000, "atk": 500, "weight": 25}, {"name": "🌈 鳳王", "hp": 18000, "atk": 600, "weight": 7.5}, {"name": "🌪️ 洛奇亞", "hp": 18000, "atk": 600, "weight": 7.5}, {"name": "🔮 超夢", "hp": 20000, "atk": 800, "weight": 5}, {"name": "✨ 夢幻", "hp": 20000, "atk": 800, "weight": 5}]

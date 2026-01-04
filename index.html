@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>⚡️ 寶可夢大亂鬥 V2.13.8 ⚡️</title>
+    <title>⚡️ 寶可夢大亂鬥 V2.14.0 ⚡️</title>
     <script src="https://unpkg.com/vue@3/dist/vue.global.js"></script>
     <style>
         [v-cloak] { display: none; }
@@ -91,10 +91,12 @@
         .rate-table { width: 100%; border-collapse: collapse; margin-top: 10px; }
         .rate-table th, .rate-table td { border: 1px solid #444; padding: 5px; font-size: 0.9em; text-align:left; }
         .skills-grid { width:100%; max-width:600px; margin-top:20px; display:grid; grid-template-columns:1fr 1fr; gap:15px; }
+        
         .btn-skill { padding: 10px; font-size: 1em; background: #3498db; color: white; border: none; border-radius: 10px; cursor: pointer; transition: 0.2s; position:relative; display: flex; flex-direction: column; align-items: center; justify-content: center; min-height: 80px; }
         .btn-skill:active { transform: scale(0.95); }
         .btn-skill b { font-size: 1.1em; margin-bottom: 3px; }
         .btn-skill small { font-size: 0.8em; opacity: 0.9; text-align: center; line-height: 1.2; }
+        
         .detail-row { display: flex; justify-content: space-between; padding: 5px 0; border-bottom: 1px solid #333; }
         .pokedex-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(100px, 1fr)); gap: 10px; }
         .pokedex-item { background: #222; border-radius: 8px; padding: 10px; text-align: center; cursor: pointer; transition: 0.2s; }
@@ -118,8 +120,8 @@
 
 <div id="app" class="container" v-cloak>
     <div v-if="!user" style="text-align:center; padding-top:100px;">
-        <h1 style="color:#e94560">寶可夢大亂鬥 V2.13.8</h1>
-        <p>任務修復 & 崩潰根除版</p>
+        <h1 style="color:#e94560">寶可夢大亂鬥 V2.14.0</h1>
+        <p>道館重置 & 佔領系統更新版</p>
         <button class="btn-action" @click="logout">前往登入頁面</button>
         <br><br>
         <button style="background:transparent; border:1px solid #aaa; color:#aaa; padding:5px;" @click="initAdmin">👑 初始化管理員</button>
@@ -131,6 +133,20 @@
                 <div class="modal-title">{{ toast.title }}</div>
                 <p>{{ toast.msg }}</p>
                 <button class="btn-yes" style="width:100%; margin-top:15px;" @click="toast.show=false">確定</button>
+            </div>
+        </div>
+
+        <div v-if="showDefenderSelect" class="modal-overlay">
+            <div class="modal-box" style="width: 450px;">
+                <div class="modal-title">⚔️ 選擇防守寶可夢</div>
+                <p style="color:#aaa; font-size:0.9em;">請從盒子中選擇一隻寶可夢來鎮守道館。<br>(同一隻寶可夢不能同時守兩個道館)</p>
+                <div class="card-grid" style="max-height: 50vh; overflow-y: auto; margin-top:15px;">
+                    <div v-for="p in box" :key="p.uid" class="card" @click="selectDefender(p)">
+                        <img :src="getMonImage(p.name)" class="card-img" style="height: 80px;">
+                        <div style="font-size:0.9em; margin-top:5px;"><b>{{ p.name }}</b><br>Lv.{{ p.lv }} (IV:{{ p.iv }})</div>
+                    </div>
+                </div>
+                <button class="btn-yes" style="background:#7f8c8d; width:100%; margin-top:15px;" @click="showDefenderSelect=false">取消</button>
             </div>
         </div>
 
@@ -238,7 +254,7 @@
             </div>
         </div>
 
-        <div v-if="newsState.show" class="modal-overlay"><div class="modal-box" style="text-align:left;"><div class="modal-title" style="text-align:center;">📢 V2.13.8 更新公告</div><ul><li><b>🔧 崩潰修復</b>：徹底修復找不到函式的問題。</li><li><b>✨ 任務更新</b>：任務將永遠保持 3 個。</li></ul><div style="text-align:center; margin-top:15px;"><button class="btn-yes" @click="closeNews">我知道了</button></div></div></div>
+        <div v-if="newsState.show" class="modal-overlay"><div class="modal-box" style="text-align:left;"><div class="modal-title" style="text-align:center;">📢 V2.14.0 更新公告</div><ul><li><b>🏟️ 道館重製</b>：移除屬性，佔領時可選擇防守寶可夢！</li><li><b>✨ 圖鑑修正</b>：分母已校正為玩家可獲得列表。</li></ul><div style="text-align:center; margin-top:15px;"><button class="btn-yes" @click="closeNews">我知道了</button></div></div></div>
         
         <div v-if="showRates" class="modal-overlay" @click.self="showRates=false"><div class="modal-box" style="width: 400px; max-height:80vh;"><div class="modal-title">📊 扭蛋機率表</div><div style="overflow-y:auto; max-height:60vh;"><div v-for="(pool, name) in gachaRates" :key="name" style="margin-bottom: 15px;"><h4 style="color: #f1c40f; border-bottom: 1px solid #555;">{{ name }}</h4><table class="rate-table"><tr v-for="item in pool" :key="item.name"><td>{{ item.name }}</td><td style="text-align: right;">{{ item.rate }}%</td></tr></table></div></div><button class="btn-yes" style="width: 100%; margin-top: 10px;" @click="showRates=false">關閉</button></div></div>
 
@@ -272,7 +288,7 @@
             
             <div v-if="tab=='gym'">
                 <h3>🏟️ 道館爭奪戰</h3>
-                <p style="color:#aaa; font-size:0.9em; margin-bottom:15px;">佔領道館可持續獲得金幣收益！(一人可佔多座)</p>
+                <p style="color:#aaa; font-size:0.9em; margin-bottom:15px;">佔領道館可持續獲得金幣收益！</p>
                 <div class="card-grid">
                     <div v-for="g in gymList" :key="g.id" class="card gym-card" :class="{'occupied-me': g.leader_id === user.id, 'protected': g.is_protected}">
                         <div v-if="g.is_protected" class="gym-status" style="background:#3498db;">🛡️ 保護: {{ g.protection_sec }}s</div>
@@ -392,6 +408,7 @@
             const battleResultMsg = ref("");
             const quests = ref([]);
             const players = ref([]);
+            // Removed: friends, friendRequests
             const viewMon = ref(null);
             const pokedexCollection = ref([]); 
             const pokedexPercent = ref(0); 
@@ -402,6 +419,8 @@
 
             const invite = ref({ has_invite: false, source_id: 0, source_name: "" });
             const duelState = ref({ preparing: false, countdown: 12 });
+            const showDefenderSelect = ref(false);
+            const pendingGymId = ref(null);
 
             const skillData = ref({});
             // 🔥 更新前端技能表 (V2.13.3)
@@ -420,7 +439,6 @@
             let deadInterval = null;
             let battleId = null;
 
-            // 🔥 機率表顯示 (V2.13.3)
             const gachaRates = { 
                 "🔮 初級": [{name:"垃圾(小拉達/波波/烈雀/綠毛蟲)", rate:60}, {name:"普通(走路草/喇叭芽/尼多朗)", rate:30}, {name:"稀有(皮卡丘/六尾/卡蒂狗)", rate:9}, {name:"極稀有(御三家)", rate:1}],
                 "🔵 中級": [{name:"普通(皮卡丘/六尾/喵喵)", rate:40}, {name:"御三家", rate:40}, {name:"強勢(大岩蛇/腕力)", rate:15}, {name:"卡比獸", rate:5}],
@@ -570,6 +588,15 @@
                         if(res && res.ok) {
                             const d = await res.json();
                             if(d.result === 'WIN') { showToast("勝利", d.reward); battle.value.active = false; updateInfo(); fetchGymList(); }
+                            else if(d.result === 'WIN_SELECT') { 
+                                // 🔥 勝利選角邏輯
+                                showToast("勝利", d.reward);
+                                battle.value.active = false;
+                                pendingGymId.value = d.gym_id; 
+                                showDefenderSelect.value = true;
+                                updateInfo();
+                                fetchGymList();
+                            }
                             else if(d.result === 'LOSE') { showToast("失敗", d.reward); battle.value.active = false; updateInfo(); }
                             else { 
                                 battle.value.target.hp = d.boss_hp; 
@@ -615,7 +642,6 @@
             const sendInvite = async (p) => { await safeFetch(`${API_URL.replace('/items','')}/shop/social/invite/${p.id}`, { method: 'POST' }); showToast("系統", "已發送邀請，等待對方回應..."); };
             const acceptInvite = async () => { await safeFetch(`${API_URL.replace('/items','')}/shop/social/accept_invite/${invite.value.source_id}`, { method: 'POST' }); invite.value.has_invite = false; duelState.value.preparing = true; };
             const rejectInvite = async () => { await safeFetch(`${API_URL.replace('/items','')}/shop/social/reject_invite/${invite.value.source_id}`, { method: 'POST' }); invite.value.has_invite = false; };
-            const addFriend = async (uid) => { const res = await safeFetch(`${API_URL.replace('/items','')}/shop/social/add/${uid}`, { method: 'POST' }); if(res) { const d = await res.json(); showToast("系統", d.message || d.detail); } };
 
             const checkDuelStatus = async () => {
                 const res = await safeFetch(`${API_URL.replace('/items','')}/shop/duel/status`);
@@ -638,6 +664,8 @@
             const trainMon = async (uid) => { if (!confirm(`確定特訓嗎？`)) return; const res = await safeFetch(`${API_URL.replace('/items','')}/shop/box/action/train?pokemon_uid=${uid}&mode=${trainMode.value.type}`, { method: 'POST' }); if (res && res.ok) { const d = await res.json(); showToast("特訓成功", d.message); viewMon.value.iv = d.iv; if(d.user) user.value = d.user; trainMode.value.show = false; const stats = calcStats(viewMon.value); viewMon.value.hp_val = stats.hp; viewMon.value.atk_val = stats.atk; } else if (res) { const d = await res.json(); showToast("特訓失敗", d.detail); } };
 
             const fetchGymList = async () => { const res = await safeFetch(`${API_URL.replace('/items','')}/shop/gym/list`); if(res && res.ok) gymList.value = await res.json(); };
+            
+            // 🔥 startGymBattle 修正：處理 EMPTY 狀態
             const startGymBattle = async (gymId) => {
                 const res = await safeFetch(`${API_URL.replace('/items','')}/shop/gym/battle/start/${gymId}`, { method: 'POST' });
                 if(res && res.ok) {
@@ -646,14 +674,38 @@
                     else if(d.result === 'BATTLE_START') {
                         battleId = d.battle_id;
                         battle.value = { active: true, mode: 'gym', target: { ...d.opponent, image_url: d.opponent.img }, shakeMe: false, shakeTarget: false, atkBuff: 1.0, shieldActive: false };
-                        shieldUses.value = 0; // 道館戰不能用盾
+                        shieldUses.value = 0; 
                         updateMySkills();
                         isEnemyTurn.value = false;
-                    } else if(d.result === 'WAIT') { showToast("系統", d.message); }
+                    } 
+                    else if(d.result === 'EMPTY') {
+                        // 空道館 -> 彈窗選角
+                        showToast("系統", d.message);
+                        pendingGymId.value = gymId;
+                        showDefenderSelect.value = true;
+                    }
+                    else if(d.result === 'WAIT') { showToast("系統", d.message); }
                 } else if(res) { const d = await res.json(); showToast("錯誤", d.detail); }
             };
 
-            // 🔥 補回 joinRaid, abandonQuest, claimQuest
+            // 🔥 選角佔領函式
+            const selectDefender = async (pokemon) => {
+                if(!pendingGymId.value) return;
+                try {
+                    const res = await safeFetch(`${API_URL.replace('/items','')}/shop/gym/occupy/${pendingGymId.value}?pokemon_uid=${pokemon.uid}`, { method: 'POST' });
+                    if(res && res.ok) {
+                        const d = await res.json();
+                        showToast("系統", d.message);
+                        showDefenderSelect.value = false;
+                        pendingGymId.value = null;
+                        fetchGymList();
+                    } else if(res) {
+                        const d = await res.json();
+                        showToast("錯誤", d.detail);
+                    }
+                } catch(e) { console.error(e); }
+            };
+
             const joinRaid = async () => { if(confirm("支付 1000G 加入？")) { const res = await safeFetch(`${API_URL.replace('/items','')}/shop/raid/join`, { method: 'POST' }); if(res && res.ok) { battle.value = { active: true, mode: 'raid', target: { name: raidState.value.boss_name, hp: raidState.value.hp, max_hp: raidState.value.max_hp, image_url: raidState.value.image }, shakeMe: false, shakeTarget: false, atkBuff: 1.0, shieldActive: false }; shieldUses.value = 2; updateMySkills(); } else if(res) { const d = await res.json(); showToast("錯誤", d.detail); } } };
             const abandonQuest = async (qid) => { if(confirm("放棄需消耗 1000G，確定嗎？")) { await safeFetch(`${API_URL}/quests/abandon/${qid}`, { method: 'POST' }); fetchQuests(); } };
             const claimQuest = async (qid) => { const res = await safeFetch(`${API_URL}/quests/claim/${qid}`, { method: 'POST' }); if(res) { const d = await res.json(); showToast("系統", d.message); fetchQuests(); } };
@@ -687,14 +739,15 @@
                 getSkillDesc, selectedWildLevel, calcStats, pokedexCollection, pokedexPercent, pokedexMap, getReqXp, 
                 showGachaAnim, gachaResult, showBattleResult, battleResultMsg, inventory, 
                 leaderboardData, leaderboardType, fetchLeaderboard, initAdmin, newsState, closeNews, 
-                currentPetIV, addFriend, acceptInvite, rejectInvite, sendInvite, canJoinLobby, turnTimer, isEnemyTurn, 
+                currentPetIV, acceptInvite, rejectInvite, sendInvite, canJoinLobby, turnTimer, isEnemyTurn, 
                 viewBoxMon, viewPokedexEntry, getMonSkills, forceCloseBattle, 
                 raidVictory, isRaidDead, raidDeadTimer, reviveRaid, claimRaidReward, useMedKit, releaseMon, getMonImage,
                 invite, duelState, toast, showToast,
                 trainMode, trainMon, isLegendary,
                 gymList, startGymBattle,
                 canJoinLobby, viewPokedexEntry,
-                buyItem
+                buyItem,
+                showDefenderSelect, selectDefender // 🔥 新增
             };
         }
     }).mount('#app');
