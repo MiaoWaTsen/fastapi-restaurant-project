@@ -13,11 +13,12 @@ from app.common.deps import get_current_user
 from app.models.user import User, Gym
 from app.common.websocket import manager 
 
+# 匯入完整的遊戲數據
 from app.common.game_data import (
     SKILL_DB, POKEDEX_DATA, COLLECTION_MONS, OBTAINABLE_MONS, LEGENDARY_MONS,
     WILD_UNLOCK_LEVELS, GACHA_NORMAL, GACHA_MEDIUM, GACHA_HIGH, 
     GACHA_CANDY, GACHA_GOLDEN, GACHA_LEGENDARY_CANDY, GACHA_LEGENDARY_GOLD,
-    LEVEL_XP_MAP, get_req_xp, apply_iv_stats
+    LEVEL_XP_MAP, RAID_BOSS_POOL, get_req_xp, apply_iv_stats
 )
 
 router = APIRouter()
@@ -45,13 +46,6 @@ GYM_BATTLES = {}
 
 RAID_SCHEDULE = [(8, 0), (14, 0), (18, 0), (21, 0), (22, 0), (23, 0)] 
 RAID_STATE = {"active": False, "status": "IDLE", "boss": None, "current_hp": 0, "max_hp": 0, "players": {}, "last_attack_time": None}
-RAID_BOSS_POOL = [
-    {"name": "❄️ 急凍鳥", "hp": 15000, "atk": 500, "img": "https://img.pokemondb.net/sprites/home/normal/articuno.png", "weight": 25}, 
-    {"name": "🔥 火焰鳥", "hp": 15000, "atk": 500, "img": "https://img.pokemondb.net/sprites/home/normal/moltres.png", "weight": 25},
-    {"name": "⚡ 閃電鳥", "hp": 15000, "atk": 500, "img": "https://img.pokemondb.net/sprites/home/normal/zapdos.png", "weight": 25},
-    {"name": "🔮 超夢", "hp": 20000, "atk": 800, "img": "https://img.pokemondb.net/sprites/home/normal/mewtwo.png", "weight": 5},
-    {"name": "✨ 夢幻", "hp": 20000, "atk": 800, "img": "https://img.pokemondb.net/sprites/home/normal/mew.png", "weight": 5}
-]
 
 def update_user_activity(user_id):
     ONLINE_USERS[user_id] = datetime.utcnow()
@@ -66,41 +60,119 @@ def get_now_tw():
     return datetime.utcnow() + timedelta(hours=8)
 
 # =================================================================
-# 1. 商店購買 API (新增)
+# API: 獲取技能資料
+# =================================================================
+@router.get("/data/skills")
+def get_skills_data():
+    return SKILL_DB
+
+# =================================================================
+# 1. 商店與扭蛋 API
 # =================================================================
 @router.post("/buy/{item_type}")
 async def buy_item(item_type: str, db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
-    # 價格表
     PRICES = {
         "candy": {"name": "神奇糖果", "price": 500, "key": "candy"},
         "growth": {"name": "成長糖果", "price": 2000, "key": "growth_candy"},
         "golden": {"name": "黃金糖果", "price": 10000, "key": "golden_candy"},
         "legendary": {"name": "傳說糖果", "price": 25000, "key": "legendary_candy"}
     }
-    
-    if item_type not in PRICES:
-        raise HTTPException(status_code=400, detail="商品不存在")
-        
-    item = PRICES[item_type]
-    cost = item["price"]
-    
-    if current_user.money < cost:
-        raise HTTPException(status_code=400, detail=f"金幣不足！需要 {cost} G")
-        
+    if item_type not in PRICES: raise HTTPException(status_code=400, detail="商品不存在")
+    item = PRICES[item_type]; cost = item["price"]
+    if current_user.money < cost: raise HTTPException(status_code=400, detail=f"金幣不足！需要 {cost} G")
     current_user.money -= cost
-    
     try: inv = json.loads(current_user.inventory)
     except: inv = {}
-    
     inv[item["key"]] = inv.get(item["key"], 0) + 1
     current_user.inventory = json.dumps(inv)
-    
     db.commit()
     return {"message": f"購買成功！獲得 {item['name']} x1", "user": current_user}
 
+@router.post("/gacha/{gacha_type}")
+async def play_gacha(gacha_type: str, db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
+    try: box = json.loads(current_user.pokemon_storage) if current_user.pokemon_storage else []
+    except: box = []
+    if len(box) >= 25: raise HTTPException(status_code=400, detail="盒子滿了！請先放生")
+    try: inventory = json.loads(current_user.inventory) if current_user.inventory else {}
+    except: inventory = {}
+    
+    cost = 0; pool = []
+    if gacha_type == 'normal': pool = GACHA_NORMAL; cost = 1500
+    elif gacha_type == 'medium': pool = GACHA_MEDIUM; cost = 3000
+    elif gacha_type == 'high': pool = GACHA_HIGH; cost = 10000
+    elif gacha_type == 'candy': pool = GACHA_CANDY; cost = 12
+    elif gacha_type == 'golden': pool = GACHA_GOLDEN; cost = 3
+    elif gacha_type == 'legendary_candy': pool = GACHA_LEGENDARY_CANDY; cost = 5
+    elif gacha_type == 'legendary_gold': pool = GACHA_LEGENDARY_GOLD; cost = 400000
+    else: raise HTTPException(status_code=400, detail="未知類型")
+    
+    # 扣除資源
+    if gacha_type == 'candy':
+        if inventory.get("candy", 0) < cost: raise HTTPException(status_code=400, detail="糖果不足")
+        inventory["candy"] -= cost
+    elif gacha_type == 'golden':
+        if inventory.get("golden_candy", 0) < cost: raise HTTPException(status_code=400, detail="黃金糖果不足")
+        inventory["golden_candy"] -= cost
+    elif gacha_type == 'legendary_candy':
+        if inventory.get("legendary_candy", 0) < cost: raise HTTPException(status_code=400, detail="傳說糖果不足")
+        inventory["legendary_candy"] -= cost
+    else:
+        if current_user.money < cost: raise HTTPException(status_code=400, detail="金幣不足")
+        current_user.money -= cost
+        
+    # 🔥 核心修正：使用 random.choices 權重抽取 (key: weight)
+    prize_data = random.choices(pool, weights=[p['weight'] for p in pool], k=1)[0]
+    prize_name = prize_data['name']
+    
+    # 🔥 保底 IV 機制 (傳說/傳奇池保底 60)
+    new_lv = random.randint(1, current_user.level)
+    min_iv = 0
+    if 'legendary' in gacha_type: min_iv = 60 
+    iv = random.randint(min_iv, 100)
+    
+    new_mon = { "uid": str(uuid.uuid4()), "name": prize_name, "iv": iv, "lv": new_lv, "exp": 0 }
+    box.append(new_mon)
+    
+    current_user.pokemon_storage = json.dumps(box)
+    current_user.inventory = json.dumps(inventory)
+    
+    unlocked = current_user.unlocked_monsters.split(',') if current_user.unlocked_monsters else []
+    if prize_name not in unlocked: unlocked.append(prize_name); current_user.unlocked_monsters = ",".join(unlocked)
+    
+    db.commit()
+    try:
+        # 廣播邏輯
+        if 'legendary' in gacha_type or gacha_type in ['golden', 'high'] or prize_name in ['快龍', '超夢', '夢幻', '拉普拉斯', '幸福蛋', '耿鬼', '鳳王', '洛奇亞']: 
+            await manager.broadcast(f"🎰 恭喜 [{current_user.username}] 獲得了稀有的 [{prize_name}] (Lv.{new_lv})！")
+    except: pass
+    
+    return {"message": f"獲得 {prize_name} (Lv.{new_lv}, IV: {iv})!", "prize": new_mon, "user": current_user}
+
 # =================================================================
-# 2. 核心功能 API
+# 2. 核心功能 API (特訓、戰鬥等) - 保持不變，略為省略以節省篇幅
 # =================================================================
+# ... (以下請保留之前 V2.13.2 的 box_action, train_pokemon, raid, wild 邏輯) ...
+# 務必確保 train_pokemon 裡面的 user 回傳邏輯存在
+
+@router.post("/box/swap/{pokemon_uid}")
+async def swap_active_pokemon(pokemon_uid: str, db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
+    try: box = json.loads(current_user.pokemon_storage)
+    except: box = []
+    target = next((p for p in box if p["uid"] == pokemon_uid), None)
+    if not target: raise HTTPException(status_code=404, detail="找不到")
+    current_user.active_pokemon_uid = pokemon_uid; current_user.pokemon_name = target["name"]
+    current_user.pet_level = target["lv"]; current_user.pet_exp = target["exp"]
+    base = POKEDEX_DATA.get(target["name"])
+    if base:
+        current_user.pokemon_image = base["img"]
+        current_user.max_hp = apply_iv_stats(base["hp"], target["iv"], target["lv"], is_hp=True, is_player=True)
+        current_user.attack = apply_iv_stats(base["atk"], target["iv"], target["lv"], is_hp=False, is_player=True)
+    else: current_user.pokemon_image = "https://via.placeholder.com/150"; current_user.max_hp = 100; current_user.attack = 10
+    current_user.hp = current_user.max_hp
+    db.commit()
+    await manager.broadcast(f"EVENT:PVP_SWAP|{current_user.id}")
+    return {"message": f"就決定是你了，{target['name']}！"}
+
 @router.post("/box/action/{action}/{pokemon_uid}")
 async def box_action(action: str, pokemon_uid: str, db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
     box = json.loads(current_user.pokemon_storage); inv = json.loads(current_user.inventory)
@@ -117,10 +189,7 @@ async def box_action(action: str, pokemon_uid: str, db: Session = Depends(get_db
         if target["lv"] >= current_user.level: raise HTTPException(status_code=400, detail="等級已達上限")
         if inv.get("growth_candy", 0) < 1: raise HTTPException(status_code=400, detail="成長糖果不足")
         inv["growth_candy"] -= 1
-        
-        # 🔥 修改：成長糖果效果提升至 1500 XP
-        target["exp"] += 1500
-        
+        target["exp"] += 1500 
         req = get_req_xp(target["lv"])
         while target["exp"] >= req and target["lv"] < 100:
             if target["lv"] >= current_user.level: break
@@ -167,7 +236,7 @@ async def train_pokemon(pokemon_uid: str, mode: str = Query(...), db: Session = 
             current_user.attack = apply_iv_stats(base["atk"], target["iv"], target["lv"], is_hp=False, is_player=True)
             current_user.hp = current_user.max_hp
     
-    current_user.pokemon_storage = json.dumps(box) # 🔥 確保寫回
+    current_user.pokemon_storage = json.dumps(box)
     current_user.inventory = json.dumps(inv)
     db.commit()
     return {"message": msg, "iv": new_iv, "user": current_user}
@@ -228,12 +297,9 @@ def start_gym_battle(gym_id: int, current_user: User = Depends(get_current_user)
 def gym_battle_attack(battle_id: str, damage: int = Query(0), heal: int = Query(0), current_user: User = Depends(get_current_user), db: Session = Depends(get_db)):
     if battle_id not in GYM_BATTLES: raise HTTPException(status_code=404, detail="戰鬥已過期")
     room = GYM_BATTLES[battle_id]
-    
-    # 🔥 防呆：確保 damage 是整數
     try: damage = int(damage)
     except: damage = 0
     if damage < 0: damage = 0
-    
     room["boss_data"]["hp"] = max(0, room["boss_data"]["hp"] - damage)
     if heal > 0: current_user.hp = min(current_user.max_hp, current_user.hp + heal)
     boss_dmg = 0
@@ -352,7 +418,6 @@ def attack_raid_boss(damage: int = Query(0), current_user: User = Depends(get_cu
     if p_data.get("dead_at"): raise HTTPException(status_code=400, detail="你已死亡，請盡快復活！")
     if RAID_STATE["status"] != "FIGHTING": return {"message": "戰鬥尚未開始或已結束", "boss_hp": RAID_STATE["current_hp"]}
     
-    # 🔥 防呆
     try: damage = int(damage)
     except: damage = 0
     if damage < 0: damage = 0
@@ -463,6 +528,7 @@ async def play_gacha(gacha_type: str, db: Session = Depends(get_db), current_use
     elif gacha_type == 'legendary_candy': pool = GACHA_LEGENDARY_CANDY; cost = 5
     elif gacha_type == 'legendary_gold': pool = GACHA_LEGENDARY_GOLD; cost = 400000
     else: raise HTTPException(status_code=400, detail="未知類型")
+    
     if gacha_type == 'candy':
         if inventory.get("candy", 0) < cost: raise HTTPException(status_code=400, detail="糖果不足")
         inventory["candy"] -= cost
@@ -475,22 +541,33 @@ async def play_gacha(gacha_type: str, db: Session = Depends(get_db), current_use
     else:
         if current_user.money < cost: raise HTTPException(status_code=400, detail="金幣不足")
         current_user.money -= cost
-    total_rate = sum(p["rate"] for p in pool); r = random.uniform(0, total_rate); acc = 0; prize_name = pool[0]["name"]
-    for p in pool:
-        acc += p["rate"]
-        if r <= acc: prize_name = p["name"]; break
+        
+    # 🔥 核心修正：使用 random.choices 權重抽取
+    prize_data = random.choices(pool, weights=[p['weight'] for p in pool], k=1)[0]
+    prize_name = prize_data['name']
+    
+    # IV 設定
     new_lv = random.randint(1, current_user.level)
-    if 'legendary' in gacha_type: iv = random.randint(60, 100)
-    else: iv = int(random.triangular(0, 100, 50))
+    min_iv = 0
+    if 'legendary' in gacha_type: min_iv = 60 # 保底 IV 60
+    iv = random.randint(min_iv, 100)
+    
     new_mon = { "uid": str(uuid.uuid4()), "name": prize_name, "iv": iv, "lv": new_lv, "exp": 0 }
     box.append(new_mon)
-    current_user.pokemon_storage = json.dumps(box); current_user.inventory = json.dumps(inventory)
+    
+    current_user.pokemon_storage = json.dumps(box)
+    current_user.inventory = json.dumps(inventory)
+    
+    # 更新圖鑑
     unlocked = current_user.unlocked_monsters.split(',') if current_user.unlocked_monsters else []
     if prize_name not in unlocked: unlocked.append(prize_name); current_user.unlocked_monsters = ",".join(unlocked)
+    
     db.commit()
     try:
-        if 'legendary' in gacha_type or gacha_type in ['golden', 'high'] or prize_name in ['快龍', '超夢', '夢幻', '拉普拉斯', '幸福蛋', '耿鬼', '鳳王', '洛奇亞']: await manager.broadcast(f"🎰 恭喜 [{current_user.username}] 獲得了稀有的 [{prize_name}] (Lv.{new_lv})！")
+        if 'legendary' in gacha_type or gacha_type in ['golden', 'high'] or prize_name in ['快龍', '超夢', '夢幻', '拉普拉斯', '幸福蛋', '耿鬼', '鳳王', '洛奇亞']: 
+            await manager.broadcast(f"🎰 恭喜 [{current_user.username}] 獲得了稀有的 [{prize_name}] (Lv.{new_lv})！")
     except: pass
+    
     return {"message": f"獲得 {prize_name} (Lv.{new_lv}, IV: {iv})!", "prize": new_mon, "user": current_user}
 
 @router.post("/box/swap/{pokemon_uid}")
