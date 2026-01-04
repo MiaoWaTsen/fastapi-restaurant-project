@@ -10,12 +10,9 @@ import uuid
 
 from app.db.session import get_db, engine
 from app.common.deps import get_current_user
+from app.models.user import User, Gym # 移除 Friendship
 from app.common.websocket import manager 
 
-# 🔥 V2.12.4 關鍵修正：從 user.py 匯入所有模型，確保資料庫能正確建立
-from app.models.user import User, Friendship, Gym
-
-# 匯入共用資料
 from app.common.game_data import (
     SKILL_DB, POKEDEX_DATA, COLLECTION_MONS, OBTAINABLE_MONS, LEGENDARY_MONS,
     WILD_UNLOCK_LEVELS, GACHA_NORMAL, GACHA_MEDIUM, GACHA_HIGH, 
@@ -25,15 +22,12 @@ from app.common.game_data import (
 
 router = APIRouter()
 
-# (這裡不需要再定義 Base, Friendship, Gym 了，因為已經移到 models/user.py)
-
-# 初始化 4 座道館 (將由 main.py 的 startup event 呼叫)
+# 初始化道館
 def init_gyms():
     try:
         with Session(engine) as session:
-            # 檢查表格是否存在
             if session.query(Gym).count() == 0:
-                print("正在初始化道館資料...")
+                print("初始化道館...")
                 gyms = [
                     Gym(id=2, name="華藍道館 (水)", buff_desc="防守方 HP +20%", income_rate=10),
                     Gym(id=3, name="枯葉道館 (電)", buff_desc="防守方 ATK +20%", income_rate=15),
@@ -42,13 +36,10 @@ def init_gyms():
                 ]
                 session.add_all(gyms)
                 session.commit()
-                print("道館初始化完成！")
     except Exception as e:
-        print(f"道館初始化跳過 (可能表格尚未準備好): {e}")
+        print(f"道館初始化跳過: {e}")
 
-# =================================================================
 # 全域變數
-# =================================================================
 ONLINE_USERS = {}
 INVITES = {}
 DUEL_ROOMS = {}
@@ -77,35 +68,27 @@ def get_now_tw():
     return datetime.utcnow() + timedelta(hours=8)
 
 # =================================================================
-# 1. 道館系統 API
+# 1. 道館 API
 # =================================================================
 
 @router.get("/gym/list")
 def get_gym_list(db: Session = Depends(get_db)):
-    try:
-        gyms = db.query(Gym).all()
-    except:
-        return []
-        
+    try: gyms = db.query(Gym).all()
+    except: return []
     result = []
     now = get_now_tw()
     for g in gyms:
-        is_protected = False
-        remaining_protection = 0
+        is_protected = False; remaining_protection = 0
         if g.protection_until and g.protection_until > now:
-            is_protected = True
-            remaining_protection = int((g.protection_until - now).total_seconds())
-            
+            is_protected = True; remaining_protection = int((g.protection_until - now).total_seconds())
         income_acc = 0
         if g.leader_id and g.occupied_at:
             mins = (now - g.occupied_at).total_seconds() / 60
             income_acc = int(mins * g.income_rate)
-
         result.append({
             "id": g.id, "name": g.name, "buff": g.buff_desc, "rate": g.income_rate,
             "leader_name": g.leader_name if g.leader_id else "無人佔領",
-            "leader_img": g.leader_img if g.leader_id else "",
-            "leader_id": g.leader_id,
+            "leader_img": g.leader_img if g.leader_id else "", "leader_id": g.leader_id,
             "is_protected": is_protected, "protection_sec": remaining_protection, "income_acc": income_acc
         })
     return result
@@ -140,7 +123,6 @@ def start_gym_battle(gym_id: int, current_user: User = Depends(get_current_user)
 
     battle_id = str(uuid.uuid4())
     boss_hp = gym.leader_max_hp; boss_atk = gym.leader_atk
-    
     if gym.id == 2: boss_hp = int(boss_hp * 1.2)
     elif gym.id == 3: boss_atk = int(boss_atk * 1.2)
     elif gym.id == 4: boss_hp = int(boss_hp * 1.1); boss_atk = int(boss_atk * 1.1)
@@ -156,6 +138,10 @@ def start_gym_battle(gym_id: int, current_user: User = Depends(get_current_user)
 def gym_battle_attack(battle_id: str, damage: int = Query(0), heal: int = Query(0), current_user: User = Depends(get_current_user), db: Session = Depends(get_db)):
     if battle_id not in GYM_BATTLES: raise HTTPException(status_code=404, detail="戰鬥已過期")
     room = GYM_BATTLES[battle_id]
+    
+    # 確保 damage 是 int
+    try: damage = int(damage)
+    except: damage = 0
     
     room["boss_data"]["hp"] = max(0, room["boss_data"]["hp"] - damage)
     if heal > 0: current_user.hp = min(current_user.max_hp, current_user.hp + heal)
@@ -193,7 +179,7 @@ def gym_battle_attack(battle_id: str, damage: int = Query(0), heal: int = Query(
     return {"result": "NEXT", "boss_hp": room["boss_data"]["hp"], "user_hp": current_user.hp, "boss_dmg": boss_dmg}
 
 # =================================================================
-# 2. 其他 API (保留原有功能)
+# 2. 其他 API
 # =================================================================
 
 @router.get("/pokedex/all")
@@ -471,7 +457,6 @@ async def play_gacha(gacha_type: str, db: Session = Depends(get_db), current_use
     elif gacha_type == 'legendary_candy': pool = GACHA_LEGENDARY_CANDY; cost = 5
     elif gacha_type == 'legendary_gold': pool = GACHA_LEGENDARY_GOLD; cost = 400000
     else: raise HTTPException(status_code=400, detail="未知類型")
-    
     if gacha_type == 'candy':
         if inventory.get("candy", 0) < cost: raise HTTPException(status_code=400, detail="糖果不足")
         inventory["candy"] -= cost
@@ -484,12 +469,10 @@ async def play_gacha(gacha_type: str, db: Session = Depends(get_db), current_use
     else:
         if current_user.money < cost: raise HTTPException(status_code=400, detail="金幣不足")
         current_user.money -= cost
-        
     total_rate = sum(p["rate"] for p in pool); r = random.uniform(0, total_rate); acc = 0; prize_name = pool[0]["name"]
     for p in pool:
         acc += p["rate"]
         if r <= acc: prize_name = p["name"]; break
-    
     new_lv = random.randint(1, current_user.level)
     if 'legendary' in gacha_type: iv = random.randint(60, 100)
     else: iv = int(random.triangular(0, 100, 50))
@@ -660,64 +643,6 @@ def duel_attack(damage: int = Query(0), heal: int = Query(0), db: Session = Depe
     db.commit()
     return {"result": "NEXT", "damage": damage, "heal": heal}
 
-@router.post("/social/add/{target_id}")
-def add_friend(target_id: int, current_user: User = Depends(get_current_user), db: Session = Depends(get_db)):
-    if target_id == current_user.id: raise HTTPException(status_code=400, detail="不能加自己")
-    target_user = db.query(User).filter(User.id == target_id).first()
-    if not target_user: raise HTTPException(status_code=404, detail="找不到該玩家 ID") 
-    try:
-        existing = db.query(Friendship).filter(or_((Friendship.user_id == current_user.id) & (Friendship.friend_id == target_id), (Friendship.user_id == target_id) & (Friendship.friend_id == current_user.id))).first()
-        if existing: return {"message": "已經是好友或已發送邀請"}
-        new_fs = Friendship(user_id=current_user.id, friend_id=target_id, status="PENDING")
-        db.add(new_fs); db.commit()
-        return {"message": "已發送好友邀請"}
-    except:
-        db.rollback()
-        raise HTTPException(status_code=500, detail="好友系統錯誤")
-
-@router.get("/social/requests")
-def get_friend_requests(current_user: User = Depends(get_current_user), db: Session = Depends(get_db)):
-    reqs = db.query(Friendship).filter(Friendship.friend_id == current_user.id, Friendship.status == "PENDING").all()
-    result = []
-    for r in reqs:
-        sender = db.query(User).filter(User.id == r.user_id).first()
-        if sender: result.append({"request_id": r.id, "username": sender.username, "pokemon_image": sender.pokemon_image})
-    return result
-
-@router.post("/social/accept/{req_id}")
-def accept_friend(req_id: int, current_user: User = Depends(get_current_user), db: Session = Depends(get_db)):
-    fs = db.query(Friendship).filter(Friendship.id == req_id, Friendship.friend_id == current_user.id).first()
-    if not fs: raise HTTPException(status_code=404, detail="找不到邀請")
-    fs.status = "ACCEPTED"
-    db.commit()
-    return {"message": "已接受好友"}
-
-@router.post("/social/reject/{req_id}")
-def reject_friend_request(req_id: int, current_user: User = Depends(get_current_user), db: Session = Depends(get_db)):
-    fs = db.query(Friendship).filter(Friendship.id == req_id, Friendship.friend_id == current_user.id).first()
-    if not fs: raise HTTPException(status_code=404, detail="找不到邀請")
-    db.delete(fs)
-    db.commit()
-    return {"message": "已拒絕"}
-
-@router.post("/social/remove/{friend_id}")
-def remove_friend(friend_id: int, current_user: User = Depends(get_current_user), db: Session = Depends(get_db)):
-    fs = db.query(Friendship).filter(or_((Friendship.user_id == current_user.id) & (Friendship.friend_id == friend_id), (Friendship.user_id == friend_id) & (Friendship.friend_id == current_user.id))).first()
-    if not fs: raise HTTPException(status_code=404, detail="你們不是好友")
-    db.delete(fs)
-    db.commit()
-    return {"message": "已刪除好友"}
-
-@router.get("/social/list")
-def get_friend_list(current_user: User = Depends(get_current_user), db: Session = Depends(get_db)):
-    friends_query = db.query(Friendship).filter(or_(Friendship.user_id == current_user.id, Friendship.friend_id == current_user.id), Friendship.status == "ACCEPTED").all()
-    result = []
-    for f in friends_query:
-        target_id = f.friend_id if f.user_id == current_user.id else f.user_id
-        target = db.query(User).filter(User.id == target_id).first()
-        if target: result.append({"id": target.id, "username": target.username, "pokemon_image": target.pokemon_image, "can_gift": True})
-    return result
-
 @router.get("/social/players")
 def get_online_players(current_user: User = Depends(get_current_user), db: Session = Depends(get_db)):
     update_user_activity(current_user.id)
@@ -759,7 +684,6 @@ def delete_user_by_name(username: str, db: Session = Depends(get_db)):
     keys_to_del = [k for k, v in INVITES.items() if v == uid]
     for k in keys_to_del: del INVITES[k]
     try:
-        db.query(Friendship).filter(or_(Friendship.user_id == uid, Friendship.friend_id == uid)).delete()
         db.delete(target)
         db.commit()
         return {"message": f"✅ 已成功刪除玩家 [{username}] 及其所有資料"}

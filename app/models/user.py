@@ -42,17 +42,7 @@ class User(Base):
     quests = Column(Text, default="[]")
 
 # =================================================================
-# 2. 好友模型 (Friendship)
-# =================================================================
-class Friendship(Base):
-    __tablename__ = "friendships"
-    id = Column(Integer, primary_key=True, index=True)
-    user_id = Column(Integer, ForeignKey("users_v11.id")) 
-    friend_id = Column(Integer, ForeignKey("users_v11.id"))
-    status = Column(String, default="PENDING")
-
-# =================================================================
-# 3. 道館模型 (Gym)
+# 2. 道館模型 (Gym)
 # =================================================================
 class Gym(Base):
     __tablename__ = "gyms"
