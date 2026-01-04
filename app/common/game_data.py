@@ -1,172 +1,524 @@
-# app/common/game_data.py
+# app/routers/shop.py
 
+from fastapi import APIRouter, Depends, HTTPException, Query
+from sqlalchemy.orm import Session
+from sqlalchemy import or_, Column, Integer, String, ForeignKey, DateTime, Float, desc, text
+from datetime import datetime, timedelta
 import random
+import json
+import uuid
 
-# =================================================================
-# 1. 數值計算公式
-# =================================================================
-def create_xp_map():
-    xp_map = { 1: 50, 2: 120, 3: 200, 4: 350, 5: 600, 6: 900, 7: 1360, 8: 1800, 9: 2300, 10: 2300 }
-    current_req = 2300
-    for lv in range(11, 51):
-        current_req += 600
-        xp_map[lv] = current_req
-    for lv in range(51, 101):
-        current_req += 2000
-        xp_map[lv] = current_req
-    return xp_map
+from app.db.session import get_db, engine
+from app.db.base_class import Base 
+from app.common.deps import get_current_user
+from app.models.user import User, Gym
+from app.common.websocket import manager 
 
-LEVEL_XP_MAP = create_xp_map()
+from app.common.game_data import (
+    SKILL_DB, POKEDEX_DATA, COLLECTION_MONS, OBTAINABLE_MONS, LEGENDARY_MONS,
+    WILD_UNLOCK_LEVELS, GACHA_NORMAL, GACHA_MEDIUM, GACHA_HIGH, 
+    GACHA_CANDY, GACHA_GOLDEN, GACHA_LEGENDARY_CANDY, GACHA_LEGENDARY_GOLD,
+    LEVEL_XP_MAP, RAID_BOSS_POOL, get_req_xp, apply_iv_stats
+)
 
-def get_req_xp(lv): 
-    return 999999999 if lv >= 100 else LEVEL_XP_MAP.get(lv, 999999)
+router = APIRouter()
 
-def apply_iv_stats(base_val, iv, level, is_hp=False, is_player=True):
-    iv_mult = 0.8 + (iv / 100) * 0.4
-    if is_player:
-        growth_rate = 1.03 if is_hp else 1.031
-    else:
-        growth_rate = 1.035
-    val = int(base_val * iv_mult * (growth_rate ** (level - 1)))
-    return max(1, val)
+# ... (init_gyms, 全域變數, update_user_activity, is_user_busy, get_now_tw, get_skills_data, buy_item, play_gacha 保持不變) ...
+# 為了節省篇幅，這裡省略上半部未變動的代碼。請保留 V2.14.9 的上半部，僅替換下方的 get_raid_status 相關部分。
+# 或是為了安全起見，我直接提供完整的 shop.py：
 
-# =================================================================
-# 2. 技能資料庫
-# =================================================================
-SKILL_DB = {
-    "水槍": {"dmg": 16, "effect": "heal", "prob": 0.5, "val": 0.15, "desc": "50%機率回復15%血量"},
-    "撒嬌": {"dmg": 16, "effect": "heal", "prob": 0.5, "val": 0.15, "desc": "50%機率回復15%血量"},
-    "念力": {"dmg": 16, "effect": "heal", "prob": 0.5, "val": 0.15, "desc": "50%機率回復15%血量"},
-    "岩石封鎖": {"dmg": 16, "effect": "heal", "prob": 0.5, "val": 0.15, "desc": "50%機率回復15%血量"},
-    "毒針": {"dmg": 16, "effect": "buff_atk", "prob": 0.5, "val": 0.15, "desc": "50%機率提升15%攻擊力"},
-    "藤鞭": {"dmg": 18, "effect": "buff_atk", "prob": 0.4, "val": 0.15, "desc": "40%機率提升15%攻擊力"},
-    "火花": {"dmg": 18, "effect": "buff_atk", "prob": 0.4, "val": 0.15, "desc": "40%機率提升15%攻擊力"},
-    "電光": {"dmg": 18, "effect": "buff_atk", "prob": 0.4, "val": 0.15, "desc": "40%機率提升15%攻擊力"},
-    "挖洞": {"dmg": 18, "effect": "buff_atk", "prob": 0.4, "val": 0.15, "desc": "40%機率提升15%攻擊力"},
-    "驚嚇": {"dmg": 18, "effect": "buff_atk", "prob": 0.4, "val": 0.15, "desc": "40%機率提升15%攻擊力"},
-    "地震": {"dmg": 18, "effect": "heal", "prob": 0.4, "val": 0.15, "desc": "40%機率回復15%血量"},
-    "冰礫": {"dmg": 18, "effect": "heal", "prob": 0.4, "val": 0.15, "desc": "40%機率回復15%血量"},
-    "泥巴射擊": {"dmg": 20, "effect": "buff_atk", "prob": 0.3, "val": 0.15, "desc": "30%機率提升15%攻擊力"},
-    "污泥炸彈": {"dmg": 20, "effect": "buff_atk", "prob": 0.3, "val": 0.15, "desc": "30%機率提升15%攻擊力"},
-    "噴射火焰": {"dmg": 20, "effect": "buff_atk", "prob": 0.3, "val": 0.15, "desc": "30%機率提升15%攻擊力"},
-    "水流噴射": {"dmg": 20, "effect": "buff_atk", "prob": 0.3, "val": 0.15, "desc": "30%機率提升15%攻擊力"},
-    "精神強念": {"dmg": 20, "effect": "buff_atk", "prob": 0.3, "val": 0.15, "desc": "30%機率提升15%攻擊力"},
-    "近身戰": {"dmg": 20, "effect": "buff_atk", "prob": 0.3, "val": 0.15, "desc": "30%機率提升15%攻擊力"},
-    "電擊": {"dmg": 20, "effect": "buff_atk", "prob": 0.3, "val": 0.15, "desc": "30%機率提升15%攻擊力"},
-    "龍息": {"dmg": 20, "effect": "buff_atk", "prob": 0.3, "val": 0.15, "desc": "30%機率提升15%攻擊力"},
-    "神聖之火": {"dmg": 22, "effect": "buff_atk", "prob": 1.0, "val": 0.05, "desc": "100%機率提升5%攻擊力"},
-    "氣旋攻擊": {"dmg": 22, "effect": "buff_atk", "prob": 1.0, "val": 0.05, "desc": "100%機率提升5%攻擊力"},
-    "撞擊": {"dmg": 24, "effect": None, "prob": 0, "val": 0, "desc": "無特效"},
-    "啄": {"dmg": 24, "effect": None, "prob": 0, "val": 0, "desc": "無特效"},
-    "緊束": {"dmg": 24, "effect": None, "prob": 0, "val": 0, "desc": "無特效"},
-    "葉刃": {"dmg": 24, "effect": None, "prob": 0, "val": 0, "desc": "無特效"},
-    "抓": {"dmg": 26, "effect": None, "prob": 0, "val": 0, "desc": "無特效"},
-    "放電": {"dmg": 26, "effect": None, "prob": 0, "val": 0, "desc": "無特效"},
-    "出奇一擊": {"dmg": 26, "effect": None, "prob": 0, "val": 0, "desc": "無特效"},
-    "毒擊": {"dmg": 26, "effect": None, "prob": 0, "val": 0, "desc": "無特效"},
-    "幻象光線": {"dmg": 26, "effect": None, "prob": 0, "val": 0, "desc": "無特效"},
-    "水流尾": {"dmg": 26, "effect": None, "prob": 0, "val": 0, "desc": "無特效"},
-    "燕返": {"dmg": 26, "effect": None, "prob": 0, "val": 0, "desc": "無特效"},
-    "龍尾": {"dmg": 26, "effect": None, "prob": 0, "val": 0, "desc": "無特效"},
-    "燒盡": {"dmg": 26, "effect": None, "prob": 0, "val": 0, "desc": "無特效"},
-    "種子炸彈": {"dmg": 26, "effect": None, "prob": 0, "val": 0, "desc": "無特效"},
-    "高速星星": {"dmg": 26, "effect": None, "prob": 0, "val": 0, "desc": "無特效"},
-    "泰山壓頂": {"dmg": 26, "effect": None, "prob": 0, "val": 0, "desc": "無特效"},
-    "大字爆炎": {"dmg": 26, "effect": None, "prob": 0, "val": 0, "desc": "無特效"},
-    "泥巴炸彈": {"dmg": 26, "effect": None, "prob": 0, "val": 0, "desc": "無特效"},
-    "冰凍光束": {"dmg": 26, "effect": None, "prob": 0, "val": 0, "desc": "無特效"},
-    "瘋狂伏特": {"dmg": 26, "effect": None, "prob": 0, "val": 0, "desc": "無特效"},
-    "雙倍奉還": {"dmg": 28, "effect": None, "prob": 0, "val": 0, "desc": "無特效"},
-    "逆鱗": {"dmg": 28, "effect": None, "prob": 0, "val": 0, "desc": "無特效"},
-    "精神擊破": {"dmg": 30, "effect": None, "prob": 0, "val": 0, "desc": "無特效"},
-    "暗影球": {"dmg": 34, "effect": "debuff_atk", "prob": 1.0, "val": 0.10, "desc": "100%降低10%攻擊力"},
-    "水砲": {"dmg": 34, "effect": "debuff_atk", "prob": 1.0, "val": 0.10, "desc": "100%降低10%攻擊力"},
-    "勇鳥猛攻": {"dmg": 34, "effect": "recoil", "prob": 1.0, "val": 0.15, "desc": "100%降低自己最大血量的15%"}
-}
+def init_gyms():
+    try:
+        with Session(engine) as session:
+            session.execute(text("DROP TABLE IF EXISTS gyms CASCADE"))
+            session.commit()
+            Base.metadata.create_all(bind=engine)
+            gyms = [
+                Gym(id=1, name="第一道館", buff_desc="防守方 HP/ATK +10%", income_rate=10),
+                Gym(id=2, name="第二道館", buff_desc="防守方 HP/ATK +10%", income_rate=15),
+                Gym(id=3, name="第三道館", buff_desc="防守方 HP/ATK +10%", income_rate=15),
+                Gym(id=4, name="第四道館", buff_desc="防守方 HP/ATK +10%", income_rate=20),
+            ]
+            session.add_all(gyms)
+            session.commit()
+            print("✅ 道館初始化完成")
+    except Exception as e:
+        print(f"❌ 道館初始化錯誤: {e}")
 
-# =================================================================
-# 3. 寶可夢數據庫 (玩家+野怪)
-# =================================================================
-POKEDEX_DATA = {
-    # --- 玩家寶可夢 (28隻) ---
-    "妙蛙種子": {"hp": 130, "atk": 112, "img": "https://img.pokemondb.net/artwork/large/bulbasaur.jpg", "skills": ["藤鞭", "種子炸彈", "污泥炸彈"]},
-    "小火龍": {"hp": 112, "atk": 130, "img": "https://img.pokemondb.net/artwork/large/charmander.jpg", "skills": ["火花", "噴射火焰", "大字爆炎"]},
-    "傑尼龜": {"hp": 121, "atk": 121, "img": "https://img.pokemondb.net/artwork/large/squirtle.jpg", "skills": ["水槍", "水流噴射", "水流尾"]},
-    "妙蛙花": {"hp": 142, "atk": 130, "img": "https://img.pokemondb.net/artwork/large/venusaur.jpg", "skills": ["藤鞭", "種子炸彈", "污泥炸彈"]},
-    "噴火龍": {"hp": 130, "atk": 142, "img": "https://img.pokemondb.net/artwork/large/charizard.jpg", "skills": ["火花", "噴射火焰", "大字爆炎"]},
-    "水箭龜": {"hp": 136, "atk": 136, "img": "https://img.pokemondb.net/artwork/large/blastoise.jpg", "skills": ["水槍", "水流噴射", "水流尾"]},
-    "毛辮羊": {"hp": 120, "atk": 120, "img": "https://img.pokemondb.net/artwork/large/wooloo.jpg", "skills": ["撞擊", "撒嬌", "電擊"]},
-    "皮卡丘": {"hp": 125, "atk": 125, "img": "https://img.pokemondb.net/artwork/large/pikachu.jpg", "skills": ["電光", "放電", "電擊"]},
-    "伊布": {"hp": 125, "atk": 125, "img": "https://img.pokemondb.net/artwork/large/eevee.jpg", "skills": ["撞擊", "挖洞", "高速星星"]},
-    "六尾": {"hp": 125, "atk": 125, "img": "https://img.pokemondb.net/artwork/large/vulpix.jpg", "skills": ["撞擊", "火花", "噴射火焰"]},
-    "胖丁": {"hp": 125, "atk": 125, "img": "https://img.pokemondb.net/artwork/large/jigglypuff.jpg", "skills": ["撞擊", "撒嬌", "精神強念"]},
-    "皮皮": {"hp": 125, "atk": 125, "img": "https://img.pokemondb.net/artwork/large/clefairy.jpg", "skills": ["撞擊", "撒嬌", "精神強念"]},
-    "大蔥鴨": {"hp": 120, "atk": 130, "img": "https://img.pokemondb.net/artwork/large/farfetchd.jpg", "skills": ["啄", "葉刃", "勇鳥猛攻"]},
-    "呆呆獸": {"hp": 122, "atk": 122, "img": "https://img.pokemondb.net/artwork/large/slowpoke.jpg", "skills": ["水槍", "幻象光線", "水流噴射"]},
-    "可達鴨": {"hp": 122, "atk": 122, "img": "https://img.pokemondb.net/artwork/large/psyduck.jpg", "skills": ["水槍", "幻象光線", "水流噴射"]},
-    "耿鬼": {"hp": 96, "atk": 176, "img": "https://img.pokemondb.net/artwork/large/gengar.jpg", "skills": ["驚嚇", "污泥炸彈", "暗影球"]},
-    "卡比獸": {"hp": 175, "atk": 112, "img": "https://img.pokemondb.net/artwork/large/snorlax.jpg", "skills": ["泰山壓頂", "地震", "撞擊"]},
-    "吉利蛋": {"hp": 220, "atk": 90, "img": "https://img.pokemondb.net/artwork/large/chansey.jpg", "skills": ["抓", "精神強念", "撞擊"]},
-    "幸福蛋": {"hp": 230, "atk": 90, "img": "https://img.pokemondb.net/artwork/large/blissey.jpg", "skills": ["抓", "精神強念", "撞擊"]},
-    "拉普拉斯": {"hp": 160, "atk": 138, "img": "https://img.pokemondb.net/artwork/large/lapras.jpg", "skills": ["水槍", "水流噴射", "冰凍光束"]},
-    "快龍": {"hp": 144, "atk": 142, "img": "https://img.pokemondb.net/artwork/large/dragonite.jpg", "skills": ["龍息", "逆鱗", "勇鳥猛攻"]},
-    "急凍鳥": {"hp": 145, "atk": 145, "img": "https://img.pokemondb.net/artwork/large/articuno.jpg", "skills": ["冰礫", "冰凍光束", "勇鳥猛攻"]},
-    "火焰鳥": {"hp": 145, "atk": 145, "img": "https://img.pokemondb.net/artwork/large/moltres.jpg", "skills": ["噴射火焰", "大字爆炎", "勇鳥猛攻"]},
-    "閃電鳥": {"hp": 145, "atk": 145, "img": "https://img.pokemondb.net/artwork/large/zapdos.jpg", "skills": ["電光", "瘋狂伏特", "勇鳥猛攻"]},
-    "鳳王": {"hp": 150, "atk": 150, "img": "https://img.pokemondb.net/artwork/large/ho-oh.jpg", "skills": ["燒盡", "勇鳥猛攻", "神聖之火"]},
-    "洛奇亞": {"hp": 150, "atk": 150, "img": "https://img.pokemondb.net/artwork/large/lugia.jpg", "skills": ["龍尾", "水砲", "氣旋攻擊"]},
-    "超夢": {"hp": 152, "atk": 155, "img": "https://img.pokemondb.net/artwork/large/mewtwo.jpg", "skills": ["念力", "精神強念", "精神擊破"]},
-    "夢幻": {"hp": 155, "atk": 152, "img": "https://img.pokemondb.net/artwork/large/mew.jpg", "skills": ["念力", "暗影球", "精神擊破"]},
+ONLINE_USERS = {}
+INVITES = {}
+DUEL_ROOMS = {}
+GYM_BATTLES = {} 
+
+RAID_SCHEDULE = [(8, 0), (14, 0), (18, 0), (21, 0), (22, 0), (23, 0)] 
+RAID_STATE = {"active": False, "status": "IDLE", "boss": None, "current_hp": 0, "max_hp": 0, "players": {}, "last_attack_time": None}
+
+def update_user_activity(user_id):
+    ONLINE_USERS[user_id] = datetime.utcnow()
+
+def is_user_busy(user_id):
+    for room in DUEL_ROOMS.values():
+        if (room["p1"] == user_id or room["p2"] == user_id) and room["status"] != "ENDED":
+            return True
+    return False
+
+def get_now_tw():
+    return datetime.utcnow() + timedelta(hours=8)
+
+@router.get("/data/skills")
+def get_skills_data():
+    return SKILL_DB
+
+@router.post("/buy/{item_type}")
+async def buy_item(item_type: str, db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
+    PRICES = {
+        "candy": {"name": "神奇糖果", "price": 500, "key": "candy"},
+        "growth": {"name": "成長糖果", "price": 2000, "key": "growth_candy"},
+        "golden": {"name": "黃金糖果", "price": 10000, "key": "golden_candy"},
+        "legendary": {"name": "傳說糖果", "price": 25000, "key": "legendary_candy"}
+    }
+    if item_type not in PRICES: raise HTTPException(status_code=400, detail="商品不存在")
+    item = PRICES[item_type]; cost = item["price"]
+    if current_user.money < cost: raise HTTPException(status_code=400, detail=f"金幣不足！需要 {cost} G")
+    current_user.money -= cost
+    try: inv = json.loads(current_user.inventory)
+    except: inv = {}
+    inv[item["key"]] = inv.get(item["key"], 0) + 1
+    current_user.inventory = json.dumps(inv)
+    db.commit()
+    return {"message": f"購買成功！獲得 {item['name']} x1", "user": current_user}
+
+@router.post("/gacha/{gacha_type}")
+async def play_gacha(gacha_type: str, db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
+    try: box = json.loads(current_user.pokemon_storage) if current_user.pokemon_storage else []
+    except: box = []
+    if len(box) >= 25: raise HTTPException(status_code=400, detail="盒子滿了！請先放生")
+    try: inventory = json.loads(current_user.inventory) if current_user.inventory else {}
+    except: inventory = {}
     
-    # --- 野怪數據 (不計入圖鑑，但戰鬥需要用到這些資料) ---
-    "小拉達": {"hp": 90, "atk": 80, "img": "https://img.pokemondb.net/artwork/large/rattata.jpg", "skills": ["抓", "出奇一擊", "撞擊"]},
-    "波波": {"hp": 94, "atk": 84, "img": "https://img.pokemondb.net/artwork/large/pidgey.jpg", "skills": ["抓", "啄", "燕返"]},
-    "烈雀": {"hp": 88, "atk": 92, "img": "https://img.pokemondb.net/artwork/large/spearow.jpg", "skills": ["抓", "啄", "燕返"]},
-    "阿柏蛇": {"hp": 98, "atk": 90, "img": "https://img.pokemondb.net/artwork/large/ekans.jpg", "skills": ["毒針", "毒擊", "緊束"]},
-    "瓦斯彈": {"hp": 108, "atk": 100, "img": "https://img.pokemondb.net/artwork/large/koffing.jpg", "skills": ["毒針", "毒針", "撞擊"]},
-    "海星星": {"hp": 120, "atk": 95, "img": "https://img.pokemondb.net/artwork/large/staryu.jpg", "skills": ["水槍", "幻象光線", "撞擊"]},
-    "角金魚": {"hp": 125, "atk": 100, "img": "https://img.pokemondb.net/artwork/large/goldeen.jpg", "skills": ["水槍", "幻象光線", "泥巴射擊"]},
-    "走路草": {"hp": 120, "atk": 110, "img": "https://img.pokemondb.net/artwork/large/oddish.jpg", "skills": ["種子炸彈", "撞擊", "毒擊"]},
-    "穿山鼠": {"hp": 120, "atk": 110, "img": "https://img.pokemondb.net/artwork/large/sandshrew.jpg", "skills": ["抓", "泥巴射擊", "泥巴炸彈"]},
-    "蚊香蝌蚪": {"hp": 122, "atk": 108, "img": "https://img.pokemondb.net/artwork/large/poliwag.jpg", "skills": ["雙倍奉還", "冰凍光束", "水槍"]},
-    "小磁怪": {"hp": 120, "atk": 114, "img": "https://img.pokemondb.net/artwork/large/magnemite.jpg", "skills": ["電擊", "放電", "撞擊"]},
-    "卡拉卡拉": {"hp": 120, "atk": 120, "img": "https://img.pokemondb.net/artwork/large/cubone.jpg", "skills": ["泥巴射擊", "泥巴炸彈", "挖洞"]},
-    "喵喵": {"hp": 124, "atk": 124, "img": "https://img.pokemondb.net/artwork/large/meowth.jpg", "skills": ["抓", "出奇一擊", "撞擊"]},
-    "瑪瑙水母": {"hp": 130, "atk": 130, "img": "https://img.pokemondb.net/artwork/large/tentacool.jpg", "skills": ["水槍", "水流尾", "緊束"]},
-    "海刺龍": {"hp": 135, "atk": 135, "img": "https://img.pokemondb.net/artwork/large/seadra.jpg", "skills": ["水槍", "水流尾", "逆鱗"]},
-    "電擊獸": {"hp": 135, "atk": 140, "img": "https://img.pokemondb.net/artwork/large/electabuzz.jpg", "skills": ["電光", "電擊", "瘋狂伏特"]},
-    "鴨嘴火獸": {"hp": 135, "atk": 140, "img": "https://img.pokemondb.net/artwork/large/magmar.jpg", "skills": ["火花", "噴射火焰", "大字爆炎"]},
-    "化石翼龍": {"hp": 140, "atk": 140, "img": "https://img.pokemondb.net/artwork/large/aerodactyl.jpg", "skills": ["挖洞", "岩石封鎖", "勇鳥猛攻"]},
-    "怪力": {"hp": 140, "atk": 145, "img": "https://img.pokemondb.net/artwork/large/machamp.jpg", "skills": ["雙倍奉還", "岩石封鎖", "近身戰"]},
-    "暴鯉龍": {"hp": 150, "atk": 150, "img": "https://img.pokemondb.net/artwork/large/gyarados.jpg", "skills": ["水槍", "水流尾", "勇鳥猛攻"]},
-}
+    cost = 0; pool = []
+    if gacha_type == 'normal': pool = GACHA_NORMAL; cost = 1500
+    elif gacha_type == 'medium': pool = GACHA_MEDIUM; cost = 3000
+    elif gacha_type == 'high': pool = GACHA_HIGH; cost = 10000
+    elif gacha_type == 'candy': pool = GACHA_CANDY; cost = 12
+    elif gacha_type == 'golden': pool = GACHA_GOLDEN; cost = 3
+    elif gacha_type == 'legendary_candy': pool = GACHA_LEGENDARY_CANDY; cost = 5
+    elif gacha_type == 'legendary_gold': pool = GACHA_LEGENDARY_GOLD; cost = 400000
+    else: raise HTTPException(status_code=400, detail="未知類型")
+    
+    if gacha_type == 'candy':
+        if inventory.get("candy", 0) < cost: raise HTTPException(status_code=400, detail="糖果不足")
+        inventory["candy"] -= cost
+    elif gacha_type == 'golden':
+        if inventory.get("golden_candy", 0) < cost: raise HTTPException(status_code=400, detail="黃金糖果不足")
+        inventory["golden_candy"] -= cost
+    elif gacha_type == 'legendary_candy':
+        if inventory.get("legendary_candy", 0) < cost: raise HTTPException(status_code=400, detail="傳說糖果不足")
+        inventory["legendary_candy"] -= cost
+    else:
+        if current_user.money < cost: raise HTTPException(status_code=400, detail="金幣不足")
+        current_user.money -= cost
+        
+    prize_data = random.choices(pool, weights=[p['weight'] for p in pool], k=1)[0]
+    prize_name = prize_data['name']
+    
+    new_lv = random.randint(1, current_user.level)
+    min_iv = 0
+    if 'legendary' in gacha_type: min_iv = 60 
+    iv = random.randint(min_iv, 100)
+    
+    new_mon = { "uid": str(uuid.uuid4()), "name": prize_name, "iv": iv, "lv": new_lv, "exp": 0 }
+    box.append(new_mon)
+    
+    current_user.pokemon_storage = json.dumps(box)
+    current_user.inventory = json.dumps(inventory)
+    
+    unlocked = current_user.unlocked_monsters.split(',') if current_user.unlocked_monsters else []
+    if prize_name not in unlocked: unlocked.append(prize_name); current_user.unlocked_monsters = ",".join(unlocked)
+    
+    db.commit()
+    try:
+        if 'legendary' in gacha_type or gacha_type in ['golden', 'high'] or prize_name in ['快龍', '超夢', '夢幻', '拉普拉斯', '幸福蛋', '耿鬼', '鳳王', '洛奇亞']: 
+            await manager.broadcast(f"🎰 恭喜 [{current_user.username}] 獲得了稀有的 [{prize_name}] (Lv.{new_lv})！")
+    except: pass
+    
+    return {"message": f"獲得 {prize_name} (Lv.{new_lv}, IV: {iv})!", "prize": new_mon, "user": current_user}
 
-# =================================================================
-# 4. 可收集名單 (COLLECTION_MONS) - 僅 28 隻
-# =================================================================
-COLLECTION_MONS = [
-    "妙蛙種子", "小火龍", "傑尼龜", "妙蛙花", "噴火龍", "水箭龜",
-    "毛辮羊", "皮卡丘", "伊布", "六尾", "胖丁", "皮皮", "大蔥鴨", "呆呆獸", "可達鴨",
-    "耿鬼", "卡比獸", "吉利蛋", "幸福蛋", "拉普拉斯", "快龍",
-    "急凍鳥", "火焰鳥", "閃電鳥", "鳳王", "洛奇亞", "超夢", "夢幻"
-]
+@router.post("/box/swap/{pokemon_uid}")
+async def swap_active_pokemon(pokemon_uid: str, db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
+    try: box = json.loads(current_user.pokemon_storage)
+    except: box = []
+    target = next((p for p in box if p["uid"] == pokemon_uid), None)
+    if not target: raise HTTPException(status_code=404, detail="找不到")
+    
+    current_user.active_pokemon_uid = pokemon_uid
+    current_user.pokemon_name = target["name"]
+    current_user.pet_level = target["lv"]
+    current_user.pet_exp = target["exp"]
+    
+    base = POKEDEX_DATA.get(target["name"])
+    if base:
+        current_user.pokemon_image = base["img"]
+        current_user.max_hp = apply_iv_stats(base["hp"], target["iv"], target["lv"], is_hp=True, is_player=True)
+        current_user.attack = apply_iv_stats(base["atk"], target["iv"], target["lv"], is_hp=False, is_player=True)
+    else:
+        current_user.pokemon_image = "https://via.placeholder.com/150"
+        current_user.max_hp = 100
+        current_user.attack = 10
+        
+    current_user.hp = current_user.max_hp
+    db.commit()
+    await manager.broadcast(f"EVENT:PVP_SWAP|{current_user.id}")
+    return {"message": f"就決定是你了，{target['name']}！"}
 
-OBTAINABLE_MONS = COLLECTION_MONS
-LEGENDARY_MONS = ["急凍鳥", "火焰鳥", "閃電鳥", "鳳王", "洛奇亞", "超夢", "夢幻"]
+@router.post("/box/action/{action}/{pokemon_uid}")
+async def box_action(action: str, pokemon_uid: str, db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
+    box = json.loads(current_user.pokemon_storage); inv = json.loads(current_user.inventory)
+    target = next((p for p in box if p["uid"] == pokemon_uid), None)
+    if not target: raise HTTPException(status_code=404, detail="找不到")
+    
+    if action == "release":
+        if pokemon_uid == current_user.active_pokemon_uid: raise HTTPException(status_code=400, detail="無法放生出戰中寶可夢")
+        box = [p for p in box if p["uid"] != pokemon_uid]
+        if target["name"] in LEGENDARY_MONS:
+            inv["legendary_candy"] = inv.get("legendary_candy", 0) + 1; msg = "✨ 放生傳說寶可夢，獲得 🔮 傳說糖果 x1"
+        else: current_user.money += 100; msg = "放生成功，獲得 100 Gold"
+    elif action == "candy":
+        if target["lv"] >= current_user.level: raise HTTPException(status_code=400, detail="等級已達上限")
+        if inv.get("growth_candy", 0) < 1: raise HTTPException(status_code=400, detail="成長糖果不足")
+        inv["growth_candy"] -= 1
+        target["exp"] += 1500 
+        req = get_req_xp(target["lv"])
+        while target["exp"] >= req and target["lv"] < 100:
+            if target["lv"] >= current_user.level: break
+            target["lv"] += 1; target["exp"] -= req; req = get_req_xp(target["lv"])
+        if pokemon_uid == current_user.active_pokemon_uid:
+            base = POKEDEX_DATA.get(target["name"])
+            if base: current_user.pet_level = target["lv"]; current_user.pet_exp = target["exp"]; current_user.max_hp = apply_iv_stats(base["hp"], target["iv"], target["lv"], is_hp=True, is_player=True); current_user.attack = apply_iv_stats(base["atk"], target["iv"], target["lv"], is_hp=False, is_player=True)
+        msg = f"使用成長糖果，經驗+1500 (Lv.{target['lv']})"
+        
+    current_user.pokemon_storage = json.dumps(box); current_user.inventory = json.dumps(inv)
+    db.commit()
+    return {"message": msg, "user": current_user}
 
-WILD_UNLOCK_LEVELS = {
-    1: ["小拉達"], 6: ["波波"], 11: ["烈雀"], 16: ["阿柏蛇"], 21: ["瓦斯彈"],
-    26: ["海星星"], 31: ["角金魚"], 36: ["走路草"], 41: ["穿山鼠"], 46: ["蚊香蝌蚪"],
-    51: ["小磁怪"], 56: ["卡拉卡拉"], 61: ["喵喵"], 66: ["瑪瑙水母"], 71: ["海刺龍"],
-    76: ["電擊獸"], 81: ["鴨嘴火獸"], 86: ["化石翼龍"], 91: ["怪力"], 96: ["暴鯉龍"]
-}
+@router.post("/box/action/train")
+async def train_pokemon(pokemon_uid: str, mode: str = Query(...), db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
+    box = json.loads(current_user.pokemon_storage)
+    try: inv = json.loads(current_user.inventory)
+    except: inv = {}
+    target = next((p for p in box if p["uid"] == pokemon_uid), None)
+    if not target: raise HTTPException(status_code=404, detail="找不到該寶可夢")
+    is_legendary = target["name"] in LEGENDARY_MONS
+    cost_candy = 0; cost_gold_candy = 0; cost_leg_candy = 0; cost_money = 0
+    if mode == 'normal':
+        if is_legendary: cost_candy = 50; cost_leg_candy = 1; cost_money = 3000
+        else: cost_candy = 30; cost_gold_candy = 1; cost_money = 1000
+    elif mode == 'hyper':
+        if is_legendary: cost_candy = 250; cost_leg_candy = 5; cost_money = 15000
+        else: cost_candy = 150; cost_gold_candy = 5; cost_money = 5000
+    if current_user.money < cost_money: raise HTTPException(status_code=400, detail=f"金幣不足")
+    if inv.get("candy", 0) < cost_candy: raise HTTPException(status_code=400, detail=f"糖果不足")
+    current_user.money -= cost_money; inv["candy"] -= cost_candy
+    inv["golden_candy"] = inv.get("golden_candy", 0) - cost_gold_candy
+    inv["legendary_candy"] = inv.get("legendary_candy", 0) - cost_leg_candy
+    old_iv = target.get("iv", 0)
+    if mode == 'normal': new_iv = random.randint(0, 100); msg = f"特訓完成！IV {old_iv} -> {new_iv}"
+    else: 
+        if old_iv >= 100: raise HTTPException(status_code=400, detail="IV 已滿")
+        new_iv = random.randint(old_iv + 1, 100); msg = f"極限特訓成功！IV {old_iv} -> {new_iv}"
+    target["iv"] = new_iv
+    if pokemon_uid == current_user.active_pokemon_uid:
+        base = POKEDEX_DATA.get(target["name"])
+        if base: 
+            current_user.max_hp = apply_iv_stats(base["hp"], target["iv"], target["lv"], is_hp=True, is_player=True)
+            current_user.attack = apply_iv_stats(base["atk"], target["iv"], target["lv"], is_hp=False, is_player=True)
+            current_user.hp = current_user.max_hp
+    
+    current_user.pokemon_storage = json.dumps(box)
+    current_user.inventory = json.dumps(inv)
+    db.commit()
+    return {"message": msg, "iv": new_iv, "user": current_user}
 
-# (機率池保持不變)
-GACHA_NORMAL = [{"name": "妙蛙種子", "weight": 5}, {"name": "小火龍", "weight": 5}, {"name": "傑尼龜", "weight": 5}, {"name": "六尾", "weight": 5}, {"name": "毛辮羊", "weight": 5}, {"name": "伊布", "weight": 10}, {"name": "皮卡丘", "weight": 10}, {"name": "皮皮", "weight": 10}, {"name": "胖丁", "weight": 10}, {"name": "大蔥鴨", "weight": 10}, {"name": "呆呆獸", "weight": 12.5}, {"name": "可達鴨", "weight": 12.5}]
-GACHA_MEDIUM = [{"name": "妙蛙種子", "weight": 10}, {"name": "小火龍", "weight": 10}, {"name": "傑尼龜", "weight": 10}, {"name": "伊布", "weight": 10}, {"name": "皮卡丘", "weight": 10}, {"name": "呆呆獸", "weight": 10}, {"name": "可達鴨", "weight": 10}, {"name": "毛辮羊", "weight": 10}, {"name": "卡比獸", "weight": 5}, {"name": "吉利蛋", "weight": 3}, {"name": "拉普拉斯", "weight": 3}, {"name": "妙蛙花", "weight": 3}, {"name": "噴火龍", "weight": 3}, {"name": "水箭龜", "weight": 3}]
-GACHA_HIGH = [{"name": "卡比獸", "weight": 20}, {"name": "吉利蛋", "weight": 20}, {"name": "幸福蛋", "weight": 10}, {"name": "拉普拉斯", "weight": 10}, {"name": "妙蛙花", "weight": 10}, {"name": "噴火龍", "weight": 10}, {"name": "水箭龜", "weight": 10}, {"name": "快龍", "weight": 5}, {"name": "耿鬼", "weight": 5}]
-GACHA_CANDY = [{"name": "伊布", "weight": 20}, {"name": "皮卡丘", "weight": 20}, {"name": "妙蛙花", "weight": 10}, {"name": "噴火龍", "weight": 10}, {"name": "水箭龜", "weight": 10}, {"name": "卡比獸", "weight": 10}, {"name": "吉利蛋", "weight": 10}, {"name": "幸福蛋", "weight": 4}, {"name": "拉普拉斯", "weight": 3}, {"name": "快龍", "weight": 3}]
-GACHA_GOLDEN = [{"name": "卡比獸", "weight": 30}, {"name": "吉利蛋", "weight": 35}, {"name": "幸福蛋", "weight": 20}, {"name": "拉普拉斯", "weight": 5}, {"name": "快龍", "weight": 5}, {"name": "耿鬼", "weight": 5}]
-GACHA_LEGENDARY_CANDY = [{"name": "急凍鳥", "weight": 25}, {"name": "火焰鳥", "weight": 25}, {"name": "閃電鳥", "weight": 25}, {"name": "鳳王", "weight": 7.5}, {"name": "洛奇亞", "weight": 7.5}, {"name": "超夢", "weight": 5}, {"name": "夢幻", "weight": 5}]
-GACHA_LEGENDARY_GOLD = [{"name": "快龍", "weight": 30}, {"name": "耿鬼", "weight": 20}, {"name": "急凍鳥", "weight": 15}, {"name": "火焰鳥", "weight": 15}, {"name": "閃電鳥", "weight": 15}, {"name": "鳳王", "weight": 2}, {"name": "洛奇亞", "weight": 2}, {"name": "超夢", "weight": 0.5}, {"name": "夢幻", "weight": 0.5}]
-RAID_BOSS_POOL = [{"name": "❄️ 急凍鳥", "hp": 15000, "atk": 500, "weight": 25}, {"name": "🔥 火焰鳥", "hp": 15000, "atk": 500, "weight": 25}, {"name": "⚡ 閃電鳥", "hp": 15000, "atk": 500, "weight": 25}, {"name": "🌈 鳳王", "hp": 18000, "atk": 600, "weight": 7.5}, {"name": "🌪️ 洛奇亞", "hp": 18000, "atk": 600, "weight": 7.5}, {"name": "🔮 超夢", "hp": 20000, "atk": 800, "weight": 5}, {"name": "✨ 夢幻", "hp": 20000, "atk": 800, "weight": 5}]
+@router.get("/gym/list")
+def get_gym_list(db: Session = Depends(get_db)):
+    try:
+        gyms = db.query(Gym).all()
+        if not gyms: raise Exception("No gyms found")
+    except Exception as e:
+        print(f"⚠️ 偵測到道館資料異常，正在嘗試自我修復... {e}")
+        db.rollback()
+        init_gyms() 
+        return []
+
+    result = []
+    now = get_now_tw()
+    for g in gyms:
+        is_protected = False; remaining_protection = 0
+        if g.protection_until and g.protection_until > now:
+            is_protected = True; remaining_protection = int((g.protection_until - now).total_seconds())
+        income_acc = 0
+        if g.leader_id and g.occupied_at:
+            mins = (now - g.occupied_at).total_seconds() / 60
+            income_acc = int(mins * g.income_rate)
+        result.append({
+            "id": g.id, "name": g.name, "buff": g.buff_desc, "rate": g.income_rate,
+            "leader_name": g.leader_name if g.leader_id else "無人佔領",
+            "leader_img": g.leader_img if g.leader_id else "", "leader_id": g.leader_id,
+            "is_protected": is_protected, "protection_sec": remaining_protection, "income_acc": income_acc
+        })
+    return result
+
+@router.post("/gym/occupy/{gym_id}")
+async def occupy_gym(gym_id: int, pokemon_uid: str = Query(...), db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
+    gym = db.query(Gym).filter(Gym.id == gym_id).first()
+    if not gym: raise HTTPException(status_code=404, detail="道館不存在")
+    if gym.leader_id and gym.leader_id != current_user.id: raise HTTPException(status_code=400, detail="道館已被佔領，請先擊敗館主")
+    existing_gym = db.query(Gym).filter(Gym.leader_pokemon_uid == pokemon_uid).first()
+    if existing_gym and existing_gym.id != gym_id: raise HTTPException(status_code=400, detail=f"這隻寶可夢正在守衛 {existing_gym.name}")
+    try: box = json.loads(current_user.pokemon_storage)
+    except: box = []
+    target_mon = next((p for p in box if p["uid"] == pokemon_uid), None)
+    if not target_mon: raise HTTPException(status_code=404, detail="找不到該寶可夢")
+    base = POKEDEX_DATA.get(target_mon["name"])
+    if not base: raise HTTPException(status_code=400, detail="資料錯誤")
+    hp = apply_iv_stats(base["hp"], target_mon["iv"], target_mon["lv"], is_hp=True, is_player=True)
+    atk = apply_iv_stats(base["atk"], target_mon["iv"], target_mon["lv"], is_hp=False, is_player=True)
+    gym.leader_id = current_user.id; gym.leader_name = current_user.username; gym.leader_pokemon = target_mon["name"]; gym.leader_pokemon_uid = pokemon_uid; gym.leader_hp = hp; gym.leader_max_hp = hp; gym.leader_atk = atk; gym.leader_img = base["img"]; gym.occupied_at = get_now_tw(); gym.protection_until = get_now_tw() + timedelta(minutes=5)
+    db.commit()
+    return {"message": f"成功派遣 {target_mon['name']} 佔領 {gym.name}！"}
+
+@router.post("/gym/battle/start/{gym_id}")
+def start_gym_battle(gym_id: int, current_user: User = Depends(get_current_user), db: Session = Depends(get_db)):
+    gym = db.query(Gym).filter(Gym.id == gym_id).first()
+    if not gym: raise HTTPException(status_code=404, detail="道館不存在")
+    if not gym.leader_id: return {"result": "EMPTY", "message": "這是一個空道館，請選擇寶可夢佔領！"}
+    if gym.leader_id == current_user.id:
+        now = get_now_tw(); mins = (now - gym.occupied_at).total_seconds() / 60; income = int(mins * gym.income_rate)
+        if income < 1: return {"result": "WAIT", "message": "目前收益太少，晚點再來收吧"}
+        current_user.money += income; gym.occupied_at = now; db.commit()
+        return {"result": "COLLECTED", "message": f"收取了 {income} Gold！"}
+    now = get_now_tw()
+    if gym.protection_until and gym.protection_until > now:
+        left = int((gym.protection_until - now).total_seconds())
+        raise HTTPException(status_code=400, detail=f"道館保護中，剩餘 {left} 秒")
+    battle_id = str(uuid.uuid4())
+    boss_hp = int(gym.leader_max_hp * 1.1); boss_atk = int(gym.leader_atk * 1.1)
+    GYM_BATTLES[battle_id] = { "gym_id": gym_id, "challenger_id": current_user.id, "boss_data": { "name": gym.leader_name, "pname": gym.leader_pokemon, "hp": boss_hp, "max_hp": boss_hp, "atk": boss_atk, "img": gym.leader_img } }
+    return {"result": "BATTLE_START", "battle_id": battle_id, "opponent": GYM_BATTLES[battle_id]["boss_data"]}
+
+@router.post("/gym/battle/attack/{battle_id}")
+def gym_battle_attack(battle_id: str, damage: int = Query(0), heal: int = Query(0), current_user: User = Depends(get_current_user), db: Session = Depends(get_db)):
+    if battle_id not in GYM_BATTLES: raise HTTPException(status_code=404, detail="戰鬥已過期")
+    room = GYM_BATTLES[battle_id]
+    try: damage = int(damage)
+    except: damage = 0
+    if damage < 0: damage = 0
+    room["boss_data"]["hp"] = max(0, room["boss_data"]["hp"] - damage)
+    if heal > 0: current_user.hp = min(current_user.max_hp, current_user.hp + heal)
+    boss_dmg = 0
+    if room["boss_data"]["hp"] > 0: boss_dmg = int(room["boss_data"]["atk"] * random.uniform(0.9, 1.1)); current_user.hp = max(0, current_user.hp - boss_dmg)
+    db.commit()
+    if room["boss_data"]["hp"] <= 0:
+        gym = db.query(Gym).filter(Gym.id == room["gym_id"]).first()
+        old_leader = db.query(User).filter(User.id == gym.leader_id).first()
+        if old_leader:
+            mins = (get_now_tw() - gym.occupied_at).total_seconds() / 60; income = int(mins * gym.income_rate); 
+            if income > 0: old_leader.money += income
+        gym.leader_id = None; gym.leader_name = ""; gym.leader_pokemon = ""; gym.leader_pokemon_uid = ""; gym.occupied_at = None; gym.protection_until = None
+        current_user.hp = current_user.max_hp; current_user.money += 500; db.commit(); del GYM_BATTLES[battle_id]
+        return {"result": "WIN_SELECT", "reward": "踢館成功！請選擇寶可夢佔領！", "user_hp": current_user.hp, "gym_id": gym.id}
+    if current_user.hp <= 0: del GYM_BATTLES[battle_id]; return {"result": "LOSE", "reward": "挑戰失敗...", "user_hp": 0, "boss_dmg": boss_dmg}
+    return {"result": "NEXT", "boss_hp": room["boss_data"]["hp"], "user_hp": current_user.hp, "boss_dmg": boss_dmg}
+
+@router.get("/pokedex/all")
+def get_all_pokedex():
+    result = []
+    for name, data in POKEDEX_DATA.items():
+        is_obtainable = name in OBTAINABLE_MONS
+        result.append({ "name": name, "img": data["img"], "hp": data["hp"], "atk": data["atk"], "is_obtainable": is_obtainable })
+    return result
+
+@router.get("/pokedex/collection")
+def get_pokedex_collection(current_user: User = Depends(get_current_user), db: Session = Depends(get_db)):
+    unlocked = current_user.unlocked_monsters.split(',') if current_user.unlocked_monsters else []
+    try:
+        box = json.loads(current_user.pokemon_storage) if current_user.pokemon_storage else []
+        is_updated = False
+        for p in box:
+            if p['name'] not in unlocked: unlocked.append(p['name']); is_updated = True
+        if is_updated: current_user.unlocked_monsters = ",".join(unlocked); db.commit()
+    except: pass 
+    result = []
+    for name in COLLECTION_MONS:
+        if name in POKEDEX_DATA:
+            data = POKEDEX_DATA[name]
+            result.append({ "name": name, "img": data["img"], "is_owned": name in unlocked })
+    return result
+
+def update_raid_logic(db: Session = None):
+    now = get_now_tw(); curr_total_mins = now.hour * 60 + now.minute
+    for (h, m) in RAID_SCHEDULE:
+        start_total_mins = h * 60 + m; start_lobby_mins = start_total_mins - 3 
+        if start_lobby_mins < 0: start_lobby_mins += 1440
+        if start_lobby_mins <= curr_total_mins < start_total_mins:
+            if RAID_STATE["status"] != "LOBBY":
+                boss_data = random.choices(RAID_BOSS_POOL, weights=[b['weight'] for b in RAID_BOSS_POOL], k=1)[0]
+                RAID_STATE["active"] = True; RAID_STATE["status"] = "LOBBY"; RAID_STATE["boss"] = boss_data; RAID_STATE["max_hp"] = boss_data["hp"]; RAID_STATE["current_hp"] = boss_data["hp"]; RAID_STATE["players"] = {}; RAID_STATE["last_attack_time"] = get_now_tw()
+            return
+    for (h, m) in RAID_SCHEDULE:
+        start_total_mins = h * 60 + m
+        if 0 <= (curr_total_mins - start_total_mins) < 15:
+            if RAID_STATE["status"] == "LOBBY": RAID_STATE["status"] = "FIGHTING"; RAID_STATE["last_attack_time"] = get_now_tw()
+            elif RAID_STATE["status"] == "IDLE": 
+                boss_data = random.choices(RAID_BOSS_POOL, weights=[b['weight'] for b in RAID_BOSS_POOL], k=1)[0]
+                RAID_STATE["active"] = True; RAID_STATE["status"] = "FIGHTING"; RAID_STATE["boss"] = boss_data; RAID_STATE["max_hp"] = boss_data["hp"]; RAID_STATE["current_hp"] = boss_data["hp"]; RAID_STATE["players"] = {}; RAID_STATE["last_attack_time"] = get_now_tw()
+            if RAID_STATE["status"] == "FIGHTING":
+                last_time = RAID_STATE.get("last_attack_time")
+                if last_time and (get_now_tw() - last_time).total_seconds() >= 7:
+                    if db:
+                        RAID_STATE["last_attack_time"] = get_now_tw(); base_dmg = int(RAID_STATE["boss"]["atk"] * 0.2); boss_dmg = int(base_dmg * random.uniform(0.95, 1.05))
+                        active_uids = [uid for uid, p in RAID_STATE["players"].items() if not p.get("dead_at")]
+                        if active_uids:
+                            users_to_hit = db.query(User).filter(User.id.in_(active_uids)).all()
+                            for u in users_to_hit: u.hp = max(0, u.hp - boss_dmg); 
+                            db.commit()
+            if RAID_STATE["current_hp"] <= 0: RAID_STATE["status"] = "ENDED"
+            return
+    if RAID_STATE["status"] != "IDLE": RAID_STATE["active"] = False; RAID_STATE["status"] = "IDLE"; RAID_STATE["boss"] = None
+
+@router.get("/raid/status")
+def get_raid_status(current_user: User = Depends(get_current_user), db: Session = Depends(get_db)):
+    update_raid_logic(db); my_status = {}; is_participant = False
+    if current_user.id in RAID_STATE["players"]: my_status = RAID_STATE["players"][current_user.id]; is_participant = True
+    
+    # 🔥 核心修正：加入 .get("img", "") 防呆，避免 KeyError
+    boss_img = ""
+    if RAID_STATE["boss"]:
+        boss_img = RAID_STATE["boss"].get("img", "")
+        
+    return { 
+        "active": RAID_STATE["active"], 
+        "status": RAID_STATE["status"], 
+        "boss_name": RAID_STATE["boss"]["name"] if RAID_STATE["boss"] else "", 
+        "hp": RAID_STATE["current_hp"], 
+        "max_hp": RAID_STATE["max_hp"], 
+        "image": boss_img, 
+        "my_status": my_status, 
+        "user_hp": current_user.hp, 
+        "is_participant": is_participant 
+    }
+
+@router.post("/raid/join")
+def join_raid(current_user: User = Depends(get_current_user), db: Session = Depends(get_db)):
+    update_raid_logic(db)
+    if RAID_STATE["status"] == "LOBBY": return {"message": "戰鬥尚未開始，請稍候..."}
+    if RAID_STATE["status"] != "FIGHTING": raise HTTPException(status_code=400, detail="目前戰鬥尚未開始")
+    if current_user.id in RAID_STATE["players"]: return {"message": "已經加入過了"}
+    if current_user.money < 1000: raise HTTPException(status_code=400, detail="金幣不足 (需 1000 G)")
+    current_user.money -= 1000
+    RAID_STATE["players"][current_user.id] = { "name": current_user.username, "dmg": 0, "dead_at": None, "claimed": False }
+    db.commit()
+    return {"message": "成功加入團體戰！"}
+
+@router.post("/raid/attack")
+def attack_raid_boss(damage: int = Query(0), current_user: User = Depends(get_current_user), db: Session = Depends(get_db)):
+    update_raid_logic(db)
+    if current_user.id not in RAID_STATE["players"]: raise HTTPException(status_code=400, detail="你不在大廳中")
+    p_data = RAID_STATE["players"][current_user.id]
+    if p_data.get("dead_at"): raise HTTPException(status_code=400, detail="你已死亡，請盡快復活！")
+    if RAID_STATE["status"] != "FIGHTING": return {"message": "戰鬥尚未開始或已結束", "boss_hp": RAID_STATE["current_hp"]}
+    try: damage = int(damage)
+    except: damage = 0
+    if damage < 0: damage = 0
+    RAID_STATE["current_hp"] = max(0, RAID_STATE["current_hp"] - damage)
+    return {"message": f"造成 {damage} 點傷害", "boss_hp": RAID_STATE["current_hp"]}
+
+@router.post("/raid/recover")
+def raid_recover(current_user: User = Depends(get_current_user), db: Session = Depends(get_db)):
+    heal_amount = int(current_user.max_hp * 0.2); current_user.hp = min(current_user.max_hp, current_user.hp + heal_amount); db.commit()
+    return {"message": f"回復了 {heal_amount} HP", "hp": current_user.hp}
+
+@router.post("/raid/revive")
+def revive_raid(current_user: User = Depends(get_current_user), db: Session = Depends(get_db)):
+    if current_user.id not in RAID_STATE["players"]: raise HTTPException(status_code=400, detail="你不在大廳中")
+    if current_user.money < 500: raise HTTPException(status_code=400, detail="金幣不足 500G")
+    current_user.money -= 500; RAID_STATE["players"][current_user.id]["dead_at"] = None; current_user.hp = current_user.max_hp; db.commit()
+    return {"message": "復活成功！"}
+
+@router.post("/raid/claim")
+def claim_raid_reward(choice: int = Query(...), current_user: User = Depends(get_current_user), db: Session = Depends(get_db)):
+    if RAID_STATE["status"] != "ENDED": raise HTTPException(status_code=400, detail="戰鬥尚未結束")
+    if current_user.id not in RAID_STATE["players"]: raise HTTPException(status_code=400, detail="你沒有參與這場戰鬥")
+    p_data = RAID_STATE["players"][current_user.id]
+    if p_data.get("claimed"): return {"message": "已經領過獎勵了"}
+    weights = [20, 40, 40]; options = ["pet", "candy", "money"]; prize = random.choices(options, weights=weights, k=1)[0]; msg = ""
+    try: inv = json.loads(current_user.inventory)
+    except: inv = {}
+    if prize == "candy": inv["legendary_candy"] = inv.get("legendary_candy", 0) + 1; msg = "獲得 🔮 傳說糖果 x1"
+    elif prize == "money": current_user.money += 6000; msg = "獲得 💰 6000 Gold"
+    elif prize == "pet":
+        boss_name = RAID_STATE["boss"]["name"].split(" ")[1]; new_lv = random.randint(1, current_user.level)
+        new_mon = { "uid": str(uuid.uuid4()), "name": boss_name, "iv": int(random.randint(60, 100)), "lv": new_lv, "exp": 0 }
+        try: box = json.loads(current_user.pokemon_storage); box.append(new_mon); current_user.pokemon_storage = json.dumps(box); msg = f"獲得 Boss 寶可夢：{boss_name} (Lv.{new_lv})！"
+        except: msg = "背包滿了，獲得 6000G 代替"; current_user.money += 6000
+    RAID_STATE["players"][current_user.id]["claimed"] = True; current_user.inventory = json.dumps(inv)
+    current_user.exp += 3000; current_user.pet_exp += 3000; current_user.hp = current_user.max_hp; db.commit()
+    return {"message": msg, "prize": prize}
+
+@router.get("/wild/list")
+def get_wild_list(level: int, current_user: User = Depends(get_current_user)):
+    update_user_activity(current_user.id); 
+    if level > current_user.level: level = current_user.level
+    target_level = level
+    available_mons = []
+    for unlock_lv, mons in WILD_UNLOCK_LEVELS.items():
+        if unlock_lv <= target_level:
+            available_mons.extend(mons)
+    if not available_mons: available_mons = ["小拉達"]
+    display_mons = available_mons 
+    wild_list = []
+    for name in display_mons:
+        if name not in POKEDEX_DATA: continue
+        base = POKEDEX_DATA[name]
+        wild_hp = apply_iv_stats(base["hp"], 50, target_level, is_hp=True, is_player=False)
+        wild_atk = apply_iv_stats(base["atk"], 50, target_level, is_hp=False, is_player=False)
+        wild_skills = base.get("skills", ["撞擊", "撞擊", "撞擊"])
+        wild_list.append({ "name": name, "raw_name": name, "is_powerful": False, "level": target_level, "hp": wild_hp, "max_hp": wild_hp, "attack": wild_atk, "image_url": base["img"], "skills": wild_skills })
+    return wild_list
+
+@router.post("/wild/attack")
+async def wild_attack_api(is_win: bool = Query(...), is_powerful: bool = Query(False), target_name: str = Query("野怪"), target_level: int = Query(1), db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
+    update_user_activity(current_user.id); current_user.hp = current_user.max_hp
+    if is_win:
+        real_name = target_name.replace("🔥 ", "").replace("強大的 ", "").replace("✨ ", "").strip()
+        target_data = POKEDEX_DATA.get(real_name, POKEDEX_DATA.get("小拉達"))
+        base_sum = target_data["hp"] + target_data["atk"]; xp = int((base_sum / 20) * target_level + 30); money = int(xp * 0.5) 
+        current_user.exp += xp; current_user.pet_exp += xp; current_user.money += money; msg = f"獲得 {xp} XP, {money} G"
+        inv = json.loads(current_user.inventory)
+        if random.random() < 0.4: inv["candy"] = inv.get("candy", 0) + 1; msg += " & 🍬 獲得神奇糖果!"
+        if is_powerful: inv["growth_candy"] = inv.get("growth_candy", 0) + 1; msg += " & 🍬 成長糖果 x1"
+        current_user.inventory = json.dumps(inv)
+        quests = json.loads(current_user.quests) if current_user.quests else []
+        quest_updated = False
+        for q in quests:
+            if q["type"] in ["BATTLE_WILD", "GOLDEN"] and q["status"] != "COMPLETED":
+                if q.get("target") in real_name: q["now"] += 1; quest_updated = True
+        if quest_updated: current_user.quests = json.dumps(quests)
+        req_xp_p = get_req_xp(current_user.level)
+        while current_user.exp >= req_xp_p and current_user.level < 100: current_user.exp -= req_xp_p; current_user.level += 1; req_xp_p = get_req_xp(current_user.level); msg += f" | 訓練師升級 Lv.{current_user.level}!"
+        req_xp_pet = get_req_xp(current_user.pet_level)
+        pet_leveled_up = False
+        while current_user.pet_exp >= req_xp_pet and current_user.pet_level < 100: current_user.pet_exp -= req_xp_pet; current_user.pet_level += 1; req_xp_pet = get_req_xp(current_user.pet_level); pet_leveled_up = True; msg += f" | 寶可夢升級 Lv.{current_user.pet_level}!"
+        try:
+            box = json.loads(current_user.pokemon_storage); active_pet = next((p for p in box if p['uid'] == current_user.active_pokemon_uid), None)
+            if active_pet:
+                active_pet["exp"] = current_user.pet_exp; active_pet["lv"] = current_user.pet_level
+                if pet_leveled_up:
+                    base = POKEDEX_DATA.get(active_pet["name"])
+                    if base: current_user.max_hp = apply_iv_stats(base["hp"], active_pet["iv"], current_user.pet_level, is_hp=True, is_player=True); current_user.attack = apply_iv_stats(base["atk"], active_pet["iv"], current_user.pet_level, is_hp=False, is_player=True); current_user.hp = current_user.max_hp
+            current_user.pokemon_storage = json.dumps(box)
+        except: pass
+        db.commit()
+        return {"message": f"勝利！HP已回復。{msg}"}
+    db.commit()
+    return {"message": "戰鬥結束，HP已回復。"}

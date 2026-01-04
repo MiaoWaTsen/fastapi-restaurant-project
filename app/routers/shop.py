@@ -14,6 +14,7 @@ from app.common.deps import get_current_user
 from app.models.user import User, Gym
 from app.common.websocket import manager 
 
+# 引入完整的遊戲資料
 from app.common.game_data import (
     SKILL_DB, POKEDEX_DATA, COLLECTION_MONS, OBTAINABLE_MONS, LEGENDARY_MONS,
     WILD_UNLOCK_LEVELS, GACHA_NORMAL, GACHA_MEDIUM, GACHA_HIGH, 
@@ -29,7 +30,7 @@ router = APIRouter()
 def init_gyms():
     try:
         with Session(engine) as session:
-            # 1. 強制刪除舊的 gyms 表格
+            # 1. 強制刪除舊的 gyms 表格 (解決欄位缺失問題)
             session.execute(text("DROP TABLE IF EXISTS gyms CASCADE"))
             session.commit()
             
@@ -57,6 +58,7 @@ INVITES = {}
 DUEL_ROOMS = {}
 GYM_BATTLES = {} 
 
+# 每日團體戰時間表 (時, 分)
 RAID_SCHEDULE = [(8, 0), (14, 0), (18, 0), (21, 0), (22, 0), (23, 0)] 
 RAID_STATE = {"active": False, "status": "IDLE", "boss": None, "current_hp": 0, "max_hp": 0, "players": {}, "last_attack_time": None}
 
@@ -116,6 +118,7 @@ async def play_gacha(gacha_type: str, db: Session = Depends(get_db), current_use
     elif gacha_type == 'legendary_gold': pool = GACHA_LEGENDARY_GOLD; cost = 400000
     else: raise HTTPException(status_code=400, detail="未知類型")
     
+    # 扣除資源
     if gacha_type == 'candy':
         if inventory.get("candy", 0) < cost: raise HTTPException(status_code=400, detail="糖果不足")
         inventory["candy"] -= cost
@@ -129,9 +132,11 @@ async def play_gacha(gacha_type: str, db: Session = Depends(get_db), current_use
         if current_user.money < cost: raise HTTPException(status_code=400, detail="金幣不足")
         current_user.money -= cost
         
+    # 權重抽取
     prize_data = random.choices(pool, weights=[p['weight'] for p in pool], k=1)[0]
     prize_name = prize_data['name']
     
+    # 保底機制
     new_lv = random.randint(1, current_user.level)
     min_iv = 0
     if 'legendary' in gacha_type: min_iv = 60 
@@ -143,6 +148,7 @@ async def play_gacha(gacha_type: str, db: Session = Depends(get_db), current_use
     current_user.pokemon_storage = json.dumps(box)
     current_user.inventory = json.dumps(inventory)
     
+    # 更新解鎖圖鑑 (後端紀錄用)
     unlocked = current_user.unlocked_monsters.split(',') if current_user.unlocked_monsters else []
     if prize_name not in unlocked: unlocked.append(prize_name); current_user.unlocked_monsters = ",".join(unlocked)
     
@@ -155,7 +161,7 @@ async def play_gacha(gacha_type: str, db: Session = Depends(get_db), current_use
     return {"message": f"獲得 {prize_name} (Lv.{new_lv}, IV: {iv})!", "prize": new_mon, "user": current_user}
 
 # =================================================================
-# 2. 核心功能 API
+# 2. 核心功能 API (盒子操作、特訓)
 # =================================================================
 
 @router.post("/box/swap/{pokemon_uid}")
@@ -261,14 +267,13 @@ async def train_pokemon(pokemon_uid: str, mode: str = Query(...), db: Session = 
 def get_gym_list(db: Session = Depends(get_db)):
     try:
         gyms = db.query(Gym).all()
-        # 🔥 如果資料庫是空的或者發生錯誤，觸發重置
         if not gyms:
             raise Exception("No gyms found")
     except Exception as e:
         print(f"⚠️ 偵測到道館資料異常，正在嘗試自我修復... {e}")
         db.rollback()
         init_gyms() # 自動執行初始化
-        return [] # 請前端重新整理
+        return []
 
     result = []
     now = get_now_tw()
@@ -373,6 +378,7 @@ def gym_battle_attack(battle_id: str, damage: int = Query(0), heal: int = Query(
         current_user.hp = max(0, current_user.hp - boss_dmg)
     db.commit()
     
+    # 勝利
     if room["boss_data"]["hp"] <= 0:
         gym = db.query(Gym).filter(Gym.id == room["gym_id"]).first()
         old_leader = db.query(User).filter(User.id == gym.leader_id).first()
@@ -381,6 +387,7 @@ def gym_battle_attack(battle_id: str, damage: int = Query(0), heal: int = Query(
             income = int(mins * gym.income_rate); 
             if income > 0: old_leader.money += income
         
+        # 清空道館
         gym.leader_id = None
         gym.leader_name = ""
         gym.leader_pokemon = ""
@@ -401,6 +408,9 @@ def gym_battle_attack(battle_id: str, damage: int = Query(0), heal: int = Query(
         
     return {"result": "NEXT", "boss_hp": room["boss_data"]["hp"], "user_hp": current_user.hp, "boss_dmg": boss_dmg}
 
+# =================================================================
+# 4. 🔥 補回圖鑑接口 (POKEDEX COLLECTION)
+# =================================================================
 @router.get("/pokedex/all")
 def get_all_pokedex():
     result = []
@@ -408,6 +418,218 @@ def get_all_pokedex():
         is_obtainable = name in OBTAINABLE_MONS
         result.append({ "name": name, "img": data["img"], "hp": data["hp"], "atk": data["atk"], "is_obtainable": is_obtainable })
     return result
+
+@router.get("/pokedex/collection")
+def get_pokedex_collection(current_user: User = Depends(get_current_user), db: Session = Depends(get_db)):
+    # 1. 確保已解鎖名單與盒子同步 (自動修正)
+    unlocked = current_user.unlocked_monsters.split(',') if current_user.unlocked_monsters else []
+    try:
+        box = json.loads(current_user.pokemon_storage) if current_user.pokemon_storage else []
+        is_updated = False
+        for p in box:
+            if p['name'] not in unlocked:
+                unlocked.append(p['name'])
+                is_updated = True
+        if is_updated:
+            current_user.unlocked_monsters = ",".join(unlocked)
+            db.commit()
+    except:
+        pass
+
+    # 2. 僅回傳 COLLECTION_MONS 裡的 28 隻 (避免顯示小拉達等野怪)
+    result = []
+    for name in COLLECTION_MONS:
+        if name in POKEDEX_DATA:
+            data = POKEDEX_DATA[name]
+            result.append({
+                "name": name,
+                "img": data["img"],
+                "is_owned": name in unlocked
+            })
+    return result
+
+# =================================================================
+# 5. 團體戰與野外 API (修復後)
+# =================================================================
+
+def update_raid_logic(db: Session = None):
+    now = get_now_tw(); curr_total_mins = now.hour * 60 + now.minute
+    for (h, m) in RAID_SCHEDULE:
+        start_total_mins = h * 60 + m; start_lobby_mins = start_total_mins - 3 
+        if start_lobby_mins < 0: start_lobby_mins += 1440
+        if start_lobby_mins <= curr_total_mins < start_total_mins:
+            if RAID_STATE["status"] != "LOBBY":
+                boss_data = random.choices(RAID_BOSS_POOL, weights=[b['weight'] for b in RAID_BOSS_POOL], k=1)[0]
+                RAID_STATE["active"] = True; RAID_STATE["status"] = "LOBBY"; RAID_STATE["boss"] = boss_data; RAID_STATE["max_hp"] = boss_data["hp"]; RAID_STATE["current_hp"] = boss_data["hp"]; RAID_STATE["players"] = {}; RAID_STATE["last_attack_time"] = get_now_tw()
+            return
+    for (h, m) in RAID_SCHEDULE:
+        start_total_mins = h * 60 + m
+        if 0 <= (curr_total_mins - start_total_mins) < 15:
+            if RAID_STATE["status"] == "LOBBY": RAID_STATE["status"] = "FIGHTING"; RAID_STATE["last_attack_time"] = get_now_tw()
+            elif RAID_STATE["status"] == "IDLE": 
+                boss_data = random.choices(RAID_BOSS_POOL, weights=[b['weight'] for b in RAID_BOSS_POOL], k=1)[0]
+                RAID_STATE["active"] = True; RAID_STATE["status"] = "FIGHTING"; RAID_STATE["boss"] = boss_data; RAID_STATE["max_hp"] = boss_data["hp"]; RAID_STATE["current_hp"] = boss_data["hp"]; RAID_STATE["players"] = {}; RAID_STATE["last_attack_time"] = get_now_tw()
+            if RAID_STATE["status"] == "FIGHTING":
+                last_time = RAID_STATE.get("last_attack_time")
+                if last_time and (get_now_tw() - last_time).total_seconds() >= 7:
+                    if db:
+                        RAID_STATE["last_attack_time"] = get_now_tw(); base_dmg = int(RAID_STATE["boss"]["atk"] * 0.2); boss_dmg = int(base_dmg * random.uniform(0.95, 1.05))
+                        active_uids = [uid for uid, p in RAID_STATE["players"].items() if not p.get("dead_at")]
+                        if active_uids:
+                            users_to_hit = db.query(User).filter(User.id.in_(active_uids)).all()
+                            for u in users_to_hit: u.hp = max(0, u.hp - boss_dmg); 
+                            db.commit()
+            if RAID_STATE["current_hp"] <= 0: RAID_STATE["status"] = "ENDED"
+            return
+    if RAID_STATE["status"] != "IDLE": RAID_STATE["active"] = False; RAID_STATE["status"] = "IDLE"; RAID_STATE["boss"] = None
+
+@router.get("/raid/status")
+def get_raid_status(current_user: User = Depends(get_current_user), db: Session = Depends(get_db)):
+    update_raid_logic(db); my_status = {}; is_participant = False
+    if current_user.id in RAID_STATE["players"]: my_status = RAID_STATE["players"][current_user.id]; is_participant = True
+    
+    # 🔥 核心修正：加入 .get("img", "") 防呆，避免 KeyError
+    boss_img = ""
+    if RAID_STATE["boss"]:
+        boss_img = RAID_STATE["boss"].get("img", "")
+        
+    return { 
+        "active": RAID_STATE["active"], 
+        "status": RAID_STATE["status"], 
+        "boss_name": RAID_STATE["boss"]["name"] if RAID_STATE["boss"] else "", 
+        "hp": RAID_STATE["current_hp"], 
+        "max_hp": RAID_STATE["max_hp"], 
+        "image": boss_img, 
+        "my_status": my_status, 
+        "user_hp": current_user.hp, 
+        "is_participant": is_participant 
+    }
+
+@router.post("/raid/join")
+def join_raid(current_user: User = Depends(get_current_user), db: Session = Depends(get_db)):
+    update_raid_logic(db)
+    if RAID_STATE["status"] == "LOBBY": return {"message": "戰鬥尚未開始，請稍候..."}
+    if RAID_STATE["status"] != "FIGHTING": raise HTTPException(status_code=400, detail="目前戰鬥尚未開始")
+    if current_user.id in RAID_STATE["players"]: return {"message": "已經加入過了"}
+    if current_user.money < 1000: raise HTTPException(status_code=400, detail="金幣不足 (需 1000 G)")
+    current_user.money -= 1000
+    RAID_STATE["players"][current_user.id] = { "name": current_user.username, "dmg": 0, "dead_at": None, "claimed": False }
+    db.commit()
+    return {"message": "成功加入團體戰！"}
+
+@router.post("/raid/attack")
+def attack_raid_boss(damage: int = Query(0), current_user: User = Depends(get_current_user), db: Session = Depends(get_db)):
+    update_raid_logic(db)
+    if current_user.id not in RAID_STATE["players"]: raise HTTPException(status_code=400, detail="你不在大廳中")
+    p_data = RAID_STATE["players"][current_user.id]
+    if p_data.get("dead_at"): raise HTTPException(status_code=400, detail="你已死亡，請盡快復活！")
+    if RAID_STATE["status"] != "FIGHTING": return {"message": "戰鬥尚未開始或已結束", "boss_hp": RAID_STATE["current_hp"]}
+    try: damage = int(damage)
+    except: damage = 0
+    if damage < 0: damage = 0
+    RAID_STATE["current_hp"] = max(0, RAID_STATE["current_hp"] - damage)
+    return {"message": f"造成 {damage} 點傷害", "boss_hp": RAID_STATE["current_hp"]}
+
+@router.post("/raid/recover")
+def raid_recover(current_user: User = Depends(get_current_user), db: Session = Depends(get_db)):
+    heal_amount = int(current_user.max_hp * 0.2); current_user.hp = min(current_user.max_hp, current_user.hp + heal_amount); db.commit()
+    return {"message": f"回復了 {heal_amount} HP", "hp": current_user.hp}
+
+@router.post("/raid/revive")
+def revive_raid(current_user: User = Depends(get_current_user), db: Session = Depends(get_db)):
+    if current_user.id not in RAID_STATE["players"]: raise HTTPException(status_code=400, detail="你不在大廳中")
+    if current_user.money < 500: raise HTTPException(status_code=400, detail="金幣不足 500G")
+    current_user.money -= 500; RAID_STATE["players"][current_user.id]["dead_at"] = None; current_user.hp = current_user.max_hp; db.commit()
+    return {"message": "復活成功！"}
+
+@router.post("/raid/claim")
+def claim_raid_reward(choice: int = Query(...), current_user: User = Depends(get_current_user), db: Session = Depends(get_db)):
+    if RAID_STATE["status"] != "ENDED": raise HTTPException(status_code=400, detail="戰鬥尚未結束")
+    if current_user.id not in RAID_STATE["players"]: raise HTTPException(status_code=400, detail="你沒有參與這場戰鬥")
+    p_data = RAID_STATE["players"][current_user.id]
+    if p_data.get("claimed"): return {"message": "已經領過獎勵了"}
+    weights = [20, 40, 40]; options = ["pet", "candy", "money"]; prize = random.choices(options, weights=weights, k=1)[0]; msg = ""
+    try: inv = json.loads(current_user.inventory)
+    except: inv = {}
+    if prize == "candy": inv["legendary_candy"] = inv.get("legendary_candy", 0) + 1; msg = "獲得 🔮 傳說糖果 x1"
+    elif prize == "money": current_user.money += 6000; msg = "獲得 💰 6000 Gold"
+    elif prize == "pet":
+        boss_name = RAID_STATE["boss"]["name"].split(" ")[1]; new_lv = random.randint(1, current_user.level)
+        new_mon = { "uid": str(uuid.uuid4()), "name": boss_name, "iv": int(random.randint(60, 100)), "lv": new_lv, "exp": 0 }
+        try: box = json.loads(current_user.pokemon_storage); box.append(new_mon); current_user.pokemon_storage = json.dumps(box); msg = f"獲得 Boss 寶可夢：{boss_name} (Lv.{new_lv})！"
+        except: msg = "背包滿了，獲得 6000G 代替"; current_user.money += 6000
+    RAID_STATE["players"][current_user.id]["claimed"] = True; current_user.inventory = json.dumps(inv)
+    current_user.exp += 3000; current_user.pet_exp += 3000; current_user.hp = current_user.max_hp; db.commit()
+    return {"message": msg, "prize": prize}
+
+@router.get("/wild/list")
+def get_wild_list(level: int, current_user: User = Depends(get_current_user)):
+    update_user_activity(current_user.id); 
+    if level > current_user.level: level = current_user.level
+    
+    # 🔥 核心修正：使用玩家傳入的 level (即選單選的等級)
+    target_level = level
+    
+    # 找出所有已解鎖的怪獸名稱 (unlock_lv <= target_level)
+    available_mons = []
+    for unlock_lv, mons in WILD_UNLOCK_LEVELS.items():
+        if unlock_lv <= target_level:
+            available_mons.extend(mons)
+            
+    if not available_mons: available_mons = ["小拉達"]
+    
+    # 🔥 核心修正：取消 random.sample，列出所有解鎖怪獸
+    display_mons = available_mons 
+    
+    wild_list = []
+    for name in display_mons:
+        if name not in POKEDEX_DATA: continue
+        base = POKEDEX_DATA[name]
+        
+        # 數值計算：使用 target_level
+        wild_hp = apply_iv_stats(base["hp"], 50, target_level, is_hp=True, is_player=False)
+        wild_atk = apply_iv_stats(base["atk"], 50, target_level, is_hp=False, is_player=False)
+        
+        wild_skills = base.get("skills", ["撞擊", "撞擊", "撞擊"])
+        wild_list.append({ "name": name, "raw_name": name, "is_powerful": False, "level": target_level, "hp": wild_hp, "max_hp": wild_hp, "attack": wild_atk, "image_url": base["img"], "skills": wild_skills })
+    return wild_list
+
+@router.post("/wild/attack")
+async def wild_attack_api(is_win: bool = Query(...), is_powerful: bool = Query(False), target_name: str = Query("野怪"), target_level: int = Query(1), db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
+    update_user_activity(current_user.id); current_user.hp = current_user.max_hp
+    if is_win:
+        real_name = target_name.replace("🔥 ", "").replace("強大的 ", "").replace("✨ ", "").strip()
+        target_data = POKEDEX_DATA.get(real_name, POKEDEX_DATA.get("小拉達"))
+        base_sum = target_data["hp"] + target_data["atk"]; xp = int((base_sum / 20) * target_level + 30); money = int(xp * 0.5) 
+        current_user.exp += xp; current_user.pet_exp += xp; current_user.money += money; msg = f"獲得 {xp} XP, {money} G"
+        inv = json.loads(current_user.inventory)
+        if random.random() < 0.4: inv["candy"] = inv.get("candy", 0) + 1; msg += " & 🍬 獲得神奇糖果!"
+        if is_powerful: inv["growth_candy"] = inv.get("growth_candy", 0) + 1; msg += " & 🍬 成長糖果 x1"
+        current_user.inventory = json.dumps(inv)
+        quests = json.loads(current_user.quests) if current_user.quests else []
+        quest_updated = False
+        for q in quests:
+            if q["type"] in ["BATTLE_WILD", "GOLDEN"] and q["status"] != "COMPLETED":
+                if q.get("target") in real_name: q["now"] += 1; quest_updated = True
+        if quest_updated: current_user.quests = json.dumps(quests)
+        req_xp_p = get_req_xp(current_user.level)
+        while current_user.exp >= req_xp_p and current_user.level < 100: current_user.exp -= req_xp_p; current_user.level += 1; req_xp_p = get_req_xp(current_user.level); msg += f" | 訓練師升級 Lv.{current_user.level}!"
+        req_xp_pet = get_req_xp(current_user.pet_level)
+        pet_leveled_up = False
+        while current_user.pet_exp >= req_xp_pet and current_user.pet_level < 100: current_user.pet_exp -= req_xp_pet; current_user.pet_level += 1; req_xp_pet = get_req_xp(current_user.pet_level); pet_leveled_up = True; msg += f" | 寶可夢升級 Lv.{current_user.pet_level}!"
+        try:
+            box = json.loads(current_user.pokemon_storage); active_pet = next((p for p in box if p['uid'] == current_user.active_pokemon_uid), None)
+            if active_pet:
+                active_pet["exp"] = current_user.pet_exp; active_pet["lv"] = current_user.pet_level
+                if pet_leveled_up:
+                    base = POKEDEX_DATA.get(active_pet["name"])
+                    if base: current_user.max_hp = apply_iv_stats(base["hp"], active_pet["iv"], current_user.pet_level, is_hp=True, is_player=True); current_user.attack = apply_iv_stats(base["atk"], active_pet["iv"], current_user.pet_level, is_hp=False, is_player=True); current_user.hp = current_user.max_hp
+            current_user.pokemon_storage = json.dumps(box)
+        except: pass
+        db.commit()
+        return {"message": f"勝利！HP已回復。{msg}"}
+    db.commit()
+    return {"message": "戰鬥結束，HP已回復。"}
 
 @router.post("/gamble")
 async def gamble(amount: int = Query(..., gt=0), db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
@@ -569,167 +791,3 @@ def delete_user_by_name(username: str, db: Session = Depends(get_db)):
     except Exception as e:
         db.rollback()
         return {"message": f"❌ 刪除失敗 (資料庫錯誤): {str(e)}"}
-
-# 團體戰與野外功能保持 V2.13.4 邏輯
-def update_raid_logic(db: Session = None):
-    now = get_now_tw(); curr_total_mins = now.hour * 60 + now.minute
-    for (h, m) in RAID_SCHEDULE:
-        start_total_mins = h * 60 + m; start_lobby_mins = start_total_mins - 3 
-        if start_lobby_mins < 0: start_lobby_mins += 1440
-        if start_lobby_mins <= curr_total_mins < start_total_mins:
-            if RAID_STATE["status"] != "LOBBY":
-                boss_data = random.choices(RAID_BOSS_POOL, weights=[b['weight'] for b in RAID_BOSS_POOL], k=1)[0]
-                RAID_STATE["active"] = True; RAID_STATE["status"] = "LOBBY"; RAID_STATE["boss"] = boss_data; RAID_STATE["max_hp"] = boss_data["hp"]; RAID_STATE["current_hp"] = boss_data["hp"]; RAID_STATE["players"] = {}; RAID_STATE["last_attack_time"] = get_now_tw()
-            return
-    for (h, m) in RAID_SCHEDULE:
-        start_total_mins = h * 60 + m
-        if 0 <= (curr_total_mins - start_total_mins) < 15:
-            if RAID_STATE["status"] == "LOBBY": RAID_STATE["status"] = "FIGHTING"; RAID_STATE["last_attack_time"] = get_now_tw()
-            elif RAID_STATE["status"] == "IDLE": 
-                boss_data = random.choices(RAID_BOSS_POOL, weights=[b['weight'] for b in RAID_BOSS_POOL], k=1)[0]
-                RAID_STATE["active"] = True; RAID_STATE["status"] = "FIGHTING"; RAID_STATE["boss"] = boss_data; RAID_STATE["max_hp"] = boss_data["hp"]; RAID_STATE["current_hp"] = boss_data["hp"]; RAID_STATE["players"] = {}; RAID_STATE["last_attack_time"] = get_now_tw()
-            if RAID_STATE["status"] == "FIGHTING":
-                last_time = RAID_STATE.get("last_attack_time")
-                if last_time and (get_now_tw() - last_time).total_seconds() >= 7:
-                    if db:
-                        RAID_STATE["last_attack_time"] = get_now_tw(); base_dmg = int(RAID_STATE["boss"]["atk"] * 0.2); boss_dmg = int(base_dmg * random.uniform(0.95, 1.05))
-                        active_uids = [uid for uid, p in RAID_STATE["players"].items() if not p.get("dead_at")]
-                        if active_uids:
-                            users_to_hit = db.query(User).filter(User.id.in_(active_uids)).all()
-                            for u in users_to_hit: u.hp = max(0, u.hp - boss_dmg); 
-                            db.commit()
-            if RAID_STATE["current_hp"] <= 0: RAID_STATE["status"] = "ENDED"
-            return
-    if RAID_STATE["status"] != "IDLE": RAID_STATE["active"] = False; RAID_STATE["status"] = "IDLE"; RAID_STATE["boss"] = None
-
-@router.get("/raid/status")
-def get_raid_status(current_user: User = Depends(get_current_user), db: Session = Depends(get_db)):
-    update_raid_logic(db); my_status = {}; is_participant = False
-    if current_user.id in RAID_STATE["players"]: my_status = RAID_STATE["players"][current_user.id]; is_participant = True
-    return { "active": RAID_STATE["active"], "status": RAID_STATE["status"], "boss_name": RAID_STATE["boss"]["name"] if RAID_STATE["boss"] else "", "hp": RAID_STATE["current_hp"], "max_hp": RAID_STATE["max_hp"], "image": RAID_STATE["boss"]["img"] if RAID_STATE["boss"] else "", "my_status": my_status, "user_hp": current_user.hp, "is_participant": is_participant }
-
-@router.post("/raid/join")
-def join_raid(current_user: User = Depends(get_current_user), db: Session = Depends(get_db)):
-    update_raid_logic(db)
-    if RAID_STATE["status"] == "LOBBY": return {"message": "戰鬥尚未開始，請稍候..."}
-    if RAID_STATE["status"] != "FIGHTING": raise HTTPException(status_code=400, detail="目前戰鬥尚未開始")
-    if current_user.id in RAID_STATE["players"]: return {"message": "已經加入過了"}
-    if current_user.money < 1000: raise HTTPException(status_code=400, detail="金幣不足 (需 1000 G)")
-    current_user.money -= 1000
-    RAID_STATE["players"][current_user.id] = { "name": current_user.username, "dmg": 0, "dead_at": None, "claimed": False }
-    db.commit()
-    return {"message": "成功加入團體戰！"}
-
-@router.post("/raid/attack")
-def attack_raid_boss(damage: int = Query(0), current_user: User = Depends(get_current_user), db: Session = Depends(get_db)):
-    update_raid_logic(db)
-    if current_user.id not in RAID_STATE["players"]: raise HTTPException(status_code=400, detail="你不在大廳中")
-    p_data = RAID_STATE["players"][current_user.id]
-    if p_data.get("dead_at"): raise HTTPException(status_code=400, detail="你已死亡，請盡快復活！")
-    if RAID_STATE["status"] != "FIGHTING": return {"message": "戰鬥尚未開始或已結束", "boss_hp": RAID_STATE["current_hp"]}
-    try: damage = int(damage)
-    except: damage = 0
-    if damage < 0: damage = 0
-    RAID_STATE["current_hp"] = max(0, RAID_STATE["current_hp"] - damage)
-    return {"message": f"造成 {damage} 點傷害", "boss_hp": RAID_STATE["current_hp"]}
-
-@router.post("/raid/recover")
-def raid_recover(current_user: User = Depends(get_current_user), db: Session = Depends(get_db)):
-    heal_amount = int(current_user.max_hp * 0.2); current_user.hp = min(current_user.max_hp, current_user.hp + heal_amount); db.commit()
-    return {"message": f"回復了 {heal_amount} HP", "hp": current_user.hp}
-
-@router.post("/raid/revive")
-def revive_raid(current_user: User = Depends(get_current_user), db: Session = Depends(get_db)):
-    if current_user.id not in RAID_STATE["players"]: raise HTTPException(status_code=400, detail="你不在大廳中")
-    if current_user.money < 500: raise HTTPException(status_code=400, detail="金幣不足 500G")
-    current_user.money -= 500; RAID_STATE["players"][current_user.id]["dead_at"] = None; current_user.hp = current_user.max_hp; db.commit()
-    return {"message": "復活成功！"}
-
-@router.post("/raid/claim")
-def claim_raid_reward(choice: int = Query(...), current_user: User = Depends(get_current_user), db: Session = Depends(get_db)):
-    if RAID_STATE["status"] != "ENDED": raise HTTPException(status_code=400, detail="戰鬥尚未結束")
-    if current_user.id not in RAID_STATE["players"]: raise HTTPException(status_code=400, detail="你沒有參與這場戰鬥")
-    p_data = RAID_STATE["players"][current_user.id]
-    if p_data.get("claimed"): return {"message": "已經領過獎勵了"}
-    weights = [20, 40, 40]; options = ["pet", "candy", "money"]; prize = random.choices(options, weights=weights, k=1)[0]; msg = ""
-    try: inv = json.loads(current_user.inventory)
-    except: inv = {}
-    if prize == "candy": inv["legendary_candy"] = inv.get("legendary_candy", 0) + 1; msg = "獲得 🔮 傳說糖果 x1"
-    elif prize == "money": current_user.money += 6000; msg = "獲得 💰 6000 Gold"
-    elif prize == "pet":
-        boss_name = RAID_STATE["boss"]["name"].split(" ")[1]; new_lv = random.randint(1, current_user.level)
-        new_mon = { "uid": str(uuid.uuid4()), "name": boss_name, "iv": int(random.randint(60, 100)), "lv": new_lv, "exp": 0 }
-        try: box = json.loads(current_user.pokemon_storage); box.append(new_mon); current_user.pokemon_storage = json.dumps(box); msg = f"獲得 Boss 寶可夢：{boss_name} (Lv.{new_lv})！"
-        except: msg = "背包滿了，獲得 6000G 代替"; current_user.money += 6000
-    RAID_STATE["players"][current_user.id]["claimed"] = True; current_user.inventory = json.dumps(inv)
-    current_user.exp += 3000; current_user.pet_exp += 3000; current_user.hp = current_user.max_hp; db.commit()
-    return {"message": msg, "prize": prize}
-
-@router.get("/wild/list")
-def get_wild_list(level: int, current_user: User = Depends(get_current_user)):
-    update_user_activity(current_user.id); 
-    if level > current_user.level: level = current_user.level
-    
-    # 強制將野怪等級設為玩家傳入的選擇等級
-    target_level = level
-    
-    # 找出所有已解鎖的怪獸名稱
-    available_mons = []
-    for unlock_lv, mons in WILD_UNLOCK_LEVELS.items():
-        if unlock_lv <= target_level:
-            available_mons.extend(mons)
-            
-    if not available_mons: available_mons = ["小拉達"]
-    
-    # 🔥 核心修正：取消 random.sample，列出所有解鎖怪獸
-    display_mons = available_mons 
-    
-    wild_list = []
-    for name in display_mons:
-        if name not in POKEDEX_DATA: continue
-        base = POKEDEX_DATA[name]
-        
-        # 根據玩家等級計算野怪數值 (IV 固定 50 作為標準)
-        wild_hp = apply_iv_stats(base["hp"], 50, target_level, is_hp=True, is_player=False)
-        wild_atk = apply_iv_stats(base["atk"], 50, target_level, is_hp=False, is_player=False)
-        
-        wild_skills = base.get("skills", ["撞擊", "撞擊", "撞擊"])
-        wild_list.append({ "name": name, "raw_name": name, "is_powerful": False, "level": target_level, "hp": wild_hp, "max_hp": wild_hp, "attack": wild_atk, "image_url": base["img"], "skills": wild_skills })
-    return wild_list
-
-@router.post("/wild/attack")
-async def wild_attack_api(is_win: bool = Query(...), is_powerful: bool = Query(False), target_name: str = Query("野怪"), target_level: int = Query(1), db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
-    update_user_activity(current_user.id); current_user.hp = current_user.max_hp
-    if is_win:
-        real_name = target_name.replace("🔥 ", "").replace("強大的 ", "").replace("✨ ", "").strip()
-        target_data = POKEDEX_DATA.get(real_name, POKEDEX_DATA.get("小拉達"))
-        base_sum = target_data["hp"] + target_data["atk"]; xp = int((base_sum / 20) * target_level + 30); money = int(xp * 0.5) 
-        current_user.exp += xp; current_user.pet_exp += xp; current_user.money += money; msg = f"獲得 {xp} XP, {money} G"
-        inv = json.loads(current_user.inventory)
-        if random.random() < 0.4: inv["candy"] = inv.get("candy", 0) + 1; msg += " & 🍬 獲得神奇糖果!"
-        if is_powerful: inv["growth_candy"] = inv.get("growth_candy", 0) + 1; msg += " & 🍬 成長糖果 x1"
-        current_user.inventory = json.dumps(inv)
-        quests = json.loads(current_user.quests) if current_user.quests else []
-        quest_updated = False
-        for q in quests:
-            if q["type"] in ["BATTLE_WILD", "GOLDEN"] and q["status"] != "COMPLETED":
-                if q.get("target") in real_name: q["now"] += 1; quest_updated = True
-        if quest_updated: current_user.quests = json.dumps(quests)
-        req_xp_p = get_req_xp(current_user.level)
-        while current_user.exp >= req_xp_p and current_user.level < 100: current_user.exp -= req_xp_p; current_user.level += 1; req_xp_p = get_req_xp(current_user.level); msg += f" | 訓練師升級 Lv.{current_user.level}!"
-        req_xp_pet = get_req_xp(current_user.pet_level)
-        pet_leveled_up = False
-        while current_user.pet_exp >= req_xp_pet and current_user.pet_level < 100: current_user.pet_exp -= req_xp_pet; current_user.pet_level += 1; req_xp_pet = get_req_xp(current_user.pet_level); pet_leveled_up = True; msg += f" | 寶可夢升級 Lv.{current_user.pet_level}!"
-        try:
-            box = json.loads(current_user.pokemon_storage); active_pet = next((p for p in box if p['uid'] == current_user.active_pokemon_uid), None)
-            if active_pet:
-                active_pet["exp"] = current_user.pet_exp; active_pet["lv"] = current_user.pet_level
-                if pet_leveled_up:
-                    base = POKEDEX_DATA.get(active_pet["name"])
-                    if base: current_user.max_hp = apply_iv_stats(base["hp"], active_pet["iv"], current_user.pet_level, is_hp=True, is_player=True); current_user.attack = apply_iv_stats(base["atk"], active_pet["iv"], current_user.pet_level, is_hp=False, is_player=True); current_user.hp = current_user.max_hp
-            current_user.pokemon_storage = json.dumps(box)
-        except: pass
-        db.commit()
-        return {"message": f"勝利！HP已回復。{msg}"}
-    db.commit()
-    return {"message": "戰鬥結束，HP已回復。"}
