@@ -9,12 +9,11 @@ import json
 import uuid
 
 from app.db.session import get_db, engine
-from app.db.base_class import Base  # 🔥 確保能重新建立表格
+from app.db.base_class import Base 
 from app.common.deps import get_current_user
 from app.models.user import User, Gym
 from app.common.websocket import manager 
 
-# 匯入完整的遊戲數據
 from app.common.game_data import (
     SKILL_DB, POKEDEX_DATA, COLLECTION_MONS, OBTAINABLE_MONS, LEGENDARY_MONS,
     WILD_UNLOCK_LEVELS, GACHA_NORMAL, GACHA_MEDIUM, GACHA_HIGH, 
@@ -30,15 +29,14 @@ router = APIRouter()
 def init_gyms():
     try:
         with Session(engine) as session:
-            print("正在重置道館資料表...")
-            # 1. 強制刪除舊的 gyms 表格 (解決欄位缺失問題)
+            # 1. 強制刪除舊的 gyms 表格
             session.execute(text("DROP TABLE IF EXISTS gyms CASCADE"))
             session.commit()
             
             # 2. 重新根據 Model 建立表格
             Base.metadata.create_all(bind=engine)
             
-            # 3. 建立新道館 (無屬性)
+            # 3. 建立新道館
             gyms = [
                 Gym(id=1, name="第一道館", buff_desc="防守方 HP/ATK +10%", income_rate=10),
                 Gym(id=2, name="第二道館", buff_desc="防守方 HP/ATK +10%", income_rate=15),
@@ -47,7 +45,7 @@ def init_gyms():
             ]
             session.add_all(gyms)
             session.commit()
-            print("✅ 道館初始化完成 (已更新欄位結構)")
+            print("✅ 道館初始化完成 (已重置結構)")
     except Exception as e:
         print(f"❌ 道館初始化錯誤: {e}")
 
@@ -74,9 +72,6 @@ def is_user_busy(user_id):
 def get_now_tw():
     return datetime.utcnow() + timedelta(hours=8)
 
-# =================================================================
-# API: 獲取技能資料
-# =================================================================
 @router.get("/data/skills")
 def get_skills_data():
     return SKILL_DB
@@ -121,7 +116,6 @@ async def play_gacha(gacha_type: str, db: Session = Depends(get_db), current_use
     elif gacha_type == 'legendary_gold': pool = GACHA_LEGENDARY_GOLD; cost = 400000
     else: raise HTTPException(status_code=400, detail="未知類型")
     
-    # 扣除資源
     if gacha_type == 'candy':
         if inventory.get("candy", 0) < cost: raise HTTPException(status_code=400, detail="糖果不足")
         inventory["candy"] -= cost
@@ -135,11 +129,9 @@ async def play_gacha(gacha_type: str, db: Session = Depends(get_db), current_use
         if current_user.money < cost: raise HTTPException(status_code=400, detail="金幣不足")
         current_user.money -= cost
         
-    # 🔥 核心修正：使用 random.choices 權重抽取 (key: weight)
     prize_data = random.choices(pool, weights=[p['weight'] for p in pool], k=1)[0]
     prize_name = prize_data['name']
     
-    # 🔥 保底 IV 機制 (傳說/傳奇池保底 60)
     new_lv = random.randint(1, current_user.level)
     min_iv = 0
     if 'legendary' in gacha_type: min_iv = 60 
@@ -156,7 +148,6 @@ async def play_gacha(gacha_type: str, db: Session = Depends(get_db), current_use
     
     db.commit()
     try:
-        # 廣播邏輯
         if 'legendary' in gacha_type or gacha_type in ['golden', 'high'] or prize_name in ['快龍', '超夢', '夢幻', '拉普拉斯', '幸福蛋', '耿鬼', '鳳王', '洛奇亞']: 
             await manager.broadcast(f"🎰 恭喜 [{current_user.username}] 獲得了稀有的 [{prize_name}] (Lv.{new_lv})！")
     except: pass
@@ -164,7 +155,7 @@ async def play_gacha(gacha_type: str, db: Session = Depends(get_db), current_use
     return {"message": f"獲得 {prize_name} (Lv.{new_lv}, IV: {iv})!", "prize": new_mon, "user": current_user}
 
 # =================================================================
-# 2. 核心功能 API (特訓、戰鬥等)
+# 2. 核心功能 API
 # =================================================================
 
 @router.post("/box/swap/{pokemon_uid}")
@@ -174,17 +165,14 @@ async def swap_active_pokemon(pokemon_uid: str, db: Session = Depends(get_db), c
     target = next((p for p in box if p["uid"] == pokemon_uid), None)
     if not target: raise HTTPException(status_code=404, detail="找不到")
     
-    # 切換出戰
     current_user.active_pokemon_uid = pokemon_uid
     current_user.pokemon_name = target["name"]
     current_user.pet_level = target["lv"]
     current_user.pet_exp = target["exp"]
     
-    # 🔥 關鍵：這裡會重新讀取 game_data.py 的最新數值
     base = POKEDEX_DATA.get(target["name"])
     if base:
         current_user.pokemon_image = base["img"]
-        # 重新計算 HP/ATK (這時候神羊的 8000/5000 才會生效)
         current_user.max_hp = apply_iv_stats(base["hp"], target["iv"], target["lv"], is_hp=True, is_player=True)
         current_user.attack = apply_iv_stats(base["atk"], target["iv"], target["lv"], is_hp=False, is_player=True)
     else:
@@ -266,7 +254,7 @@ async def train_pokemon(pokemon_uid: str, mode: str = Query(...), db: Session = 
     return {"message": msg, "iv": new_iv, "user": current_user}
 
 # =================================================================
-# 3. 道館系統 (Gym) - 2.14.0 大改版
+# 3. 道館系統 (Gym)
 # =================================================================
 
 @router.get("/gym/list")
@@ -296,16 +284,13 @@ async def occupy_gym(gym_id: int, pokemon_uid: str = Query(...), db: Session = D
     gym = db.query(Gym).filter(Gym.id == gym_id).first()
     if not gym: raise HTTPException(status_code=404, detail="道館不存在")
     
-    # 檢查是否有人佔領 (如果是空的才能佔，或者剛被打敗)
     if gym.leader_id and gym.leader_id != current_user.id:
         raise HTTPException(status_code=400, detail="道館已被佔領，請先擊敗館主")
 
-    # 檢查此寶可夢是否已在守其他塔
     existing_gym = db.query(Gym).filter(Gym.leader_pokemon_uid == pokemon_uid).first()
     if existing_gym and existing_gym.id != gym_id:
         raise HTTPException(status_code=400, detail=f"這隻寶可夢正在守衛 {existing_gym.name}")
 
-    # 取得寶可夢資料
     try: box = json.loads(current_user.pokemon_storage)
     except: box = []
     target_mon = next((p for p in box if p["uid"] == pokemon_uid), None)
@@ -314,11 +299,9 @@ async def occupy_gym(gym_id: int, pokemon_uid: str = Query(...), db: Session = D
     base = POKEDEX_DATA.get(target_mon["name"])
     if not base: raise HTTPException(status_code=400, detail="資料錯誤")
     
-    # 計算數值
     hp = apply_iv_stats(base["hp"], target_mon["iv"], target_mon["lv"], is_hp=True, is_player=True)
     atk = apply_iv_stats(base["atk"], target_mon["iv"], target_mon["lv"], is_hp=False, is_player=True)
     
-    # 佔領邏輯
     gym.leader_id = current_user.id
     gym.leader_name = current_user.username
     gym.leader_pokemon = target_mon["name"]
@@ -338,11 +321,9 @@ def start_gym_battle(gym_id: int, current_user: User = Depends(get_current_user)
     gym = db.query(Gym).filter(Gym.id == gym_id).first()
     if not gym: raise HTTPException(status_code=404, detail="道館不存在")
     
-    # 空道館 -> 提示前端開啟選角視窗
     if not gym.leader_id:
         return {"result": "EMPTY", "message": "這是一個空道館，請選擇寶可夢佔領！"}
 
-    # 自己佔領 -> 收租
     if gym.leader_id == current_user.id:
         now = get_now_tw(); mins = (now - gym.occupied_at).total_seconds() / 60; income = int(mins * gym.income_rate)
         if income < 1: return {"result": "WAIT", "message": "目前收益太少，晚點再來收吧"}
@@ -350,13 +331,11 @@ def start_gym_battle(gym_id: int, current_user: User = Depends(get_current_user)
         db.commit()
         return {"result": "COLLECTED", "message": f"收取了 {income} Gold！"}
 
-    # 踢館 -> 檢查保護期
     now = get_now_tw()
     if gym.protection_until and gym.protection_until > now:
         left = int((gym.protection_until - now).total_seconds())
         raise HTTPException(status_code=400, detail=f"道館保護中，剩餘 {left} 秒")
         
-    # 開始戰鬥
     battle_id = str(uuid.uuid4())
     boss_hp = int(gym.leader_max_hp * 1.1)
     boss_atk = int(gym.leader_atk * 1.1)
@@ -385,7 +364,6 @@ def gym_battle_attack(battle_id: str, damage: int = Query(0), heal: int = Query(
         current_user.hp = max(0, current_user.hp - boss_dmg)
     db.commit()
     
-    # 🔥 勝利處理：不自動佔領，而是清空道館並通知前端選角
     if room["boss_data"]["hp"] <= 0:
         gym = db.query(Gym).filter(Gym.id == room["gym_id"]).first()
         old_leader = db.query(User).filter(User.id == gym.leader_id).first()
@@ -394,7 +372,6 @@ def gym_battle_attack(battle_id: str, damage: int = Query(0), heal: int = Query(
             income = int(mins * gym.income_rate); 
             if income > 0: old_leader.money += income
         
-        # 清空道館
         gym.leader_id = None
         gym.leader_name = ""
         gym.leader_pokemon = ""
