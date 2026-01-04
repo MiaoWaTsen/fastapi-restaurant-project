@@ -24,14 +24,19 @@ from app.common.game_data import (
 router = APIRouter()
 
 # =================================================================
-# 初始化邏輯
+# 🔥 初始化邏輯 (強制修復資料庫結構)
 # =================================================================
 def init_gyms():
     try:
         with Session(engine) as session:
+            # 1. 強制刪除舊的 gyms 表格
             session.execute(text("DROP TABLE IF EXISTS gyms CASCADE"))
             session.commit()
+            
+            # 2. 重新根據 Model 建立表格
             Base.metadata.create_all(bind=engine)
+            
+            # 3. 建立新道館
             gyms = [
                 Gym(id=1, name="第一道館", buff_desc="防守方 HP/ATK +10%", income_rate=10),
                 Gym(id=2, name="第二道館", buff_desc="防守方 HP/ATK +10%", income_rate=15),
@@ -40,7 +45,7 @@ def init_gyms():
             ]
             session.add_all(gyms)
             session.commit()
-            print("✅ 道館初始化完成")
+            print("✅ 道館初始化完成 (已重置結構)")
     except Exception as e:
         print(f"❌ 道館初始化錯誤: {e}")
 
@@ -249,13 +254,22 @@ async def train_pokemon(pokemon_uid: str, mode: str = Query(...), db: Session = 
     return {"message": msg, "iv": new_iv, "user": current_user}
 
 # =================================================================
-# 3. 道館系統 (Gym)
+# 3. 道館系統 (Gym) - 自我修復版
 # =================================================================
 
 @router.get("/gym/list")
 def get_gym_list(db: Session = Depends(get_db)):
-    try: gyms = db.query(Gym).all()
-    except: return []
+    try:
+        gyms = db.query(Gym).all()
+        # 🔥 如果資料庫是空的或者發生錯誤，觸發重置
+        if not gyms:
+            raise Exception("No gyms found")
+    except Exception as e:
+        print(f"⚠️ 偵測到道館資料異常，正在嘗試自我修復... {e}")
+        db.rollback()
+        init_gyms() # 自動執行初始化
+        return [] # 請前端重新整理
+
     result = []
     now = get_now_tw()
     for g in gyms:
@@ -556,10 +570,7 @@ def delete_user_by_name(username: str, db: Session = Depends(get_db)):
         db.rollback()
         return {"message": f"❌ 刪除失敗 (資料庫錯誤): {str(e)}"}
 
-# =================================================================
-# 4. 團體戰與野外 API
-# =================================================================
-
+# 團體戰與野外功能保持 V2.13.4 邏輯
 def update_raid_logic(db: Session = None):
     now = get_now_tw(); curr_total_mins = now.hour * 60 + now.minute
     for (h, m) in RAID_SCHEDULE:
@@ -659,10 +670,10 @@ def get_wild_list(level: int, current_user: User = Depends(get_current_user)):
     update_user_activity(current_user.id); 
     if level > current_user.level: level = current_user.level
     
-    # 🔥 核心修正：使用玩家傳入的 level (即選單選的等級)
+    # 強制將野怪等級設為玩家傳入的選擇等級
     target_level = level
     
-    # 找出所有已解鎖的怪獸名稱 (unlock_lv <= target_level)
+    # 找出所有已解鎖的怪獸名稱
     available_mons = []
     for unlock_lv, mons in WILD_UNLOCK_LEVELS.items():
         if unlock_lv <= target_level:
@@ -670,7 +681,7 @@ def get_wild_list(level: int, current_user: User = Depends(get_current_user)):
             
     if not available_mons: available_mons = ["小拉達"]
     
-    # 列出所有符合條件的怪獸
+    # 🔥 核心修正：取消 random.sample，列出所有解鎖怪獸
     display_mons = available_mons 
     
     wild_list = []
@@ -678,7 +689,7 @@ def get_wild_list(level: int, current_user: User = Depends(get_current_user)):
         if name not in POKEDEX_DATA: continue
         base = POKEDEX_DATA[name]
         
-        # 數值計算：使用 target_level
+        # 根據玩家等級計算野怪數值 (IV 固定 50 作為標準)
         wild_hp = apply_iv_stats(base["hp"], 50, target_level, is_hp=True, is_player=False)
         wild_atk = apply_iv_stats(base["atk"], 50, target_level, is_hp=False, is_player=False)
         
