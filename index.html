@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>⚡️ 寶可夢大亂鬥 V2.13.0 ⚡️</title>
+    <title>⚡️ 寶可夢大亂鬥 V2.13.1 ⚡️</title>
     <script src="https://unpkg.com/vue@3/dist/vue.global.js"></script>
     <style>
         [v-cloak] { display: none; }
@@ -56,6 +56,7 @@
         
         .modal-overlay { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.8); z-index: 10000; display: flex; justify-content: center; align-items: center; }
         .modal-box { background: #16213e; border: 3px solid #f1c40f; padding: 30px; border-radius: 20px; text-align: center; width: 350px; position: relative; max-height: 80vh; overflow-y: auto; }
+        .modal-title { font-size: 1.5em; color: #f1c40f; margin-bottom: 20px; }
         .btn-yes { background: #27ae60; padding: 10px 20px; border:none; color:white; border-radius:5px; cursor:pointer; margin:5px; }
         
         .battle-overlay { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(15, 15, 30, 0.98); z-index: 5000; padding: 20px; display: flex; flex-direction: column; align-items: center; overflow-y: auto;}
@@ -107,8 +108,8 @@
 
 <div id="app" class="container" v-cloak>
     <div v-if="!user" style="text-align:center; padding-top:100px;">
-        <h1 style="color:#e94560">寶可夢大亂鬥 V2.13.0</h1>
-        <p>去蕪存菁版</p>
+        <h1 style="color:#e94560">寶可夢大亂鬥 V2.13.1</h1>
+        <p>特訓修復 & 技能優化版</p>
         <button class="btn-action" @click="logout">前往登入頁面</button>
         <br><br>
         <button style="background:transparent; border:1px solid #aaa; color:#aaa; padding:5px;" @click="initAdmin">👑 初始化管理員</button>
@@ -217,7 +218,7 @@
             </div>
         </div>
 
-        <div v-if="newsState.show" class="modal-overlay"><div class="modal-box" style="text-align:left;"><div class="modal-title" style="text-align:center;">📢 V2.13.0 更新公告</div><ul><li><b>🔧 系統精簡</b>：移除好友系統，優化遊戲效能。</li><li><b>✨ 介面優化</b>：全新的扭蛋商店介面！</li><li><b>⚔️ 戰鬥修復</b>：修復技能卡頓問題。</li></ul><div style="text-align:center; margin-top:15px;"><button class="btn-yes" @click="closeNews">我知道了</button></div></div></div>
+        <div v-if="newsState.show" class="modal-overlay"><div class="modal-box" style="text-align:left;"><div class="modal-title" style="text-align:center;">📢 V2.13.1 更新公告</div><ul><li><b>🔧 系統精簡</b>：移除好友系統，優化遊戲效能。</li><li><b>✨ 介面優化</b>：全新的扭蛋商店介面！</li><li><b>⚔️ 戰鬥修復</b>：修復技能卡頓問題。</li></ul><div style="text-align:center; margin-top:15px;"><button class="btn-yes" @click="closeNews">我知道了</button></div></div></div>
         
         <div v-if="showRates" class="modal-overlay" @click.self="showRates=false"><div class="modal-box" style="width: 400px; max-height:80vh;"><div class="modal-title">📊 扭蛋機率表</div><div style="overflow-y:auto; max-height:60vh;"><div v-for="(pool, name) in gachaRates" :key="name" style="margin-bottom: 15px;"><h4 style="color: #f1c40f; border-bottom: 1px solid #555;">{{ name }}</h4><table class="rate-table"><tr v-for="item in pool" :key="item.name"><td>{{ item.name }}</td><td style="text-align: right;">{{ item.rate }}%</td></tr></table></div></div><button class="btn-yes" style="width: 100%; margin-top: 10px;" @click="showRates=false">關閉</button></div></div>
 
@@ -230,7 +231,7 @@
                     <div class="stat-block"><div class="stat-title"><span>{{ user.pokemon_name }} (Lv.{{ user.pet_level }})</span><span class="atk-val">ATK: {{ currentAtkMe }} (IV: {{ currentPetIV }})</span></div><div class="bar-container"><div class="bar-fill hp-fill" :style="{ width: hpPercent(user) + '%' }"></div></div><div class="bar-text"><span>HP: {{ user.hp || 0 }}/{{ user.max_hp || 100 }}</span></div><div class="bar-container" style="margin-top:4px;"><div class="bar-fill pet-xp-fill" :style="{ width: petXpPercent(user) + '%' }"></div></div></div>
                 </div>
             </div>
-            <div style="display:flex; flex-direction:column; gap:5px;"><button class="btn-logout" @click="logout">登出</button></div>
+            <div style="display:flex; flex-direction:column; gap:5px;"><button class="btn-logout" @click="dailyCheckin">📅 簽到</button><button class="btn-logout" @click="logout">登出</button></div>
         </div>
         
         <div class="tabs" v-if="!battle.active">
@@ -552,12 +553,26 @@
             const playGacha = async (type) => { showGachaAnim.value = true; const res = await safeFetch(`${API_URL.replace('/items','')}/shop/gacha/${type}`, { method: 'POST' }); if(res && res.ok) { const d = await res.json(); setTimeout(() => { showGachaAnim.value = false; gachaResult.value = d; updateInfo(); }, 2000); } else { showGachaAnim.value = false; if(res) { const d = await res.json(); showToast("錯誤", d.detail); } } };
             const useShield = () => { if(shieldUses.value <= 0) return; shieldUses.value--; battle.value.shieldActive = true; isEnemyTurn.value = true; clearInterval(timerInterval); setTimeout(enemyAttackPhase, 1200); };
             const doHeal = async () => { const heal = Math.floor(user.value.max_hp * 0.2); user.value.hp = Math.min(user.value.max_hp, user.value.hp + heal); showToast("系統", `回復了 ${heal} HP`); if (battle.value.mode === 'pvp') { await safeFetch(`${API_URL.replace('/items','')}/shop/duel/attack?damage=0&heal=${heal}`, { method: 'POST' }); isEnemyTurn.value = true; } };
+            const dailyCheckin = async () => { const res = await safeFetch(`${API_URL.replace('/items','')}/shop/social/daily_checkin`, { method: 'POST' }); if(res && res.ok) { const d = await res.json(); showToast("簽到", d.message || d.detail); updateInfo(); } else if(res) { const d = await res.json(); showToast("錯誤", d.detail || "簽到失敗"); } };
             const swapMon = async (uid) => { await safeFetch(`${API_URL.replace('/items','')}/shop/box/swap/${uid}`, { method: 'POST' }); updateInfo(); };
             const useCandy = async (uid) => { const res = await safeFetch(`${API_URL.replace('/items','')}/shop/box/action/candy/${uid}`, { method: 'POST' }); if(res) { const d = await res.json(); showToast("系統", d.message || d.detail); updateInfo(); } };
             const doGamble = async () => { const res = await safeFetch(`${API_URL.replace('/items','')}/shop/gamble?amount=${gambleAmount.value}`, { method: 'POST' }); if(res) { const d = await res.json(); showToast("賭場", d.message || d.detail); updateInfo(); } };
             const buyHeal = async () => { const res = await safeFetch(`${API_URL.replace('/items','')}/shop/heal`, { method: 'POST' }); if(res && res.ok) { showToast("系統", "補血成功"); updateInfo(); } else showToast("錯誤", "金幣不足"); };
             const redeemCode = async () => { const res = await safeFetch(`${API_URL.replace('/items','')}/shop/social/redeem?code=${promoCode.value}`, { method: 'POST' }); if(res) { const d = await res.json(); showToast("系統", d.message || d.detail); updateInfo(); } };
+            const sendGift = async (fid) => { const res = await safeFetch(`${API_URL}/social/gift/send/${fid}`, { method: 'POST' }); if(res && res.ok) { showToast("系統", "禮物已發送！"); } else if(res) { const d = await res.json(); showToast("錯誤", d.detail); } };
             const sendInvite = async (p) => { await safeFetch(`${API_URL.replace('/items','')}/shop/social/invite/${p.id}`, { method: 'POST' }); showToast("系統", "已發送邀請，等待對方回應..."); };
+            const addFriend = async (uid) => { const res = await safeFetch(`${API_URL.replace('/items','')}/shop/social/add/${uid}`, { method: 'POST' }); if(res) { const d = await res.json(); showToast("系統", d.message || d.detail); } };
+            const acceptFriend = async (reqId) => { await safeFetch(`${API_URL.replace('/items','')}/shop/social/accept/${reqId}`, { method: 'POST' }); showToast("系統", "已接受好友！"); };
+            const rejectFriend = async (reqId) => { await safeFetch(`${API_URL.replace('/items','')}/shop/social/reject/${reqId}`, { method: 'POST' }); showToast("系統", "已拒絕好友邀請"); };
+            const removeFriend = async (friendId) => { if(confirm("確定要刪除這位好友嗎？")) { await safeFetch(`${API_URL.replace('/items','')}/shop/social/remove/${friendId}`, { method: 'POST' }); showToast("系統", "已刪除好友"); } };
+            const joinRaid = async () => { if(confirm("支付 1000G 加入？")) { const res = await safeFetch(`${API_URL.replace('/items','')}/shop/raid/join`, { method: 'POST' }); if(res && res.ok) { battle.value = { active: true, mode: 'raid', target: { name: raidState.value.boss_name, hp: raidState.value.hp, max_hp: raidState.value.max_hp, image_url: raidState.value.image }, shakeMe: false, shakeTarget: false, atkBuff: 1.0, shieldActive: false }; shieldUses.value = 2; updateMySkills(); } else if(res) { const d = await res.json(); showToast("錯誤", d.detail); } } };
+            const abandonQuest = async (qid) => { if(confirm("放棄需消耗 1000G，確定嗎？")) { await safeFetch(`${API_URL}/quests/abandon/${qid}`, { method: 'POST' }); fetchQuests(); } };
+            const claimQuest = async (qid) => { const res = await safeFetch(`${API_URL}/quests/claim/${qid}`, { method: 'POST' }); if(res) { const d = await res.json(); showToast("系統", d.message); fetchQuests(); } };
+            const reviveRaid = async () => { const res = await safeFetch(`${API_URL.replace('/items','')}/shop/raid/revive`, { method: 'POST' }); if (res && res.ok) { isRaidDead.value = false; clearInterval(deadInterval); updateInfo(); } else if(res) { const d = await res.json(); showToast("錯誤", d.detail); } };
+            const claimRaidReward = async (choice) => { const res = await safeFetch(`${API_URL.replace('/items','')}/shop/raid/claim?choice=${choice}`, { method: 'POST' }); if(res) { const d = await res.json(); showToast("系統", d.message); raidVictory.value = false; battle.value.active = false; tab.value = 'wild'; updateInfo(); } };
+            const useMedKit = async () => { if(shieldUses.value <= 0) return; shieldUses.value--; const healAmt = Math.floor(user.value.max_hp * 0.2); user.value.hp = Math.min(user.value.max_hp, user.value.hp + healAmt); try { await safeFetch(`${API_URL.replace('/items','')}/shop/raid/recover`, { method: 'POST' }); showFloatingText(`+${healAmt}`, 'green'); } catch(e) { console.error("Heal sync failed", e); } };
+            
+            const checkInvite = async () => { const res = await safeFetch(`${API_URL.replace('/items','')}/shop/social/check_invite`); if (res && res.ok) { const d = await res.json(); if (d.has_invite) invite.value = d; } };
             const acceptInvite = async () => { await safeFetch(`${API_URL.replace('/items','')}/shop/social/accept_invite/${invite.value.source_id}`, { method: 'POST' }); invite.value.has_invite = false; duelState.value.preparing = true; };
             const rejectInvite = async () => { await safeFetch(`${API_URL.replace('/items','')}/shop/social/reject_invite/${invite.value.source_id}`, { method: 'POST' }); invite.value.has_invite = false; };
 
@@ -579,7 +594,7 @@
             };
             
             const isLegendary = (name) => ["急凍鳥", "火焰鳥", "閃電鳥", "超夢", "夢幻", "鳳王", "洛奇亞"].includes(normalizeName(name));
-            const trainMon = async (uid) => { if (!confirm(`確定特訓嗎？`)) return; const res = await safeFetch(`${API_URL.replace('/items','')}/shop/box/action/train?pokemon_uid=${uid}&mode=${trainMode.value.type}`, { method: 'POST' }); if (res && res.ok) { const d = await res.json(); showToast("特訓成功", d.message); viewMon.value.iv = d.iv; user.value = d.user; trainMode.value.show = false; const stats = calcStats(viewMon.value); viewMon.value.hp_val = stats.hp; viewMon.value.atk_val = stats.atk; } else if (res) { const d = await res.json(); showToast("特訓失敗", d.detail); } };
+            const trainMon = async (uid) => { if (!confirm(`確定特訓嗎？`)) return; try { const res = await safeFetch(`${API_URL.replace('/items','')}/shop/box/action/train?pokemon_uid=${uid}&mode=${trainMode.value.type}`, { method: 'POST' }); if (res && res.ok) { const d = await res.json(); showToast("特訓成功", d.message); viewMon.value.iv = d.iv; if (d.user) user.value = d.user; trainMode.value.show = false; const stats = calcStats(viewMon.value); viewMon.value.hp_val = stats.hp; viewMon.value.atk_val = stats.atk; } else if (res) { const d = await res.json(); showToast("特訓失敗", d.detail); } } catch(e) { console.error(e); } };
 
             const fetchGymList = async () => { const res = await safeFetch(`${API_URL.replace('/items','')}/shop/gym/list`); if(res && res.ok) gymList.value = await res.json(); };
             const startGymBattle = async (gymId) => {
@@ -615,8 +630,8 @@
             });
 
             return { 
-                user, tab, box, players, friendRequests, friends, viewMon, battle, raidState, inLobby, lobbyTimer, 
-                logout, playGacha, swapMon, useCandy, gambleAmount, doGamble, chatInput, 
+                user, tab, box, players, viewMon, battle, raidState, inLobby, lobbyTimer, 
+                dailyCheckin, logout, playGacha, swapMon, useCandy, gambleAmount, doGamble, chatInput, 
                 doSkillAttack, useShield, doHeal, buyHeal, promoCode, redeemCode, sendGift, joinRaid, 
                 playerXpPercent, hpPercent, petXpPercent, currentAtkMe, quests, abandonQuest, claimQuest, 
                 wildList, fetchWildList, startWildBattle, showRates, gachaRates, mySkills, shieldUses, 
@@ -627,9 +642,10 @@
                 viewBoxMon, viewPokedexEntry, getMonSkills, forceCloseBattle, 
                 raidVictory, isRaidDead, raidDeadTimer, reviveRaid, claimRaidReward, useMedKit, releaseMon, getMonImage,
                 invite, acceptInvite, rejectInvite, duelState, toast, showToast,
-                removeFriend, rejectFriend, // Keep these empty or mock functions if UI still calls them, but we removed UI.
+                removeFriend, rejectFriend,
                 trainMode, trainMon, isLegendary,
-                gymList, startGymBattle
+                gymList, startGymBattle,
+                canJoinLobby, viewPokedexEntry 
             };
         }
     }).mount('#app');

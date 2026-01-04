@@ -10,7 +10,7 @@ import uuid
 
 from app.db.session import get_db, engine
 from app.common.deps import get_current_user
-from app.models.user import User, Gym # 移除 Friendship
+from app.models.user import User, Gym
 from app.common.websocket import manager 
 
 from app.common.game_data import (
@@ -139,7 +139,6 @@ def gym_battle_attack(battle_id: str, damage: int = Query(0), heal: int = Query(
     if battle_id not in GYM_BATTLES: raise HTTPException(status_code=404, detail="戰鬥已過期")
     room = GYM_BATTLES[battle_id]
     
-    # 確保 damage 是 int
     try: damage = int(damage)
     except: damage = 0
     
@@ -322,7 +321,7 @@ def join_raid(current_user: User = Depends(get_current_user), db: Session = Depe
     return {"message": "成功加入團體戰！"}
 
 @router.post("/raid/attack")
-def attack_raid_boss(damage: int = Query(...), current_user: User = Depends(get_current_user), db: Session = Depends(get_db)):
+def attack_raid_boss(damage: int = Query(0), current_user: User = Depends(get_current_user), db: Session = Depends(get_db)):
     update_raid_logic(db)
     if current_user.id not in RAID_STATE["players"]: raise HTTPException(status_code=400, detail="你不在大廳中")
     p_data = RAID_STATE["players"][current_user.id]
@@ -457,6 +456,7 @@ async def play_gacha(gacha_type: str, db: Session = Depends(get_db), current_use
     elif gacha_type == 'legendary_candy': pool = GACHA_LEGENDARY_CANDY; cost = 5
     elif gacha_type == 'legendary_gold': pool = GACHA_LEGENDARY_GOLD; cost = 400000
     else: raise HTTPException(status_code=400, detail="未知類型")
+    
     if gacha_type == 'candy':
         if inventory.get("candy", 0) < cost: raise HTTPException(status_code=400, detail="糖果不足")
         inventory["candy"] -= cost
@@ -469,10 +469,12 @@ async def play_gacha(gacha_type: str, db: Session = Depends(get_db), current_use
     else:
         if current_user.money < cost: raise HTTPException(status_code=400, detail="金幣不足")
         current_user.money -= cost
+        
     total_rate = sum(p["rate"] for p in pool); r = random.uniform(0, total_rate); acc = 0; prize_name = pool[0]["name"]
     for p in pool:
         acc += p["rate"]
         if r <= acc: prize_name = p["name"]; break
+    
     new_lv = random.randint(1, current_user.level)
     if 'legendary' in gacha_type: iv = random.randint(60, 100)
     else: iv = int(random.triangular(0, 100, 50))
