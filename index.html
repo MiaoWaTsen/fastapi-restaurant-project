@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>⚡️ 寶可夢大亂鬥 V2.14.2 ⚡️</title>
+    <title>⚡️ 寶可夢大亂鬥 V2.14.3 ⚡️</title>
     <script src="https://unpkg.com/vue@3/dist/vue.global.js"></script>
     <style>
         [v-cloak] { display: none; }
@@ -120,8 +120,8 @@
 
 <div id="app" class="container" v-cloak>
     <div v-if="!user" style="text-align:center; padding-top:100px;">
-        <h1 style="color:#e94560">寶可夢大亂鬥 V2.14.2</h1>
-        <p>介面優化與數據校正版</p>
+        <h1 style="color:#e94560">寶可夢大亂鬥 V2.14.3</h1>
+        <p>介面修復 & 神羊降臨版</p>
         <button class="btn-action" @click="logout">前往登入頁面</button>
         <br><br>
         <button style="background:transparent; border:1px solid #aaa; color:#aaa; padding:5px;" @click="initAdmin">👑 初始化管理員</button>
@@ -197,6 +197,7 @@
                     <b>{{ skill }}</b> 
                     <small>{{ getSkillDesc(skill) }}</small>
                 </button>
+                
                 <button v-if="battle.mode === 'wild'" class="btn-skill btn-shield" :class="{'btn-disabled': isEnemyTurn}" @click="useShield" :disabled="shieldUses <= 0 || isEnemyTurn">
                     <b>🛡️ 防護盾</b> <small>剩 {{ shieldUses }} 次</small>
                 </button>
@@ -253,7 +254,7 @@
             </div>
         </div>
 
-        <div v-if="newsState.show" class="modal-overlay"><div class="modal-box" style="text-align:left;"><div class="modal-title" style="text-align:center;">📢 V2.14.2 更新公告</div><ul><li><b>✨ 機率調整</b>：扭蛋機率與黃金任務機率優化。</li><li><b>🚀 介面優化</b>：任務與排行榜切換時自動刷新。</li></ul><div style="text-align:center; margin-top:15px;"><button class="btn-yes" @click="closeNews">我知道了</button></div></div></div>
+        <div v-if="newsState.show" class="modal-overlay"><div class="modal-box" style="text-align:left;"><div class="modal-title" style="text-align:center;">📢 V2.14.3 更新公告</div><ul><li><b>🔧 介面修復</b>：野怪列表不再空白。</li><li><b>🐑 神羊降臨</b>：毛辮羊數值已大幅強化。</li></ul><div style="text-align:center; margin-top:15px;"><button class="btn-yes" @click="closeNews">我知道了</button></div></div></div>
         
         <div v-if="showRates" class="modal-overlay" @click.self="showRates=false"><div class="modal-box" style="width: 400px; max-height:80vh;"><div class="modal-title">📊 扭蛋機率表</div><div style="overflow-y:auto; max-height:60vh;"><div v-for="(pool, name) in gachaRates" :key="name" style="margin-bottom: 15px;"><h4 style="color: #f1c40f; border-bottom: 1px solid #555;">{{ name }}</h4><table class="rate-table"><tr v-for="item in pool" :key="item.name"><td>{{ item.name }}</td><td style="text-align: right;">{{ item.rate }}%</td></tr></table></div></div><button class="btn-yes" style="width: 100%; margin-top: 10px;" @click="showRates=false">關閉</button></div></div>
 
@@ -359,10 +360,11 @@
             const token = localStorage.getItem('token');
             const tab = ref('wild'); 
             
-            // 🔥 使用 watch 監聽分頁切換，實現自動刷新
+            // 🔥 watch 監聽：切換分頁時自動刷新資料
             watch(tab, (newVal) => {
                 if (newVal === 'quest') fetchQuests();
                 if (newVal === 'leaderboard') fetchLeaderboard();
+                if (newVal === 'wild') fetchWildList();
             });
 
             const box = computed(() => { 
@@ -443,7 +445,6 @@
             let deadInterval = null;
             let battleId = null;
 
-            // 🔥 機率表顯示 (V2.14.2)
             const gachaRates = { 
                 "🔮 初級": [{name:"妙蛙種子", rate:5}, {name:"小火龍", rate:5}, {name:"傑尼龜", rate:5}, {name:"六尾", rate:5}, {name:"毛辮羊", rate:5}, {name:"伊布", rate:10}, {name:"皮卡丘", rate:10}, {name:"皮皮", rate:10}, {name:"胖丁", rate:10}, {name:"大蔥鴨", rate:10}, {name:"呆呆獸", rate:12.5}, {name:"可達鴨", rate:12.5}],
                 "🔵 中級": [{name:"妙蛙種子", rate:10}, {name:"小火龍", rate:10}, {name:"傑尼龜", rate:10}, {name:"伊布", rate:10}, {name:"皮卡丘", rate:10}, {name:"呆呆獸", rate:10}, {name:"可達鴨", rate:10}, {name:"毛辮羊", rate:10}, {name:"卡比獸", rate:5}, {name:"吉利蛋", rate:3}, {name:"拉普拉斯", rate:3}, {name:"妙蛙花", rate:3}, {name:"噴火龍", rate:3}, {name:"水箭龜", rate:3}],
@@ -509,7 +510,13 @@
             const fetchPlayers = async () => { const res = await safeFetch(`${API_URL.replace('/items','')}/shop/social/players`); if(res && res.ok) { const data = await res.json(); players.value = data.filter(p => p.id !== user.value.id); } };
             const fetchQuests = async () => { const res = await safeFetch(`${API_URL}/quests/`); if(res && res.ok) quests.value = await res.json(); updateInfo(); };
             const fetchLeaderboard = async () => { const res = await safeFetch(`${API_URL.replace('/items','')}/shop/leaderboard?type=${leaderboardType.value}`); if(res && res.ok) leaderboardData.value = await res.json(); };
-            const fetchWildList = async () => { const res = await safeFetch(`${API_URL.replace('/items','')}/shop/wild/list?level=${selectedWildLevel.value}`); if(res && res.ok) wildList.value = await res.json(); };
+            
+            // 🔥 fetchWildList 優化：確保非同步執行，且先清空列表避免閃爍
+            const fetchWildList = async () => { 
+                wildList.value = []; // 先清空
+                const res = await safeFetch(`${API_URL.replace('/items','')}/shop/wild/list?level=${selectedWildLevel.value}`); 
+                if(res && res.ok) wildList.value = await res.json(); 
+            };
             
             // 🔥 V2.13.3: 獲取技能資料
             const fetchSkillData = async () => { const res = await fetch(`${API_URL.replace('/items','')}/shop/data/skills`); if(res.ok) skillData.value = await res.json(); };
@@ -569,7 +576,8 @@
 
             const doSkillAttack = async (skillName) => { 
                 if(isEnemyTurn.value) return; 
-                if(!skillData.value[skillName]) return; 
+                if(!skillData.value[skillName]) return; // 🔥 防呆
+                
                 try { 
                     isEnemyTurn.value = true; clearInterval(timerInterval); 
                     const skill = skillData.value[skillName]; let healAmt = 0; 
@@ -645,7 +653,7 @@
             const sendInvite = async (p) => { await safeFetch(`${API_URL.replace('/items','')}/shop/social/invite/${p.id}`, { method: 'POST' }); showToast("系統", "已發送邀請，等待對方回應..."); };
             const acceptInvite = async () => { await safeFetch(`${API_URL.replace('/items','')}/shop/social/accept_invite/${invite.value.source_id}`, { method: 'POST' }); invite.value.has_invite = false; duelState.value.preparing = true; };
             const rejectInvite = async () => { await safeFetch(`${API_URL.replace('/items','')}/shop/social/reject_invite/${invite.value.source_id}`, { method: 'POST' }); invite.value.has_invite = false; };
-            
+
             const checkDuelStatus = async () => {
                 const res = await safeFetch(`${API_URL.replace('/items','')}/shop/duel/status`);
                 if (res && res.ok) {
@@ -721,14 +729,22 @@
                 document.getElementById('loading').style.display = 'none'; 
                 if(!token) return window.location.href = 'login.html'; 
                 if (!sessionStorage.getItem('seenNews_v2910')) newsState.value.show = true; 
-                await fetchSkillData(); await fetchPokedex(); await updateInfo(); await fetchPokedex(); 
+                await fetchSkillData(); await fetchPokedex(); 
+                
+                // 🔥 確保 fetchWildList 在 updateInfo 之後執行 (因為需要 user.level)
+                await updateInfo(); 
+                
+                // 強制將選單設為 1 並清空列表，再抓一次
+                selectedWildLevel.value = 1;
+                fetchWildList();
+
                 updateMySkills(); fetchPlayers(); checkRaid(); fetchGymList();
                 setInterval(checkRaid, 3000); 
                 setInterval(fetchPlayers, 5000); 
                 setInterval(checkInvite, 3000);  
                 setInterval(checkDuelStatus, 1000); 
                 setInterval(fetchGymList, 10000); 
-                fetchQuests(); fetchWildList(); fetchLeaderboard();
+                fetchQuests(); fetchLeaderboard();
             });
 
             return { 
