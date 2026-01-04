@@ -5,132 +5,143 @@ from sqlalchemy.orm import Session
 import random
 import json
 import uuid
+import math
 
 from app.db.session import get_db
 from app.common.deps import get_current_user
 from app.models.user import User
 
-# 🔥 V2.11.23: 修正 Import 路徑
-from app.common.game_data import POKEDEX_DATA, WILD_UNLOCK_LEVELS 
+# 引用遊戲資料 (解鎖列表)
+from app.common.game_data import WILD_UNLOCK_LEVELS
 
 router = APIRouter()
 
-QUEST_TYPE = "BATTLE_WILD"
+def generate_quest(user_pet_level):
+    # 1. 找出玩家當前等級能遇到的所有野怪
+    valid_targets = []
+    for unlock_lv, mons in WILD_UNLOCK_LEVELS.items():
+        if unlock_lv <= user_pet_level:
+            valid_targets.extend(mons)
+            
+    # 若無解鎖 (防呆)，預設小拉達
+    if not valid_targets:
+        valid_targets = ["小拉達"]
+        
+    # 2. 隨機選一個目標
+    target = random.choice(valid_targets)
+    
+    # 3. 決定任務類型 (20% 機率是黃金任務)
+    is_golden = random.random() < 0.2
+    
+    if is_golden:
+        # 🔥 黃金任務設定：5隻，無經驗錢，只有糖果
+        q_type = "GOLDEN"
+        req = 5 
+        xp = 0
+        gold = 0
+        desc = f"✨ [黃金] 擊敗 {req} 隻 {target}"
+    else:
+        # 一般任務設定：1~3隻，有經驗錢
+        q_type = "BATTLE_WILD"
+        req = random.randint(1, 3)
+        desc = f"擊敗 {req} 隻 {target}"
+
+        # 一般任務獎勵公式 (維持 V2.13.11 的曲線)
+        base_xp_per_unit = 60 + (user_pet_level * 8)
+        base_gold_per_unit = 40 + (user_pet_level * 4)
+        
+        # 數量加成：req ^ 1.15 (讓 2 隻的獎勵微大於 1 隻的兩倍)
+        count_multiplier = req ** 1.15
+        
+        xp = int(base_xp_per_unit * count_multiplier)
+        gold = int(base_gold_per_unit * count_multiplier)
+    
+    return {
+        "id": str(uuid.uuid4()),
+        "type": q_type,
+        "target": target,
+        "target_display": desc,
+        "now": 0,
+        "req": req,
+        "xp": xp,
+        "gold": gold,
+        "status": "ACTIVE"
+    }
 
 @router.get("/")
-def get_daily_quests(db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
+def get_quests(db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
     try:
         quests = json.loads(current_user.quests) if current_user.quests else []
     except:
         quests = []
     
-    if len(quests) < 3:
-        target_level = current_user.pet_level
-        if target_level < 1: target_level = 1
-        if target_level > 96: target_level = 96 
-
-        valid_species = []
-        for lv in range(1, target_level + 1):
-            if lv in WILD_UNLOCK_LEVELS:
-                valid_species.extend(WILD_UNLOCK_LEVELS[lv])
+    # 🔥 核心邏輯：永遠保持 3 個任務
+    changed = False
+    while len(quests) < 3:
+        new_q = generate_quest(current_user.pet_level)
+        quests.append(new_q)
+        changed = True
         
-        if not valid_species: valid_species = ["小拉達"]
-
-        while len(quests) < 3:
-            target_mon = random.choice(valid_species)
-            
-            is_golden = random.random() < 0.05
-            
-            if is_golden:
-                req_count = 5
-                xp_reward = 0
-                gold_reward = 0
-            else:
-                req_count = random.randint(1, 3)
-                
-                base_xp = target_level * 10 + 20
-                base_gold = target_level * 6 + 30
-                
-                multiplier = 1 + (req_count - 1) * 0.2
-                
-                total_xp = int(base_xp * req_count * multiplier)
-                total_gold = int(base_gold * req_count * multiplier)
-                
-                xp_reward = total_xp
-                gold_reward = total_gold
-                reward_desc = f"{total_xp} XP & {total_gold} Gold"
-
-            new_q = {
-                "id": str(uuid.uuid4()),
-                "type": "GOLDEN" if is_golden else QUEST_TYPE,
-                "target": target_mon,
-                "target_display": f"擊敗 {target_mon} (Lv.{target_level})", 
-                "level": target_level, 
-                "req": req_count,
-                "now": 0,
-                "xp": xp_reward,
-                "gold": gold_reward,
-                "status": "ACTIVE"
-            }
-            quests.append(new_q)
-            
+    if changed:
         current_user.quests = json.dumps(quests)
         db.commit()
         
     return quests
-
-@router.post("/abandon/{quest_id}")
-def abandon_quest(quest_id: str, db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
-    try:
-        quests = json.loads(current_user.quests)
-    except:
-        raise HTTPException(status_code=400, detail="任務資料錯誤")
-        
-    new_quests = [q for q in quests if q["id"] != quest_id]
-    
-    if len(quests) == len(new_quests):
-        raise HTTPException(status_code=404, detail="找不到任務")
-        
-    if current_user.money < 1000:
-        raise HTTPException(status_code=400, detail="金幣不足 1000G")
-        
-    current_user.money -= 1000
-    current_user.quests = json.dumps(new_quests) 
-    db.commit()
-    return {"message": "已放棄任務 (消耗 1000G)"}
 
 @router.post("/claim/{quest_id}")
 def claim_quest(quest_id: str, db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
     try:
         quests = json.loads(current_user.quests)
     except:
-        quests = []
+        raise HTTPException(status_code=400, detail="任務資料錯誤")
         
     target_q = next((q for q in quests if q["id"] == quest_id), None)
-    if not target_q: raise HTTPException(status_code=404, detail="找不到任務")
-    
+    if not target_q:
+        raise HTTPException(status_code=404, detail="找不到此任務")
+        
     if target_q["now"] < target_q["req"]:
         raise HTTPException(status_code=400, detail="任務尚未完成")
         
+    # 發放獎勵 (XP & Gold，黃金任務這裡會加 0)
+    current_user.exp += target_q["xp"]
+    current_user.pet_exp += target_q["xp"]
+    current_user.money += target_q["gold"]
+    
+    # 移除已完成任務
+    quests = [q for q in quests if q["id"] != quest_id]
+    current_user.quests = json.dumps(quests)
+    
     msg = ""
-    if target_q.get("type") == "GOLDEN":
-        try: 
-            if not current_user.inventory: inv = {}
-            else: inv = json.loads(current_user.inventory)
+    
+    # 處理回傳訊息與特殊獎勵
+    if target_q["type"] == "GOLDEN":
+        try: inv = json.loads(current_user.inventory)
         except: inv = {}
         inv["golden_candy"] = inv.get("golden_candy", 0) + 1
         current_user.inventory = json.dumps(inv)
-        msg = "獲得 ✨ 黃金糖果 x1"
+        msg = "獲得 ✨ 黃金糖果 x1" # 🔥 黃金任務專屬訊息
     else:
-        xp = target_q.get("xp", 100)
-        gold = target_q.get("gold", 100)
-        current_user.exp += xp
-        current_user.pet_exp += xp
-        current_user.money += gold
-        msg = f"獲得 {xp} XP & {gold} Gold"
+        msg = f"獲得 {target_q['xp']} XP, {target_q['gold']} G"
+
+    db.commit()
+    return {"message": f"任務完成！{msg}", "user": current_user}
+
+@router.post("/abandon/{quest_id}")
+def abandon_quest(quest_id: str, db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
+    if current_user.money < 1000:
+        raise HTTPException(status_code=400, detail="金幣不足 1000 G")
         
+    try: quests = json.loads(current_user.quests)
+    except: quests = []
+    
+    # 移除任務
     new_quests = [q for q in quests if q["id"] != quest_id]
+    
+    if len(new_quests) == len(quests):
+        raise HTTPException(status_code=404, detail="找不到任務")
+        
+    current_user.money -= 1000
     current_user.quests = json.dumps(new_quests)
     db.commit()
     
-    return {"message": f"任務完成！{msg}"}
+    return {"message": "已放棄任務 (消耗 1000G)"}
