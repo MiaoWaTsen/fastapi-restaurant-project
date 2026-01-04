@@ -2,13 +2,14 @@
 
 from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.orm import Session
-from sqlalchemy import or_, Column, Integer, String, ForeignKey, DateTime, Float, desc
+from sqlalchemy import or_, Column, Integer, String, ForeignKey, DateTime, Float, desc, text
 from datetime import datetime, timedelta
 import random
 import json
 import uuid
 
 from app.db.session import get_db, engine
+from app.db.base_class import Base  # 🔥 確保能重新建立表格
 from app.common.deps import get_current_user
 from app.models.user import User, Gym
 from app.common.websocket import manager 
@@ -24,16 +25,20 @@ from app.common.game_data import (
 router = APIRouter()
 
 # =================================================================
-# 初始化邏輯 (道館重置)
+# 🔥 初始化邏輯 (強制修復資料庫結構)
 # =================================================================
 def init_gyms():
     try:
         with Session(engine) as session:
-            # 強制清空舊道館 (為了更新結構與名稱)
-            session.query(Gym).delete()
+            print("正在重置道館資料表...")
+            # 1. 強制刪除舊的 gyms 表格 (解決欄位缺失問題)
+            session.execute(text("DROP TABLE IF EXISTS gyms CASCADE"))
             session.commit()
             
-            # 建立新道館 (無屬性)
+            # 2. 重新根據 Model 建立表格
+            Base.metadata.create_all(bind=engine)
+            
+            # 3. 建立新道館 (無屬性)
             gyms = [
                 Gym(id=1, name="第一道館", buff_desc="防守方 HP/ATK +10%", income_rate=10),
                 Gym(id=2, name="第二道館", buff_desc="防守方 HP/ATK +10%", income_rate=15),
@@ -42,9 +47,9 @@ def init_gyms():
             ]
             session.add_all(gyms)
             session.commit()
-            print("道館初始化完成 (已重置為空狀態)")
+            print("✅ 道館初始化完成 (已更新欄位結構)")
     except Exception as e:
-        print(f"道館初始化錯誤: {e}")
+        print(f"❌ 道館初始化錯誤: {e}")
 
 # =================================================================
 # 全域變數
@@ -70,7 +75,7 @@ def get_now_tw():
     return datetime.utcnow() + timedelta(hours=8)
 
 # =================================================================
-# API: 獲取技能資料 (前端按鈕顯示用)
+# API: 獲取技能資料
 # =================================================================
 @router.get("/data/skills")
 def get_skills_data():
@@ -168,14 +173,25 @@ async def swap_active_pokemon(pokemon_uid: str, db: Session = Depends(get_db), c
     except: box = []
     target = next((p for p in box if p["uid"] == pokemon_uid), None)
     if not target: raise HTTPException(status_code=404, detail="找不到")
-    current_user.active_pokemon_uid = pokemon_uid; current_user.pokemon_name = target["name"]
-    current_user.pet_level = target["lv"]; current_user.pet_exp = target["exp"]
+    
+    # 切換出戰
+    current_user.active_pokemon_uid = pokemon_uid
+    current_user.pokemon_name = target["name"]
+    current_user.pet_level = target["lv"]
+    current_user.pet_exp = target["exp"]
+    
+    # 🔥 關鍵：這裡會重新讀取 game_data.py 的最新數值
     base = POKEDEX_DATA.get(target["name"])
     if base:
         current_user.pokemon_image = base["img"]
+        # 重新計算 HP/ATK (這時候神羊的 8000/5000 才會生效)
         current_user.max_hp = apply_iv_stats(base["hp"], target["iv"], target["lv"], is_hp=True, is_player=True)
         current_user.attack = apply_iv_stats(base["atk"], target["iv"], target["lv"], is_hp=False, is_player=True)
-    else: current_user.pokemon_image = "https://via.placeholder.com/150"; current_user.max_hp = 100; current_user.attack = 10
+    else:
+        current_user.pokemon_image = "https://via.placeholder.com/150"
+        current_user.max_hp = 100
+        current_user.attack = 10
+        
     current_user.hp = current_user.max_hp
     db.commit()
     await manager.broadcast(f"EVENT:PVP_SWAP|{current_user.id}")
@@ -497,12 +513,9 @@ def duel_attack(damage: int = Query(0), heal: int = Query(0), db: Session = Depe
             room = r; break
     if not room: raise HTTPException(status_code=400, detail="不在對戰中")
     if room["turn"] != current_user.id: raise HTTPException(status_code=400, detail="還沒輪到你")
-    
-    # 🔥 防呆
     try: damage = int(damage)
     except: damage = 0
     if damage < 0: damage = 0
-    
     is_p1 = (current_user.id == room["p1"])
     target_key = "p2_data" if is_p1 else "p1_data"
     target_id = room["p2"] if is_p1 else room["p1"]
@@ -571,7 +584,7 @@ def delete_user_by_name(username: str, db: Session = Depends(get_db)):
         db.rollback()
         return {"message": f"❌ 刪除失敗 (資料庫錯誤): {str(e)}"}
 
-# 團體戰與野外功能保持 V2.13.4 邏輯 (因為沒變)
+# 團體戰與野外功能保持 V2.13.4 邏輯
 def update_raid_logic(db: Session = None):
     now = get_now_tw(); curr_total_mins = now.hour * 60 + now.minute
     for (h, m) in RAID_SCHEDULE:
@@ -670,32 +683,19 @@ def claim_raid_reward(choice: int = Query(...), current_user: User = Depends(get
 def get_wild_list(level: int, current_user: User = Depends(get_current_user)):
     update_user_activity(current_user.id); 
     if level > current_user.level: level = current_user.level
-    
-    # 強制將野怪等級設為玩家寵物當前等級
     target_level = current_user.pet_level
-    
-    # 找出所有已解鎖的怪獸名稱
     available_mons = []
     for unlock_lv, mons in WILD_UNLOCK_LEVELS.items():
         if unlock_lv <= target_level:
             available_mons.extend(mons)
-            
-    # 如果因為某種原因列表為空，預設小拉達
-    if not available_mons:
-        available_mons = ["小拉達"]
-        
-    # 隨機挑選最多 4 隻顯示給玩家選 (避免列表太長)
+    if not available_mons: available_mons = ["小拉達"]
     display_mons = random.sample(available_mons, k=min(len(available_mons), 4))
-    
     wild_list = []
     for name in display_mons:
         if name not in POKEDEX_DATA: continue
         base = POKEDEX_DATA[name]
-        
-        # 根據玩家等級計算野怪數值 (IV 固定 50 作為標準)
         wild_hp = apply_iv_stats(base["hp"], 50, target_level, is_hp=True, is_player=False)
         wild_atk = apply_iv_stats(base["atk"], 50, target_level, is_hp=False, is_player=False)
-        
         wild_skills = base.get("skills", ["撞擊", "撞擊", "撞擊"])
         wild_list.append({ "name": name, "raw_name": name, "is_powerful": False, "level": target_level, "hp": wild_hp, "max_hp": wild_hp, "attack": wild_atk, "image_url": base["img"], "skills": wild_skills })
     return wild_list
