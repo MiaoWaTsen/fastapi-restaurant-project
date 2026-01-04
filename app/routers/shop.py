@@ -24,19 +24,14 @@ from app.common.game_data import (
 router = APIRouter()
 
 # =================================================================
-# 🔥 初始化邏輯 (強制修復資料庫結構)
+# 初始化邏輯
 # =================================================================
 def init_gyms():
     try:
         with Session(engine) as session:
-            # 1. 強制刪除舊的 gyms 表格
             session.execute(text("DROP TABLE IF EXISTS gyms CASCADE"))
             session.commit()
-            
-            # 2. 重新根據 Model 建立表格
             Base.metadata.create_all(bind=engine)
-            
-            # 3. 建立新道館
             gyms = [
                 Gym(id=1, name="第一道館", buff_desc="防守方 HP/ATK +10%", income_rate=10),
                 Gym(id=2, name="第二道館", buff_desc="防守方 HP/ATK +10%", income_rate=15),
@@ -45,7 +40,7 @@ def init_gyms():
             ]
             session.add_all(gyms)
             session.commit()
-            print("✅ 道館初始化完成 (已重置結構)")
+            print("✅ 道館初始化完成")
     except Exception as e:
         print(f"❌ 道館初始化錯誤: {e}")
 
@@ -561,7 +556,10 @@ def delete_user_by_name(username: str, db: Session = Depends(get_db)):
         db.rollback()
         return {"message": f"❌ 刪除失敗 (資料庫錯誤): {str(e)}"}
 
-# 團體戰與野外功能保持 V2.13.4 邏輯
+# =================================================================
+# 4. 團體戰與野外 API
+# =================================================================
+
 def update_raid_logic(db: Session = None):
     now = get_now_tw(); curr_total_mins = now.hour * 60 + now.minute
     for (h, m) in RAID_SCHEDULE:
@@ -660,19 +658,30 @@ def claim_raid_reward(choice: int = Query(...), current_user: User = Depends(get
 def get_wild_list(level: int, current_user: User = Depends(get_current_user)):
     update_user_activity(current_user.id); 
     if level > current_user.level: level = current_user.level
-    target_level = current_user.pet_level
+    
+    # 🔥 核心修正：使用玩家傳入的 level (即選單選的等級)
+    target_level = level
+    
+    # 找出所有已解鎖的怪獸名稱 (unlock_lv <= target_level)
     available_mons = []
     for unlock_lv, mons in WILD_UNLOCK_LEVELS.items():
         if unlock_lv <= target_level:
             available_mons.extend(mons)
+            
     if not available_mons: available_mons = ["小拉達"]
-    display_mons = random.sample(available_mons, k=min(len(available_mons), 4))
+    
+    # 列出所有符合條件的怪獸
+    display_mons = available_mons 
+    
     wild_list = []
     for name in display_mons:
         if name not in POKEDEX_DATA: continue
         base = POKEDEX_DATA[name]
+        
+        # 數值計算：使用 target_level
         wild_hp = apply_iv_stats(base["hp"], 50, target_level, is_hp=True, is_player=False)
         wild_atk = apply_iv_stats(base["atk"], 50, target_level, is_hp=False, is_player=False)
+        
         wild_skills = base.get("skills", ["撞擊", "撞擊", "撞擊"])
         wild_list.append({ "name": name, "raw_name": name, "is_powerful": False, "level": target_level, "hp": wild_hp, "max_hp": wild_hp, "attack": wild_atk, "image_url": base["img"], "skills": wild_skills })
     return wild_list
