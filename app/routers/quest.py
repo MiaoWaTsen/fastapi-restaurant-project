@@ -30,8 +30,8 @@ def generate_quest(user_pet_level):
     # 2. 隨機選一個目標
     target = random.choice(valid_targets)
     
-    # 3. 決定任務類型 (20% 機率是黃金任務)
-    is_golden = random.random() < 0.2
+    # 3. 決定任務類型 (5% 機率是黃金任務)
+    is_golden = random.random() < 0.05
     
     if is_golden:
         # 🔥 黃金任務
@@ -39,18 +39,20 @@ def generate_quest(user_pet_level):
         req = 5 
         xp = 0
         gold = 0
-        # 🔥 新增等級顯示
+        # 🔥 顯示等級
         desc = f"✨ [黃金] 擊敗 {req} 隻 Lv.{user_pet_level} {target}"
     else:
         # 一般任務
         q_type = "BATTLE_WILD"
         req = random.randint(1, 3)
-        # 🔥 新增等級顯示
+        # 🔥 顯示等級
         desc = f"擊敗 {req} 隻 Lv.{user_pet_level} {target}"
 
         # 一般任務獎勵公式
         base_xp_per_unit = 60 + (user_pet_level * 8)
         base_gold_per_unit = 40 + (user_pet_level * 4)
+        
+        # 數量加成
         count_multiplier = req ** 1.15
         
         xp = int(base_xp_per_unit * count_multiplier)

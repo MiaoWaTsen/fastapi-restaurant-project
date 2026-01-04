@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>⚡️ 寶可夢大亂鬥 V2.14.0 ⚡️</title>
+    <title>⚡️ 寶可夢大亂鬥 V2.14.2 ⚡️</title>
     <script src="https://unpkg.com/vue@3/dist/vue.global.js"></script>
     <style>
         [v-cloak] { display: none; }
@@ -120,8 +120,8 @@
 
 <div id="app" class="container" v-cloak>
     <div v-if="!user" style="text-align:center; padding-top:100px;">
-        <h1 style="color:#e94560">寶可夢大亂鬥 V2.14.0</h1>
-        <p>道館重置 & 佔領系統更新版</p>
+        <h1 style="color:#e94560">寶可夢大亂鬥 V2.14.2</h1>
+        <p>介面優化與數據校正版</p>
         <button class="btn-action" @click="logout">前往登入頁面</button>
         <br><br>
         <button style="background:transparent; border:1px solid #aaa; color:#aaa; padding:5px;" @click="initAdmin">👑 初始化管理員</button>
@@ -197,7 +197,6 @@
                     <b>{{ skill }}</b> 
                     <small>{{ getSkillDesc(skill) }}</small>
                 </button>
-                
                 <button v-if="battle.mode === 'wild'" class="btn-skill btn-shield" :class="{'btn-disabled': isEnemyTurn}" @click="useShield" :disabled="shieldUses <= 0 || isEnemyTurn">
                     <b>🛡️ 防護盾</b> <small>剩 {{ shieldUses }} 次</small>
                 </button>
@@ -254,7 +253,7 @@
             </div>
         </div>
 
-        <div v-if="newsState.show" class="modal-overlay"><div class="modal-box" style="text-align:left;"><div class="modal-title" style="text-align:center;">📢 V2.14.0 更新公告</div><ul><li><b>🏟️ 道館重製</b>：移除屬性，佔領時可選擇防守寶可夢！</li><li><b>✨ 圖鑑修正</b>：分母已校正為玩家可獲得列表。</li></ul><div style="text-align:center; margin-top:15px;"><button class="btn-yes" @click="closeNews">我知道了</button></div></div></div>
+        <div v-if="newsState.show" class="modal-overlay"><div class="modal-box" style="text-align:left;"><div class="modal-title" style="text-align:center;">📢 V2.14.2 更新公告</div><ul><li><b>✨ 機率調整</b>：扭蛋機率與黃金任務機率優化。</li><li><b>🚀 介面優化</b>：任務與排行榜切換時自動刷新。</li></ul><div style="text-align:center; margin-top:15px;"><button class="btn-yes" @click="closeNews">我知道了</button></div></div></div>
         
         <div v-if="showRates" class="modal-overlay" @click.self="showRates=false"><div class="modal-box" style="width: 400px; max-height:80vh;"><div class="modal-title">📊 扭蛋機率表</div><div style="overflow-y:auto; max-height:60vh;"><div v-for="(pool, name) in gachaRates" :key="name" style="margin-bottom: 15px;"><h4 style="color: #f1c40f; border-bottom: 1px solid #555;">{{ name }}</h4><table class="rate-table"><tr v-for="item in pool" :key="item.name"><td>{{ item.name }}</td><td style="text-align: right;">{{ item.rate }}%</td></tr></table></div></div><button class="btn-yes" style="width: 100%; margin-top: 10px;" @click="showRates=false">關閉</button></div></div>
 
@@ -360,6 +359,12 @@
             const token = localStorage.getItem('token');
             const tab = ref('wild'); 
             
+            // 🔥 使用 watch 監聽分頁切換，實現自動刷新
+            watch(tab, (newVal) => {
+                if (newVal === 'quest') fetchQuests();
+                if (newVal === 'leaderboard') fetchLeaderboard();
+            });
+
             const box = computed(() => { 
                 if(!user.value || !user.value.pokemon_storage) return []; 
                 if(typeof user.value.pokemon_storage === 'object') return user.value.pokemon_storage;
@@ -408,7 +413,6 @@
             const battleResultMsg = ref("");
             const quests = ref([]);
             const players = ref([]);
-            // Removed: friends, friendRequests
             const viewMon = ref(null);
             const pokedexCollection = ref([]); 
             const pokedexPercent = ref(0); 
@@ -439,14 +443,15 @@
             let deadInterval = null;
             let battleId = null;
 
+            // 🔥 機率表顯示 (V2.14.2)
             const gachaRates = { 
-                "🔮 初級": [{name:"垃圾(小拉達/波波/烈雀/綠毛蟲)", rate:60}, {name:"普通(走路草/喇叭芽/尼多朗)", rate:30}, {name:"稀有(皮卡丘/六尾/卡蒂狗)", rate:9}, {name:"極稀有(御三家)", rate:1}],
-                "🔵 中級": [{name:"普通(皮卡丘/六尾/喵喵)", rate:40}, {name:"御三家", rate:40}, {name:"強勢(大岩蛇/腕力)", rate:15}, {name:"卡比獸", rate:5}],
-                "🟣 高級": [{name:"進化型", rate:50}, {name:"坦克(卡比獸/吉利蛋)", rate:30}, {name:"高輸出(耿鬼/胡地)", rate:15}, {name:"快龍", rate:5}],
-                "🍬 糖果": [{name:"伊布", rate:100}],
-                "✨ 黃金": [{name:"卡比獸", rate:40}, {name:"吉利蛋", rate:40}, {name:"快龍", rate:20}],
-                "👑 傳說": [{name:"三神鳥", rate:90}, {name:"鳳王/洛奇亞", rate:10}],
-                "💰 傳奇": [{name:"三神鳥", rate:50}, {name:"鳳/洛", rate:30}, {name:"超夢/夢幻", rate:20}]
+                "🔮 初級": [{name:"妙蛙種子", rate:5}, {name:"小火龍", rate:5}, {name:"傑尼龜", rate:5}, {name:"六尾", rate:5}, {name:"毛辮羊", rate:5}, {name:"伊布", rate:10}, {name:"皮卡丘", rate:10}, {name:"皮皮", rate:10}, {name:"胖丁", rate:10}, {name:"大蔥鴨", rate:10}, {name:"呆呆獸", rate:12.5}, {name:"可達鴨", rate:12.5}],
+                "🔵 中級": [{name:"妙蛙種子", rate:10}, {name:"小火龍", rate:10}, {name:"傑尼龜", rate:10}, {name:"伊布", rate:10}, {name:"皮卡丘", rate:10}, {name:"呆呆獸", rate:10}, {name:"可達鴨", rate:10}, {name:"毛辮羊", rate:10}, {name:"卡比獸", rate:5}, {name:"吉利蛋", rate:3}, {name:"拉普拉斯", rate:3}, {name:"妙蛙花", rate:3}, {name:"噴火龍", rate:3}, {name:"水箭龜", rate:3}],
+                "🟣 高級": [{name:"卡比獸", rate:20}, {name:"吉利蛋", rate:20}, {name:"幸福蛋", rate:10}, {name:"拉普拉斯", rate:10}, {name:"妙蛙花", rate:10}, {name:"噴火龍", rate:10}, {name:"水箭龜", rate:10}, {name:"快龍", rate:5}, {name:"耿鬼", rate:5}],
+                "🍬 糖果": [{name:"伊布", rate:20}, {name:"皮卡丘", rate:20}, {name:"妙蛙花", rate:10}, {name:"噴火龍", rate:10}, {name:"水箭龜", rate:10}, {name:"卡比獸", rate:10}, {name:"吉利蛋", rate:10}, {name:"幸福蛋", rate:4}, {name:"拉普拉斯", rate:3}, {name:"快龍", rate:3}],
+                "✨ 黃金": [{name:"卡比獸", rate:30}, {name:"吉利蛋", rate:35}, {name:"幸福蛋", rate:20}, {name:"拉普拉斯", rate:5}, {name:"快龍", rate:5}, {name:"耿鬼", rate:5}],
+                "👑 傳說": [{name:"急凍鳥", rate:25}, {name:"火焰鳥", rate:25}, {name:"閃電鳥", rate:25}, {name:"鳳王", rate:7.5}, {name:"洛奇亞", rate:7.5}, {name:"超夢", rate:5}, {name:"夢幻", rate:5}],
+                "💰 傳奇": [{name:"快龍", rate:30}, {name:"耿鬼", rate:20}, {name:"急凍鳥", rate:15}, {name:"火焰鳥", rate:15}, {name:"閃電鳥", rate:15}, {name:"鳳王", rate:2}, {name:"洛奇亞", rate:2}, {name:"超夢", rate:0.5}, {name:"夢幻", rate:0.5}]
             };
 
             const logout = () => { localStorage.clear(); window.location.href = 'login.html'; };
@@ -564,8 +569,7 @@
 
             const doSkillAttack = async (skillName) => { 
                 if(isEnemyTurn.value) return; 
-                if(!skillData.value[skillName]) return; // 🔥 防呆
-                
+                if(!skillData.value[skillName]) return; 
                 try { 
                     isEnemyTurn.value = true; clearInterval(timerInterval); 
                     const skill = skillData.value[skillName]; let healAmt = 0; 
@@ -589,7 +593,6 @@
                             const d = await res.json();
                             if(d.result === 'WIN') { showToast("勝利", d.reward); battle.value.active = false; updateInfo(); fetchGymList(); }
                             else if(d.result === 'WIN_SELECT') { 
-                                // 🔥 勝利選角邏輯
                                 showToast("勝利", d.reward);
                                 battle.value.active = false;
                                 pendingGymId.value = d.gym_id; 
@@ -642,7 +645,7 @@
             const sendInvite = async (p) => { await safeFetch(`${API_URL.replace('/items','')}/shop/social/invite/${p.id}`, { method: 'POST' }); showToast("系統", "已發送邀請，等待對方回應..."); };
             const acceptInvite = async () => { await safeFetch(`${API_URL.replace('/items','')}/shop/social/accept_invite/${invite.value.source_id}`, { method: 'POST' }); invite.value.has_invite = false; duelState.value.preparing = true; };
             const rejectInvite = async () => { await safeFetch(`${API_URL.replace('/items','')}/shop/social/reject_invite/${invite.value.source_id}`, { method: 'POST' }); invite.value.has_invite = false; };
-
+            
             const checkDuelStatus = async () => {
                 const res = await safeFetch(`${API_URL.replace('/items','')}/shop/duel/status`);
                 if (res && res.ok) {
@@ -679,7 +682,6 @@
                         isEnemyTurn.value = false;
                     } 
                     else if(d.result === 'EMPTY') {
-                        // 空道館 -> 彈窗選角
                         showToast("系統", d.message);
                         pendingGymId.value = gymId;
                         showDefenderSelect.value = true;
@@ -688,7 +690,6 @@
                 } else if(res) { const d = await res.json(); showToast("錯誤", d.detail); }
             };
 
-            // 🔥 選角佔領函式
             const selectDefender = async (pokemon) => {
                 if(!pendingGymId.value) return;
                 try {
@@ -747,7 +748,7 @@
                 gymList, startGymBattle,
                 canJoinLobby, viewPokedexEntry,
                 buyItem,
-                showDefenderSelect, selectDefender // 🔥 新增
+                showDefenderSelect, selectDefender 
             };
         }
     }).mount('#app');
