@@ -14,7 +14,6 @@ from app.common.deps import get_current_user
 from app.models.user import User, Gym
 from app.common.websocket import manager 
 
-# 引入完整的遊戲資料
 from app.common.game_data import (
     SKILL_DB, POKEDEX_DATA, COLLECTION_MONS, OBTAINABLE_MONS, LEGENDARY_MONS,
     WILD_UNLOCK_LEVELS, GACHA_NORMAL, GACHA_MEDIUM, GACHA_HIGH, 
@@ -24,41 +23,41 @@ from app.common.game_data import (
 
 router = APIRouter()
 
-# =================================================================
-# 🔥 初始化邏輯 (強制修復資料庫結構)
-# =================================================================
+# ... (init_gyms, 全域變數, update_user_activity, is_user_busy, get_now_tw, get_skills_data, buy_item, play_gacha 保持不變) ...
+# 請保留 V2.14.12 的上半部代碼，此處省略以節省篇幅。
+# 或是直接使用前一份完整代碼，僅修改 start_gym_battle 與 gym_battle_attack。
+
+# 為了方便，這裡直接提供 start_gym_battle 與 gym_battle_attack 的新邏輯：
+
 def init_gyms():
     try:
         with Session(engine) as session:
-            # 1. 強制刪除舊的 gyms 表格 (解決欄位缺失問題)
+            # 強制重建表格
             session.execute(text("DROP TABLE IF EXISTS gyms CASCADE"))
             session.commit()
-            
-            # 2. 重新根據 Model 建立表格
             Base.metadata.create_all(bind=engine)
             
-            # 3. 建立新道館
+            # 建立道館 (含限制道館)
             gyms = [
                 Gym(id=1, name="第一道館", buff_desc="防守方 HP/ATK +10%", income_rate=10),
                 Gym(id=2, name="第二道館", buff_desc="防守方 HP/ATK +10%", income_rate=15),
                 Gym(id=3, name="第三道館", buff_desc="防守方 HP/ATK +10%", income_rate=15),
                 Gym(id=4, name="第四道館", buff_desc="防守方 HP/ATK +10%", income_rate=20),
+                # 🔥 新增限制道館
+                Gym(id=5, name="限制道館 A", buff_desc="⚠️ 限制 Lv.50 以下 | 收益 +25%", income_rate=25),
+                Gym(id=6, name="限制道館 B", buff_desc="⚠️ 限制 Lv.50 以下 | 收益 +25%", income_rate=25),
             ]
             session.add_all(gyms)
             session.commit()
-            print("✅ 道館初始化完成 (已重置結構)")
+            print("✅ 道館初始化完成 (含限制道館)")
     except Exception as e:
         print(f"❌ 道館初始化錯誤: {e}")
 
-# =================================================================
-# 全域變數
-# =================================================================
 ONLINE_USERS = {}
 INVITES = {}
 DUEL_ROOMS = {}
 GYM_BATTLES = {} 
 
-# 每日團體戰時間表 (時, 分)
 RAID_SCHEDULE = [(8, 0), (14, 0), (18, 0), (21, 0), (22, 0), (23, 0)] 
 RAID_STATE = {"active": False, "status": "IDLE", "boss": None, "current_hp": 0, "max_hp": 0, "players": {}, "last_attack_time": None}
 
@@ -78,9 +77,6 @@ def get_now_tw():
 def get_skills_data():
     return SKILL_DB
 
-# =================================================================
-# 1. 商店與扭蛋 API
-# =================================================================
 @router.post("/buy/{item_type}")
 async def buy_item(item_type: str, db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
     PRICES = {
@@ -118,7 +114,6 @@ async def play_gacha(gacha_type: str, db: Session = Depends(get_db), current_use
     elif gacha_type == 'legendary_gold': pool = GACHA_LEGENDARY_GOLD; cost = 400000
     else: raise HTTPException(status_code=400, detail="未知類型")
     
-    # 扣除資源
     if gacha_type == 'candy':
         if inventory.get("candy", 0) < cost: raise HTTPException(status_code=400, detail="糖果不足")
         inventory["candy"] -= cost
@@ -132,11 +127,9 @@ async def play_gacha(gacha_type: str, db: Session = Depends(get_db), current_use
         if current_user.money < cost: raise HTTPException(status_code=400, detail="金幣不足")
         current_user.money -= cost
         
-    # 權重抽取
     prize_data = random.choices(pool, weights=[p['weight'] for p in pool], k=1)[0]
     prize_name = prize_data['name']
     
-    # 保底機制
     new_lv = random.randint(1, current_user.level)
     min_iv = 0
     if 'legendary' in gacha_type: min_iv = 60 
@@ -148,7 +141,6 @@ async def play_gacha(gacha_type: str, db: Session = Depends(get_db), current_use
     current_user.pokemon_storage = json.dumps(box)
     current_user.inventory = json.dumps(inventory)
     
-    # 更新解鎖圖鑑 (後端紀錄用)
     unlocked = current_user.unlocked_monsters.split(',') if current_user.unlocked_monsters else []
     if prize_name not in unlocked: unlocked.append(prize_name); current_user.unlocked_monsters = ",".join(unlocked)
     
@@ -159,10 +151,6 @@ async def play_gacha(gacha_type: str, db: Session = Depends(get_db), current_use
     except: pass
     
     return {"message": f"獲得 {prize_name} (Lv.{new_lv}, IV: {iv})!", "prize": new_mon, "user": current_user}
-
-# =================================================================
-# 2. 核心功能 API (盒子操作、特訓)
-# =================================================================
 
 @router.post("/box/swap/{pokemon_uid}")
 async def swap_active_pokemon(pokemon_uid: str, db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
@@ -259,20 +247,15 @@ async def train_pokemon(pokemon_uid: str, mode: str = Query(...), db: Session = 
     db.commit()
     return {"message": msg, "iv": new_iv, "user": current_user}
 
-# =================================================================
-# 3. 道館系統 (Gym) - 自我修復版
-# =================================================================
-
 @router.get("/gym/list")
 def get_gym_list(db: Session = Depends(get_db)):
     try:
         gyms = db.query(Gym).all()
-        if not gyms:
-            raise Exception("No gyms found")
+        if not gyms: raise Exception("No gyms found")
     except Exception as e:
         print(f"⚠️ 偵測到道館資料異常，正在嘗試自我修復... {e}")
         db.rollback()
-        init_gyms() # 自動執行初始化
+        init_gyms() 
         return []
 
     result = []
@@ -310,6 +293,10 @@ async def occupy_gym(gym_id: int, pokemon_uid: str = Query(...), db: Session = D
     target_mon = next((p for p in box if p["uid"] == pokemon_uid), None)
     if not target_mon: raise HTTPException(status_code=404, detail="找不到該寶可夢")
     
+    # 🔥 限制道館檢查 (守方)
+    if gym_id in [5, 6] and target_mon["lv"] > 50:
+        raise HTTPException(status_code=400, detail="此道館限制 Lv.50 以下的寶可夢才能佔領！")
+
     base = POKEDEX_DATA.get(target_mon["name"])
     if not base: raise HTTPException(status_code=400, detail="資料錯誤")
     
@@ -345,18 +332,29 @@ def start_gym_battle(gym_id: int, current_user: User = Depends(get_current_user)
         db.commit()
         return {"result": "COLLECTED", "message": f"收取了 {income} Gold！"}
 
+    # 🔥 限制道館檢查 (攻方)
+    if gym_id in [5, 6] and current_user.pet_level > 50:
+        raise HTTPException(status_code=400, detail="此道館限制 Lv.50 以下的寶可夢才能挑戰！")
+
     now = get_now_tw()
     if gym.protection_until and gym.protection_until > now:
         left = int((gym.protection_until - now).total_seconds())
         raise HTTPException(status_code=400, detail=f"道館保護中，剩餘 {left} 秒")
         
     battle_id = str(uuid.uuid4())
+    # 這裡將 Buff 加成算進去
     boss_hp = int(gym.leader_max_hp * 1.1)
     boss_atk = int(gym.leader_atk * 1.1)
     
+    # 🔥 初始化攻守雙方的戰鬥狀態 (Buffs)
     GYM_BATTLES[battle_id] = { 
         "gym_id": gym_id, "challenger_id": current_user.id, 
-        "boss_data": { "name": gym.leader_name, "pname": gym.leader_pokemon, "hp": boss_hp, "max_hp": boss_hp, "atk": boss_atk, "img": gym.leader_img } 
+        "boss_data": { 
+            "name": gym.leader_name, "pname": gym.leader_pokemon, 
+            "hp": boss_hp, "max_hp": boss_hp, "atk": boss_atk, "img": gym.leader_img,
+            "atk_mult": 1.0 # Boss 攻擊倍率
+        },
+        "player_atk_mult": 1.0 # 玩家攻擊倍率
     }
     return {"result": "BATTLE_START", "battle_id": battle_id, "opponent": GYM_BATTLES[battle_id]["boss_data"]}
 
@@ -369,16 +367,52 @@ def gym_battle_attack(battle_id: str, damage: int = Query(0), heal: int = Query(
     except: damage = 0
     if damage < 0: damage = 0
     
-    room["boss_data"]["hp"] = max(0, room["boss_data"]["hp"] - damage)
+    # 1. 處理玩家對 Boss 的傷害 (套用 player_atk_mult)
+    final_player_dmg = int(damage * room["player_atk_mult"])
+    room["boss_data"]["hp"] = max(0, room["boss_data"]["hp"] - final_player_dmg)
+    
+    # 玩家回血
     if heal > 0: current_user.hp = min(current_user.max_hp, current_user.hp + heal)
     
+    # 2. 處理 Boss 對玩家的傷害 (AI 邏輯)
     boss_dmg = 0
     if room["boss_data"]["hp"] > 0:
-        boss_dmg = int(room["boss_data"]["atk"] * random.uniform(0.9, 1.1))
+        boss_pname = room["boss_data"]["pname"]
+        boss_base = POKEDEX_DATA.get(boss_pname, {})
+        
+        # 讀取 Boss 技能 (預設撞擊)
+        skills = boss_base.get("skills", ["撞擊", "撞擊", "撞擊"])
+        chosen_skill = random.choice(skills)
+        skill_info = SKILL_DB.get(chosen_skill, {"dmg": 20, "effect": None})
+        
+        # 計算傷害：(Buff後攻擊力 / 100) * 技能係數 * 浮動 * BossBuff
+        # room["boss_data"]["atk"] 已經是 1.1倍 (道館加成)
+        base_atk = room["boss_data"]["atk"] * room["boss_data"]["atk_mult"]
+        raw_dmg = (base_atk / 100) * skill_info["dmg"]
+        boss_dmg = int(raw_dmg * random.uniform(0.95, 1.05))
+        
         current_user.hp = max(0, current_user.hp - boss_dmg)
+        
+        # 觸發 Boss 技能特效
+        effect = skill_info.get("effect")
+        prob = skill_info.get("prob", 0)
+        val = skill_info.get("val", 0)
+        
+        if effect and random.random() < prob:
+            if effect == "heal":
+                heal_amt = int(room["boss_data"]["max_hp"] * val)
+                room["boss_data"]["hp"] = min(room["boss_data"]["max_hp"], room["boss_data"]["hp"] + heal_amt)
+            elif effect == "buff_atk":
+                room["boss_data"]["atk_mult"] *= (1 + val)
+            elif effect == "debuff_atk":
+                room["player_atk_mult"] *= (1 - val) # 降低玩家下回合傷害
+            elif effect == "recoil":
+                recoil_amt = int(room["boss_data"]["max_hp"] * val)
+                room["boss_data"]["hp"] = max(0, room["boss_data"]["hp"] - recoil_amt)
+
     db.commit()
     
-    # 勝利
+    # 勝利判定
     if room["boss_data"]["hp"] <= 0:
         gym = db.query(Gym).filter(Gym.id == room["gym_id"]).first()
         old_leader = db.query(User).filter(User.id == gym.leader_id).first()
@@ -387,7 +421,6 @@ def gym_battle_attack(battle_id: str, damage: int = Query(0), heal: int = Query(
             income = int(mins * gym.income_rate); 
             if income > 0: old_leader.money += income
         
-        # 清空道館
         gym.leader_id = None
         gym.leader_name = ""
         gym.leader_pokemon = ""
@@ -408,9 +441,6 @@ def gym_battle_attack(battle_id: str, damage: int = Query(0), heal: int = Query(
         
     return {"result": "NEXT", "boss_hp": room["boss_data"]["hp"], "user_hp": current_user.hp, "boss_dmg": boss_dmg}
 
-# =================================================================
-# 4. 🔥 補回圖鑑接口 (POKEDEX COLLECTION)
-# =================================================================
 @router.get("/pokedex/all")
 def get_all_pokedex():
     result = []
@@ -421,35 +451,23 @@ def get_all_pokedex():
 
 @router.get("/pokedex/collection")
 def get_pokedex_collection(current_user: User = Depends(get_current_user), db: Session = Depends(get_db)):
-    # 1. 確保已解鎖名單與盒子同步 (自動修正)
     unlocked = current_user.unlocked_monsters.split(',') if current_user.unlocked_monsters else []
     try:
         box = json.loads(current_user.pokemon_storage) if current_user.pokemon_storage else []
         is_updated = False
         for p in box:
-            if p['name'] not in unlocked:
-                unlocked.append(p['name'])
-                is_updated = True
-        if is_updated:
-            current_user.unlocked_monsters = ",".join(unlocked)
-            db.commit()
-    except:
-        pass
-
-    # 2. 僅回傳 COLLECTION_MONS 裡的 28 隻 (避免顯示小拉達等野怪)
+            if p['name'] not in unlocked: unlocked.append(p['name']); is_updated = True
+        if is_updated: current_user.unlocked_monsters = ",".join(unlocked); db.commit()
+    except: pass 
     result = []
     for name in COLLECTION_MONS:
         if name in POKEDEX_DATA:
             data = POKEDEX_DATA[name]
-            result.append({
-                "name": name,
-                "img": data["img"],
-                "is_owned": name in unlocked
-            })
+            result.append({ "name": name, "img": data["img"], "is_owned": name in unlocked })
     return result
 
 # =================================================================
-# 5. 團體戰與野外 API (修復後)
+# 5. 團體戰與野外 API (含死亡判定修復)
 # =================================================================
 
 def update_raid_logic(db: Session = None):
@@ -477,7 +495,11 @@ def update_raid_logic(db: Session = None):
                         active_uids = [uid for uid, p in RAID_STATE["players"].items() if not p.get("dead_at")]
                         if active_uids:
                             users_to_hit = db.query(User).filter(User.id.in_(active_uids)).all()
-                            for u in users_to_hit: u.hp = max(0, u.hp - boss_dmg); 
+                            for u in users_to_hit: 
+                                u.hp = max(0, u.hp - boss_dmg)
+                                # 🔥 修正：若自動攻擊導致死亡，立刻標記 dead_at
+                                if u.hp <= 0:
+                                    RAID_STATE["players"][u.id]["dead_at"] = get_now_tw().isoformat()
                             db.commit()
             if RAID_STATE["current_hp"] <= 0: RAID_STATE["status"] = "ENDED"
             return
@@ -488,7 +510,6 @@ def get_raid_status(current_user: User = Depends(get_current_user), db: Session 
     update_raid_logic(db); my_status = {}; is_participant = False
     if current_user.id in RAID_STATE["players"]: my_status = RAID_STATE["players"][current_user.id]; is_participant = True
     
-    # 🔥 核心修正：加入 .get("img", "") 防呆，避免 KeyError
     boss_img = ""
     if RAID_STATE["boss"]:
         boss_img = RAID_STATE["boss"].get("img", "")
@@ -567,10 +588,10 @@ def get_wild_list(level: int, current_user: User = Depends(get_current_user)):
     update_user_activity(current_user.id); 
     if level > current_user.level: level = current_user.level
     
-    # 🔥 核心修正：使用玩家傳入的 level (即選單選的等級)
+    # 強制將野怪等級設為玩家傳入的選擇等級
     target_level = level
     
-    # 找出所有已解鎖的怪獸名稱 (unlock_lv <= target_level)
+    # 找出所有已解鎖的怪獸名稱
     available_mons = []
     for unlock_lv, mons in WILD_UNLOCK_LEVELS.items():
         if unlock_lv <= target_level:
