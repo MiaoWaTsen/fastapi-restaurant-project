@@ -229,22 +229,33 @@ async def train_pokemon(pokemon_uid: str, mode: str = Query(...), db: Session = 
     target = next((p for p in box if p["uid"] == pokemon_uid), None)
     if not target: raise HTTPException(status_code=404, detail="找不到該寶可夢")
     is_legendary = target["name"] in LEGENDARY_MONS
+    
     cost_candy = 0; cost_gold_candy = 0; cost_leg_candy = 0; cost_money = 0
+    
+    # 🔥 更新特訓費用 (V2.14.16)
     if mode == 'normal':
-        if is_legendary: cost_candy = 50; cost_leg_candy = 1; cost_money = 3000
-        else: cost_candy = 30; cost_gold_candy = 1; cost_money = 1000
+        if is_legendary: 
+            cost_candy = 50; cost_leg_candy = 3; cost_money = 5000
+        else: 
+            cost_candy = 30; cost_gold_candy = 3; cost_money = 1000
     elif mode == 'hyper':
-        if is_legendary: cost_candy = 250; cost_leg_candy = 5; cost_money = 15000
-        else: cost_candy = 150; cost_gold_candy = 5; cost_money = 5000
+        if is_legendary: 
+            cost_candy = 250; cost_leg_candy = 15; cost_money = 25000
+        else: 
+            cost_candy = 150; cost_gold_candy = 15; cost_money = 5000
+            
     if current_user.money < cost_money: raise HTTPException(status_code=400, detail=f"金幣不足")
     if inv.get("candy", 0) < cost_candy: raise HTTPException(status_code=400, detail=f"糖果不足")
-    current_user.money -= cost_money; inv["candy"] -= cost_candy
+    if inv.get("golden_candy", 0) < cost_gold_candy: raise HTTPException(status_code=400, detail=f"黃金糖果不足")
+    if inv.get("legendary_candy", 0) < cost_leg_candy: raise HTTPException(status_code=400, detail=f"傳說糖果不足")
+    
+    current_user.money -= cost_money
+    inv["candy"] -= cost_candy
     inv["golden_candy"] = inv.get("golden_candy", 0) - cost_gold_candy
     inv["legendary_candy"] = inv.get("legendary_candy", 0) - cost_leg_candy
     
     old_iv = target.get("iv", 0)
     
-    # 🔥 修正：傳說寶可夢在一般特訓時，IV 保底 60
     if mode == 'normal': 
         min_val = 60 if is_legendary else 0
         new_iv = random.randint(min_val, 100)
@@ -268,7 +279,7 @@ async def train_pokemon(pokemon_uid: str, mode: str = Query(...), db: Session = 
     return {"message": msg, "iv": new_iv, "user": current_user}
 
 # =================================================================
-# 3. 道館系統 (Gym) - 修正補血/AI/限制
+# 3. 道館系統 (Gym)
 # =================================================================
 
 @router.get("/gym/list")
@@ -317,7 +328,7 @@ async def occupy_gym(gym_id: int, pokemon_uid: str = Query(...), db: Session = D
     target_mon = next((p for p in box if p["uid"] == pokemon_uid), None)
     if not target_mon: raise HTTPException(status_code=404, detail="找不到該寶可夢")
     
-    # 🔥 限制道館檢查 (守方)
+    # 限制道館檢查
     if gym_id in [5, 6] and target_mon["lv"] > 50:
         raise HTTPException(status_code=400, detail="此道館限制 Lv.50 以下的寶可夢才能佔領！")
 
@@ -356,7 +367,6 @@ def start_gym_battle(gym_id: int, current_user: User = Depends(get_current_user)
         db.commit()
         return {"result": "COLLECTED", "message": f"收取了 {income} Gold！"}
 
-    # 🔥 限制道館檢查 (攻方)
     if gym_id in [5, 6] and current_user.pet_level > 50:
         raise HTTPException(status_code=400, detail="此道館限制 Lv.50 以下的寶可夢才能挑戰！")
 
@@ -366,11 +376,9 @@ def start_gym_battle(gym_id: int, current_user: User = Depends(get_current_user)
         raise HTTPException(status_code=400, detail=f"道館保護中，剩餘 {left} 秒")
         
     battle_id = str(uuid.uuid4())
-    # 這裡將 Buff 加成算進去
     boss_hp = int(gym.leader_max_hp * 1.1)
     boss_atk = int(gym.leader_atk * 1.1)
     
-    # 🔥 初始化攻守雙方的戰鬥狀態 (Buffs)
     GYM_BATTLES[battle_id] = { 
         "gym_id": gym_id, "challenger_id": current_user.id, 
         "boss_data": { 
@@ -391,19 +399,15 @@ def gym_battle_attack(battle_id: str, damage: int = Query(0), heal: int = Query(
     except: damage = 0
     if damage < 0: damage = 0
     
-    # 🔥 1. 玩家攻擊處理 (含降攻 Debuff)
     final_player_dmg = int(damage * room["player_atk_mult"])
     room["boss_data"]["hp"] = max(0, room["boss_data"]["hp"] - final_player_dmg)
     
-    # 🔥 2. 玩家補血處理 (先補，使用變數暫存，避免順序錯亂)
-    # 醫療包回復 20%
     heal_val = 0
     final_user_hp = current_user.hp
     if heal > 0:
         heal_val = int(current_user.max_hp * 0.2)
         final_user_hp = min(current_user.max_hp, final_user_hp + heal_val)
     
-    # 🔥 3. Boss 反擊處理 (AI 抽招)
     boss_dmg = 0
     if room["boss_data"]["hp"] > 0:
         boss_pname = room["boss_data"]["pname"]
@@ -416,10 +420,8 @@ def gym_battle_attack(battle_id: str, damage: int = Query(0), heal: int = Query(
         raw_dmg = (base_atk / 100) * skill_info["dmg"]
         boss_dmg = int(raw_dmg * random.uniform(0.95, 1.05))
         
-        # 扣血
         final_user_hp = max(0, final_user_hp - boss_dmg)
         
-        # 特效
         effect = skill_info.get("effect")
         prob = skill_info.get("prob", 0)
         val = skill_info.get("val", 0)
@@ -435,11 +437,9 @@ def gym_battle_attack(battle_id: str, damage: int = Query(0), heal: int = Query(
                 recoil_amt = int(room["boss_data"]["max_hp"] * val)
                 room["boss_data"]["hp"] = max(0, room["boss_data"]["hp"] - recoil_amt)
 
-    # 🔥 4. 寫回資料庫
     current_user.hp = final_user_hp
     db.commit()
     
-    # 勝利判定
     if room["boss_data"]["hp"] <= 0:
         gym = db.query(Gym).filter(Gym.id == room["gym_id"]).first()
         old_leader = db.query(User).filter(User.id == gym.leader_id).first()
@@ -448,26 +448,12 @@ def gym_battle_attack(battle_id: str, damage: int = Query(0), heal: int = Query(
             income = int(mins * gym.income_rate); 
             if income > 0: old_leader.money += income
         
-        gym.leader_id = None
-        gym.leader_name = ""
-        gym.leader_pokemon = ""
-        gym.leader_pokemon_uid = ""
-        gym.occupied_at = None
-        gym.protection_until = None
-        
-        # 🔥 勝利後回滿血
-        current_user.hp = current_user.max_hp 
-        current_user.money += 500
-        db.commit()
-        del GYM_BATTLES[battle_id]
-        
+        gym.leader_id = None; gym.leader_name = ""; gym.leader_pokemon = ""; gym.leader_pokemon_uid = ""; gym.occupied_at = None; gym.protection_until = None
+        current_user.hp = current_user.max_hp; current_user.money += 500; db.commit(); del GYM_BATTLES[battle_id]
         return {"result": "WIN_SELECT", "reward": "踢館成功！請選擇寶可夢佔領！", "user_hp": current_user.hp, "gym_id": gym.id}
         
     if current_user.hp <= 0:
-        # 🔥 失敗後回滿血
-        current_user.hp = current_user.max_hp 
-        db.commit()
-        del GYM_BATTLES[battle_id]
+        current_user.hp = current_user.max_hp; db.commit(); del GYM_BATTLES[battle_id]
         return {"result": "LOSE", "reward": "挑戰失敗... (HP已回復)", "user_hp": current_user.hp, "boss_dmg": boss_dmg}
         
     return {"result": "NEXT", "boss_hp": room["boss_data"]["hp"], "user_hp": current_user.hp, "boss_dmg": boss_dmg, "real_heal_amt": heal_val}
@@ -627,19 +613,29 @@ def get_wild_list(level: int, current_user: User = Depends(get_current_user)):
     update_user_activity(current_user.id); 
     if level > current_user.level: level = current_user.level
     
+    # 強制將野怪等級設為玩家傳入的選擇等級
     target_level = level
+    
+    # 找出所有已解鎖的怪獸名稱
     available_mons = []
     for unlock_lv, mons in WILD_UNLOCK_LEVELS.items():
         if unlock_lv <= target_level:
             available_mons.extend(mons)
+            
     if not available_mons: available_mons = ["小拉達"]
+    
+    # 🔥 核心修正：取消 random.sample，列出所有解鎖怪獸
     display_mons = available_mons 
+    
     wild_list = []
     for name in display_mons:
         if name not in POKEDEX_DATA: continue
         base = POKEDEX_DATA[name]
+        
+        # 數值計算：使用 target_level
         wild_hp = apply_iv_stats(base["hp"], 50, target_level, is_hp=True, is_player=False)
         wild_atk = apply_iv_stats(base["atk"], 50, target_level, is_hp=False, is_player=False)
+        
         wild_skills = base.get("skills", ["撞擊", "撞擊", "撞擊"])
         wild_list.append({ "name": name, "raw_name": name, "is_powerful": False, "level": target_level, "hp": wild_hp, "max_hp": wild_hp, "attack": wild_atk, "image_url": base["img"], "skills": wild_skills })
     return wild_list
@@ -657,7 +653,7 @@ async def wild_attack_api(is_win: bool = Query(...), is_powerful: bool = Query(F
         if is_powerful: inv["growth_candy"] = inv.get("growth_candy", 0) + 1; msg += " & 🍬 成長糖果 x1"
         current_user.inventory = json.dumps(inv)
         
-        # 🔥 任務檢查邏輯修正
+        # 🔥 任務檢查邏輯修正 (V2.14.14)
         quests = json.loads(current_user.quests) if current_user.quests else []
         quest_updated = False
         for q in quests:
@@ -667,7 +663,6 @@ async def wild_attack_api(is_win: bool = Query(...), is_powerful: bool = Query(F
                 if q.get("target") in real_name and target_level >= req_lv:
                     q["now"] += 1
                     quest_updated = True
-                    
         if quest_updated: current_user.quests = json.dumps(quests)
         
         req_xp_p = get_req_xp(current_user.level)
