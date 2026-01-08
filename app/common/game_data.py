@@ -31,7 +31,7 @@ def apply_iv_stats(base_val, iv, level, is_hp=False, is_player=True):
     return max(1, val)
 
 # =================================================================
-# 2. 技能資料庫 (完全依照 V2.14.13 要求)
+# 2. 技能資料庫
 # =================================================================
 SKILL_DB = {
     # 傷害 16
@@ -100,15 +100,17 @@ SKILL_DB = {
 }
 
 # =================================================================
-# 3. 寶可夢圖鑑 (完全依照 V2.14.13 要求)
+# 3. 寶可夢圖鑑
 # =================================================================
 POKEDEX_DATA = {
+    # --- 玩家寶可夢 (28隻) ---
     "妙蛙種子": {"hp": 130, "atk": 112, "img": "https://img.pokemondb.net/artwork/large/bulbasaur.jpg", "skills": ["藤鞭", "種子炸彈", "污泥炸彈"]},
     "小火龍": {"hp": 112, "atk": 130, "img": "https://img.pokemondb.net/artwork/large/charmander.jpg", "skills": ["火花", "噴射火焰", "大字爆炎"]},
     "傑尼龜": {"hp": 121, "atk": 121, "img": "https://img.pokemondb.net/artwork/large/squirtle.jpg", "skills": ["水槍", "水流噴射", "水流尾"]},
     "妙蛙花": {"hp": 142, "atk": 130, "img": "https://img.pokemondb.net/artwork/large/venusaur.jpg", "skills": ["藤鞭", "種子炸彈", "污泥炸彈"]},
     "噴火龍": {"hp": 130, "atk": 142, "img": "https://img.pokemondb.net/artwork/large/charizard.jpg", "skills": ["火花", "噴射火焰", "大字爆炎"]},
     "水箭龜": {"hp": 136, "atk": 136, "img": "https://img.pokemondb.net/artwork/large/blastoise.jpg", "skills": ["水槍", "水流噴射", "水流尾"]},
+    
     "毛辮羊": {"hp": 120, "atk": 120, "img": "https://img.pokemondb.net/artwork/large/wooloo.jpg", "skills": ["撞擊", "撒嬌", "電擊"]},
     "皮卡丘": {"hp": 125, "atk": 125, "img": "https://img.pokemondb.net/artwork/large/pikachu.jpg", "skills": ["電光", "放電", "電擊"]},
     "伊布": {"hp": 125, "atk": 125, "img": "https://img.pokemondb.net/artwork/large/eevee.jpg", "skills": ["撞擊", "挖洞", "高速星星"]},
@@ -132,7 +134,7 @@ POKEDEX_DATA = {
     "超夢": {"hp": 152, "atk": 155, "img": "https://img.pokemondb.net/artwork/large/mewtwo.jpg", "skills": ["念力", "精神強念", "精神擊破"]},
     "夢幻": {"hp": 155, "atk": 152, "img": "https://img.pokemondb.net/artwork/large/mew.jpg", "skills": ["念力", "暗影球", "精神擊破"]},
     
-    # 🔥 野怪數據 (保留供戰鬥使用)
+    # 🔥 野怪數據 (Lv.1 ~ Lv.96 全實裝)
     "小拉達": {"hp": 90, "atk": 80, "img": "https://img.pokemondb.net/artwork/large/rattata.jpg", "skills": ["抓", "出奇一擊", "撞擊"]},
     "波波": {"hp": 94, "atk": 84, "img": "https://img.pokemondb.net/artwork/large/pidgey.jpg", "skills": ["抓", "啄", "燕返"]},
     "烈雀": {"hp": 88, "atk": 92, "img": "https://img.pokemondb.net/artwork/large/spearow.jpg", "skills": ["抓", "啄", "燕返"]},
@@ -175,7 +177,9 @@ WILD_UNLOCK_LEVELS = {
     76: ["電擊獸"], 81: ["鴨嘴火獸"], 86: ["化石翼龍"], 91: ["怪力"], 96: ["暴鯉龍"]
 }
 
-# (機率池保持不變)
+# =================================================================
+# 5. 機率池
+# =================================================================
 GACHA_NORMAL = [{"name": "妙蛙種子", "weight": 5}, {"name": "小火龍", "weight": 5}, {"name": "傑尼龜", "weight": 5}, {"name": "六尾", "weight": 5}, {"name": "毛辮羊", "weight": 5}, {"name": "伊布", "weight": 10}, {"name": "皮卡丘", "weight": 10}, {"name": "皮皮", "weight": 10}, {"name": "胖丁", "weight": 10}, {"name": "大蔥鴨", "weight": 10}, {"name": "呆呆獸", "weight": 12.5}, {"name": "可達鴨", "weight": 12.5}]
 GACHA_MEDIUM = [{"name": "妙蛙種子", "weight": 10}, {"name": "小火龍", "weight": 10}, {"name": "傑尼龜", "weight": 10}, {"name": "伊布", "weight": 10}, {"name": "皮卡丘", "weight": 10}, {"name": "呆呆獸", "weight": 10}, {"name": "可達鴨", "weight": 10}, {"name": "毛辮羊", "weight": 10}, {"name": "卡比獸", "weight": 5}, {"name": "吉利蛋", "weight": 3}, {"name": "拉普拉斯", "weight": 3}, {"name": "妙蛙花", "weight": 3}, {"name": "噴火龍", "weight": 3}, {"name": "水箭龜", "weight": 3}]
 GACHA_HIGH = [{"name": "卡比獸", "weight": 20}, {"name": "吉利蛋", "weight": 20}, {"name": "幸福蛋", "weight": 10}, {"name": "拉普拉斯", "weight": 10}, {"name": "妙蛙花", "weight": 10}, {"name": "噴火龍", "weight": 10}, {"name": "水箭龜", "weight": 10}, {"name": "快龍", "weight": 5}, {"name": "耿鬼", "weight": 5}]
@@ -183,4 +187,13 @@ GACHA_CANDY = [{"name": "伊布", "weight": 20}, {"name": "皮卡丘", "weight":
 GACHA_GOLDEN = [{"name": "卡比獸", "weight": 30}, {"name": "吉利蛋", "weight": 35}, {"name": "幸福蛋", "weight": 20}, {"name": "拉普拉斯", "weight": 5}, {"name": "快龍", "weight": 5}, {"name": "耿鬼", "weight": 5}]
 GACHA_LEGENDARY_CANDY = [{"name": "急凍鳥", "weight": 25}, {"name": "火焰鳥", "weight": 25}, {"name": "閃電鳥", "weight": 25}, {"name": "鳳王", "weight": 7.5}, {"name": "洛奇亞", "weight": 7.5}, {"name": "超夢", "weight": 5}, {"name": "夢幻", "weight": 5}]
 GACHA_LEGENDARY_GOLD = [{"name": "快龍", "weight": 30}, {"name": "耿鬼", "weight": 20}, {"name": "急凍鳥", "weight": 15}, {"name": "火焰鳥", "weight": 15}, {"name": "閃電鳥", "weight": 15}, {"name": "鳳王", "weight": 2}, {"name": "洛奇亞", "weight": 2}, {"name": "超夢", "weight": 0.5}, {"name": "夢幻", "weight": 0.5}]
-RAID_BOSS_POOL = [{"name": "❄️ 急凍鳥", "hp": 15000, "atk": 500, "weight": 25, "img": "https://img.pokemondb.net/artwork/large/articuno.jpg"}, {"name": "🔥 火焰鳥", "hp": 15000, "atk": 500, "weight": 25, "img": "https://img.pokemondb.net/artwork/large/moltres.jpg"}, {"name": "⚡ 閃電鳥", "hp": 15000, "atk": 500, "weight": 25, "img": "https://img.pokemondb.net/artwork/large/zapdos.jpg"}, {"name": "🌈 鳳王", "hp": 18000, "atk": 600, "weight": 7.5, "img": "https://img.pokemondb.net/artwork/large/ho-oh.jpg"}, {"name": "🌪️ 洛奇亞", "hp": 18000, "atk": 600, "weight": 7.5, "img": "https://img.pokemondb.net/artwork/large/lugia.jpg"}, {"name": "🔮 超夢", "hp": 20000, "atk": 800, "weight": 5, "img": "https://img.pokemondb.net/artwork/large/mewtwo.jpg"}, {"name": "✨ 夢幻", "hp": 20000, "atk": 800, "weight": 5, "img": "https://img.pokemondb.net/artwork/large/mew.jpg"}]
+
+RAID_BOSS_POOL = [
+    {"name": "❄️ 急凍鳥", "hp": 15000, "atk": 500, "weight": 25, "img": "https://img.pokemondb.net/artwork/large/articuno.jpg"},
+    {"name": "🔥 火焰鳥", "hp": 15000, "atk": 500, "weight": 25, "img": "https://img.pokemondb.net/artwork/large/moltres.jpg"},
+    {"name": "⚡ 閃電鳥", "hp": 15000, "atk": 500, "weight": 25, "img": "https://img.pokemondb.net/artwork/large/zapdos.jpg"},
+    {"name": "🌈 鳳王", "hp": 18000, "atk": 600, "weight": 7.5, "img": "https://img.pokemondb.net/artwork/large/ho-oh.jpg"},
+    {"name": "🌪️ 洛奇亞", "hp": 18000, "atk": 600, "weight": 7.5, "img": "https://img.pokemondb.net/artwork/large/lugia.jpg"},
+    {"name": "🔮 超夢", "hp": 20000, "atk": 800, "weight": 5, "img": "https://img.pokemondb.net/artwork/large/mewtwo.jpg"},
+    {"name": "✨ 夢幻", "hp": 20000, "atk": 800, "weight": 5, "img": "https://img.pokemondb.net/artwork/large/mew.jpg"}
+]
