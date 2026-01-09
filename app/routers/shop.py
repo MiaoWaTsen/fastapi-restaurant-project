@@ -276,7 +276,7 @@ async def train_pokemon(pokemon_uid: str, mode: str = Query(...), db: Session = 
     return {"message": msg, "iv": new_iv, "user": current_user}
 
 # =================================================================
-# 3. 道館系統 (Gym) - ⚠️ Debuff 邏輯修正
+# 3. 道館系統 (Gym) - 🔥 修正：Debuff 降低使用者自己的攻擊
 # =================================================================
 
 @router.get("/gym/list")
@@ -364,9 +364,9 @@ def gym_battle_attack(battle_id: str, damage: int = Query(0), heal: int = Query(
     final_player_dmg = int(damage * room["player_atk_mult"])
     room["boss_data"]["hp"] = max(0, room["boss_data"]["hp"] - final_player_dmg)
     
-    # 🔥 玩家使用 Debuff 招式 (Debuff 對手，也就是 Boss)
+    # 🔥 玩家使用 Debuff 招式 (降低 玩家自己 的攻擊力)
     if debuff > 0:
-        room["boss_data"]["atk_mult"] *= 0.9 # 降低 10%
+        room["player_atk_mult"] *= 0.9 
     
     # 玩家補血 (先補)
     heal_val = 0
@@ -398,8 +398,8 @@ def gym_battle_attack(battle_id: str, damage: int = Query(0), heal: int = Query(
             elif effect == "buff_atk": 
                 room["boss_data"]["atk_mult"] *= (1 + val)
             elif effect == "debuff_atk": 
-                # 🔥 Boss 使用 Debuff 招式 (Debuff 玩家)
-                room["player_atk_mult"] *= (1 - val)
+                # 🔥 Boss 使用 Debuff 招式 (降低 Boss自己 的攻擊力)
+                room["boss_data"]["atk_mult"] *= (1 - val)
             elif effect == "recoil": 
                 d = int(room["boss_data"]["max_hp"] * val)
                 room["boss_data"]["hp"] = max(0, room["boss_data"]["hp"] - d)
@@ -707,7 +707,7 @@ def duel_attack(damage: int = Query(0), heal: int = Query(0), debuff: int = Quer
     for r in DUEL_ROOMS.values():
         if (r["p1"] == current_user.id or r["p2"] == current_user.id) and r["status"] == "FIGHTING":
             room = r; break
-    if not room: raise HTTPException(status_code=400, detail="不在對戰中")
+    if not room: raise HTTPException(status_code=404, detail="不在對戰中")
     if room["turn"] != current_user.id: raise HTTPException(status_code=400, detail="還沒輪到你")
     try: damage = int(damage)
     except: damage = 0
@@ -718,7 +718,7 @@ def duel_attack(damage: int = Query(0), heal: int = Query(0), debuff: int = Quer
     target_id = room["p2"] if is_p1 else room["p1"]
     my_key = "p1_data" if is_p1 else "p2_data"
     
-    # 🔥 PVP 傷害計算 (套用攻擊方 Buff)
+    # 🔥 PVP 傷害計算
     my_atk_mult = room.get("p1_atk_mult", 1.0) if is_p1 else room.get("p2_atk_mult", 1.0)
     final_dmg = int(damage * my_atk_mult)
     
@@ -726,12 +726,12 @@ def duel_attack(damage: int = Query(0), heal: int = Query(0), debuff: int = Quer
     room[target_key]["hp"] = max(0, room[target_key]["hp"] - final_dmg)
     target_user.hp = room[target_key]["hp"]
     
-    # 🔥 PVP Debuff (降低對方攻擊)
+    # 🔥 PVP Debuff (降低自己攻擊)
     if debuff > 0:
         if is_p1: 
-            room["p2_atk_mult"] = room.get("p2_atk_mult", 1.0) * 0.9
+            room["p1_atk_mult"] = room.get("p1_atk_mult", 1.0) * 0.9 # 降低自己 (P1)
         else:
-            room["p1_atk_mult"] = room.get("p1_atk_mult", 1.0) * 0.9
+            room["p2_atk_mult"] = room.get("p2_atk_mult", 1.0) * 0.9 # 降低自己 (P2)
 
     if heal > 0:
         room[my_key]["hp"] = min(room[my_key]["max_hp"], room[my_key]["hp"] + heal)
