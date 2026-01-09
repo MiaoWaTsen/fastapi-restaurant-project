@@ -73,7 +73,7 @@ def get_skills_data():
     return SKILL_DB
 
 # =================================================================
-# 1. 商店與扭蛋 API
+# 1. 商店與扭蛋
 # =================================================================
 @router.post("/buy/{item_type}")
 async def buy_item(item_type: str, count: int = Query(1, gt=0), db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
@@ -153,6 +153,10 @@ async def play_gacha(gacha_type: str, db: Session = Depends(get_db), current_use
     
     return {"message": f"獲得 {prize_name} (Lv.{new_lv}, IV: {iv})!", "prize": new_mon, "user": current_user}
 
+# =================================================================
+# 2. 核心功能 API
+# =================================================================
+
 @router.post("/box/swap/{pokemon_uid}")
 async def swap_active_pokemon(pokemon_uid: str, db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
     try: box = json.loads(current_user.pokemon_storage)
@@ -204,7 +208,7 @@ async def box_action(action: str, pokemon_uid: str, count: int = Query(1, gt=0),
             target["exp"] += 1500 
             real_used += 1
             req = get_req_xp(target["lv"])
-            while target["exp"] >= req and target["lv"] < 120: # Lv cap 120
+            while target["exp"] >= req and target["lv"] < 120:
                 if target["lv"] >= current_user.level: break
                 target["lv"] += 1; target["exp"] -= req; req = get_req_xp(target["lv"])
         
@@ -270,6 +274,10 @@ async def train_pokemon(pokemon_uid: str, mode: str = Query(...), db: Session = 
     current_user.inventory = json.dumps(inv)
     db.commit()
     return {"message": msg, "iv": new_iv, "user": current_user}
+
+# =================================================================
+# 3. 道館系統 (Gym) - ⚠️ Debuff 邏輯修正
+# =================================================================
 
 @router.get("/gym/list")
 def get_gym_list(db: Session = Depends(get_db)):
@@ -344,25 +352,30 @@ def start_gym_battle(gym_id: int, current_user: User = Depends(get_current_user)
     return {"result": "BATTLE_START", "battle_id": battle_id, "opponent": GYM_BATTLES[battle_id]["boss_data"]}
 
 @router.post("/gym/battle/attack/{battle_id}")
-def gym_battle_attack(battle_id: str, damage: int = Query(0), heal: int = Query(0), current_user: User = Depends(get_current_user), db: Session = Depends(get_db)):
+def gym_battle_attack(battle_id: str, damage: int = Query(0), heal: int = Query(0), debuff: int = Query(0), current_user: User = Depends(get_current_user), db: Session = Depends(get_db)):
     if battle_id not in GYM_BATTLES: raise HTTPException(status_code=404, detail="戰鬥已過期")
     room = GYM_BATTLES[battle_id]
+    
     try: damage = int(damage)
     except: damage = 0
     if damage < 0: damage = 0
     
-    # 玩家攻擊
+    # 1. 玩家攻擊
     final_player_dmg = int(damage * room["player_atk_mult"])
     room["boss_data"]["hp"] = max(0, room["boss_data"]["hp"] - final_player_dmg)
     
-    # 玩家補血
+    # 🔥 玩家使用 Debuff 招式 (Debuff 對手，也就是 Boss)
+    if debuff > 0:
+        room["boss_data"]["atk_mult"] *= 0.9 # 降低 10%
+    
+    # 玩家補血 (先補)
     heal_val = 0
     final_user_hp = current_user.hp
     if heal > 0:
         heal_val = int(current_user.max_hp * 0.2)
         final_user_hp = min(current_user.max_hp, final_user_hp + heal_val)
     
-    # Boss AI
+    # 2. Boss AI (反擊)
     boss_dmg = 0
     if room["boss_data"]["hp"] > 0:
         boss_pname = room["boss_data"]["pname"]
@@ -379,10 +392,17 @@ def gym_battle_attack(battle_id: str, damage: int = Query(0), heal: int = Query(
         
         effect = skill_info.get("effect"); prob = skill_info.get("prob", 0); val = skill_info.get("val", 0)
         if effect and random.random() < prob:
-            if effect == "heal": h = int(room["boss_data"]["max_hp"] * val); room["boss_data"]["hp"] += h
-            elif effect == "buff_atk": room["boss_data"]["atk_mult"] *= (1 + val)
-            elif effect == "debuff_atk": room["player_atk_mult"] *= (1 - val)
-            elif effect == "recoil": d = int(room["boss_data"]["max_hp"] * val); room["boss_data"]["hp"] = max(0, room["boss_data"]["hp"] - d)
+            if effect == "heal": 
+                h = int(room["boss_data"]["max_hp"] * val)
+                room["boss_data"]["hp"] += h
+            elif effect == "buff_atk": 
+                room["boss_data"]["atk_mult"] *= (1 + val)
+            elif effect == "debuff_atk": 
+                # 🔥 Boss 使用 Debuff 招式 (Debuff 玩家)
+                room["player_atk_mult"] *= (1 - val)
+            elif effect == "recoil": 
+                d = int(room["boss_data"]["max_hp"] * val)
+                room["boss_data"]["hp"] = max(0, room["boss_data"]["hp"] - d)
     
     current_user.hp = final_user_hp
     db.commit()
@@ -540,7 +560,6 @@ def claim_raid_reward(choice: int = Query(...), current_user: User = Depends(get
 def get_wild_list(level: int, current_user: User = Depends(get_current_user)):
     update_user_activity(current_user.id); 
     if level > current_user.level: level = current_user.level
-    
     target_level = level
     available_mons = []
     for unlock_lv, mons in WILD_UNLOCK_LEVELS.items():
@@ -635,7 +654,8 @@ def accept_invite(source_id: int, current_user: User = Depends(get_current_user)
         "p1": source_id, "p2": current_user.id, "status": "PREPARING",
         "start_time": datetime.utcnow().isoformat(),
         "countdown_end": (datetime.utcnow() + timedelta(seconds=12)).isoformat(),
-        "turn": None, "p1_data": None, "p2_data": None, "ended_at": None 
+        "turn": None, "p1_data": None, "p2_data": None, "ended_at": None,
+        "p1_atk_mult": 1.0, "p2_atk_mult": 1.0 # 🔥 PVP Buff/Debuff 初始化
     }
     del INVITES[current_user.id]
     return {"message": "接受成功", "room_id": room_id}
@@ -682,26 +702,41 @@ def check_duel_status(current_user: User = Depends(get_current_user), db: Sessio
     return {"status": "NONE"}
 
 @router.post("/duel/attack")
-def duel_attack(damage: int = Query(0), heal: int = Query(0), db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
+def duel_attack(damage: int = Query(0), heal: int = Query(0), debuff: int = Query(0), db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
     room = None
     for r in DUEL_ROOMS.values():
         if (r["p1"] == current_user.id or r["p2"] == current_user.id) and r["status"] == "FIGHTING":
             room = r; break
-    if not room: raise HTTPException(status_code=404, detail="不在對戰中")
+    if not room: raise HTTPException(status_code=400, detail="不在對戰中")
     if room["turn"] != current_user.id: raise HTTPException(status_code=400, detail="還沒輪到你")
     try: damage = int(damage)
     except: damage = 0
     if damage < 0: damage = 0
+    
     is_p1 = (current_user.id == room["p1"])
     target_key = "p2_data" if is_p1 else "p1_data"
     target_id = room["p2"] if is_p1 else room["p1"]
     my_key = "p1_data" if is_p1 else "p2_data"
+    
+    # 🔥 PVP 傷害計算 (套用攻擊方 Buff)
+    my_atk_mult = room.get("p1_atk_mult", 1.0) if is_p1 else room.get("p2_atk_mult", 1.0)
+    final_dmg = int(damage * my_atk_mult)
+    
     target_user = db.query(User).filter(User.id == target_id).first()
-    room[target_key]["hp"] = max(0, room[target_key]["hp"] - damage)
+    room[target_key]["hp"] = max(0, room[target_key]["hp"] - final_dmg)
     target_user.hp = room[target_key]["hp"]
+    
+    # 🔥 PVP Debuff (降低對方攻擊)
+    if debuff > 0:
+        if is_p1: 
+            room["p2_atk_mult"] = room.get("p2_atk_mult", 1.0) * 0.9
+        else:
+            room["p1_atk_mult"] = room.get("p1_atk_mult", 1.0) * 0.9
+
     if heal > 0:
         room[my_key]["hp"] = min(room[my_key]["max_hp"], room[my_key]["hp"] + heal)
         current_user.hp = room[my_key]["hp"]
+        
     if room[target_key]["hp"] <= 0:
         room["status"] = "ENDED"; room["ended_at"] = datetime.utcnow().isoformat() 
         current_user.money += 300; current_user.exp += 500
@@ -725,7 +760,6 @@ def get_online_players(current_user: User = Depends(get_current_user), db: Sessi
         result.append({ "id": u.id, "username": u.username, "pokemon_image": u.pokemon_image, "is_online": is_online })
     return result
 
-# 🔥 6. 新兌換碼
 @router.post("/social/redeem")
 def redeem_code(code: str, current_user: User = Depends(get_current_user), db: Session = Depends(get_db)):
     try: inv = json.loads(current_user.inventory) if current_user.inventory else {}
