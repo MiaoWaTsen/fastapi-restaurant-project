@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>⚡️ 寶可夢大亂鬥 V2.15.4 ⚡️</title>
+    <title>⚡️ 寶可夢大亂鬥 V2.15.5 ⚡️</title>
     <script src="https://unpkg.com/vue@3/dist/vue.global.js"></script>
     <style>
         [v-cloak] { display: none; }
@@ -120,8 +120,8 @@
 
 <div id="app" class="container" v-cloak>
     <div v-if="!user" style="text-align:center; padding-top:100px;">
-        <h1 style="color:#e94560">寶可夢大亂鬥 V2.15.4</h1>
-        <p>PVP 閃退修復版</p>
+        <h1 style="color:#e94560">寶可夢大亂鬥 V2.15.5</h1>
+        <p>PVP 修復版</p>
         <button class="btn-action" @click="logout">前往登入頁面</button>
     </div>
 
@@ -298,7 +298,7 @@
             </div>
         </div>
 
-        <div v-if="newsState.show" class="modal-overlay"><div class="modal-box" style="text-align:left;"><div class="modal-title" style="text-align:center;">📢 V2.15.4 更新公告</div><ul><li><b>📦 批量操作</b>：商店與餵糖現在可以一次操作多個。</li><li><b>⚔️ 野怪升級</b>：野外探險的野怪現在會使用多種招式。</li><li><b>🐛 PVP修正</b>：修復了戰鬥結算閃退的問題。</li></ul><div style="text-align:center; margin-top:15px;"><button class="btn-yes" @click="closeNews">我知道了</button></div></div></div>
+        <div v-if="newsState.show" class="modal-overlay"><div class="modal-box" style="text-align:left;"><div class="modal-title" style="text-align:center;">📢 V2.15.5 更新公告</div><ul><li><b>PVP修正</b>：修復了戰鬥結算閃退的問題。</li><li><b>📦 批量操作</b>：商店與餵糖現在可以一次操作多個。</li><li><b>⚔️ 全面升級</b>：玩家等級上限提升至Lv.120、寶可夢盒子容量提升至35個。</li></ul><div style="text-align:center; margin-top:15px;"><button class="btn-yes" @click="closeNews">我知道了</button></div></div></div>
         
         <div v-if="showRates" class="modal-overlay" @click.self="showRates=false"><div class="modal-box" style="width: 400px; max-height:80vh;"><div class="modal-title">📊 扭蛋機率表</div><div style="overflow-y:auto; max-height:60vh;"><div v-for="(pool, name) in gachaRates" :key="name" style="margin-bottom: 15px;"><h4 style="color: #f1c40f; border-bottom: 1px solid #555;">{{ name }}</h4><table class="rate-table"><tr v-for="item in pool" :key="item.name"><td>{{ item.name }}</td><td style="text-align: right;">{{ item.rate }}%</td></tr></table></div></div><button class="btn-yes" style="width: 100%; margin-top: 10px;" @click="showRates=false">關閉</button></div></div>
 
@@ -536,7 +536,7 @@
             
             const normalizeName = (name) => { if (!name) return ""; return name.replace(/🔥 |✨ |強大的 |閃光 /g, "").trim(); };
             const getMonSkills = (name) => SKILL_MAP[normalizeName(name)] || ["撞擊", "撞擊", "撞擊"];
-            const closeNews = () => { newsState.value.show = false; sessionStorage.setItem('seenNews_v2154', 'true'); };
+            const closeNews = () => { newsState.value.show = false; sessionStorage.setItem('seenNews_v2155', 'true'); };
             
             const calcStats = (mon) => { 
                 const realName = normalizeName(mon.name);
@@ -652,16 +652,16 @@
                     if (skill.effect === 'buff_atk' && Math.random() < skill.prob) { battle.value.atkBuff *= (1 + skill.val); showFloatingText(`ATK UP!`, 'gold'); } 
                     else if (skill.effect === 'heal' && Math.random() < skill.prob) { healAmt = Math.floor(user.value.max_hp * skill.val); user.value.hp = Math.min(user.value.max_hp, user.value.hp + healAmt); showFloatingText(`+${healAmt}`, 'green'); } 
                     
-                    // 🔥 修正：Debuff 改為降低自己攻擊 (副作用)
+                    // 🔥 修正：Debuff 降低對方攻擊 (自己無影響)
                     else if (skill.effect === 'debuff_atk' && Math.random() < skill.prob) {
                         debuffFlag = 1; // 告訴後端要 debuff
                         
                         // 野外戰：直接降低自己前端顯示的攻擊倍率
                         if (battle.value.mode === 'wild') {
-                            battle.value.atkBuff *= 0.9;
+                            battle.value.target.attack = Math.floor(battle.value.target.attack * (1 - skill.val));
                         }
-                        // 顯示在自己頭上
-                        showFloatingText('My ATK ↘', 'blue', false);
+                        // 顯示在對方頭上 (Enemy=true)
+                        showFloatingText('Enemy ATK ↘', 'blue', true);
                     }
                     else if (skill.effect === 'recoil' && Math.random() < skill.prob) {
                         const recoilAmt = Math.floor(user.value.max_hp * skill.val);
@@ -676,7 +676,6 @@
                         }
                     }
 
-                    // 計算傷害時，因為 atkBuff 已經降低了，所以傷害會自然變低
                     let rawDmg = Math.floor((user.value.attack / 100) * skill.dmg * battle.value.atkBuff); 
                     let dmg = Math.floor(rawDmg * (0.95 + Math.random() * 0.1)); if (dmg < 1) dmg = 1; 
                     
@@ -686,7 +685,7 @@
                         battle.value.target.hp = Math.max(0, battle.value.target.hp - dmg); 
                         if(battle.value.target.hp <= 0) { handleBattleWin(); } else { setTimeout(enemyAttackPhase, 1200); } 
                     } else if (battle.value.mode === 'gym') {
-                        // 🔥 傳送 debuff 參數給後端 (後端會降低 player_atk_mult)
+                        // 🔥 傳送 debuff 參數
                         const res = await safeFetch(`${API_URL.replace('/items','')}/shop/gym/battle/attack/${battleId}?damage=${dmg}&heal=${healAmt}&debuff=${debuffFlag}`, { method: 'POST' });
                         if(res && res.ok) {
                             const d = await res.json();
@@ -787,7 +786,8 @@
                         user.value.hp = d.my_data.hp; battle.value.target.hp = d.opponent_data.hp; isEnemyTurn.value = !d.is_my_turn;
                     } 
                     else if (d.status === 'ENDED') { 
-                        if (battle.value.active) { 
+                        // 🔥 PVP 修正：鎖定彈窗，防止無限跳出
+                        if (battle.value.active && battle.value.mode === 'pvp') { 
                             battle.value.active = false; 
                             if (!isBattleResultShown.value) {
                                 if (d.my_data.hp <= 0) showToast("戰敗", "💀 你輸了..."); else showToast("勝利", "🏆 恭喜勝利！"); 
@@ -868,7 +868,7 @@
             onMounted(async () => { 
                 document.getElementById('loading').style.display = 'none'; 
                 if(!token) return window.location.href = 'login.html'; 
-                if (!sessionStorage.getItem('seenNews_v2154')) newsState.value.show = true; 
+                if (!sessionStorage.getItem('seenNews_v2155')) newsState.value.show = true; 
                 await fetchSkillData(); await fetchPokedex(); 
                 await updateInfo(); 
                 selectedWildLevel.value = 1;
