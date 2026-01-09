@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>⚡️ 寶可夢大亂鬥 V2.14.18 ⚡️</title>
+    <title>⚡️ 寶可夢大亂鬥 V2.15.1 ⚡️</title>
     <script src="https://unpkg.com/vue@3/dist/vue.global.js"></script>
     <style>
         [v-cloak] { display: none; }
@@ -120,8 +120,8 @@
 
 <div id="app" class="container" v-cloak>
     <div v-if="!user" style="text-align:center; padding-top:100px;">
-        <h1 style="color:#e94560">寶可夢大亂鬥 V2.14.18</h1>
-        <p>PVP 修復 & 批量操作版</p>
+        <h1 style="color:#e94560">寶可夢大亂鬥 V2.15.1</h1>
+        <p>PVP 優化 & 批量操作 & Boss機率</p>
         <button class="btn-action" @click="logout">前往登入頁面</button>
     </div>
 
@@ -147,6 +147,20 @@
                     <button class="btn-yes" @click="acceptInvite">接受</button>
                     <button class="btn-yes" style="background:#e74c3c" @click="rejectInvite">拒絕</button>
                 </div>
+            </div>
+        </div>
+
+        <div v-if="showRaidRates" class="modal-overlay" @click.self="showRaidRates=false">
+            <div class="modal-box">
+                <div class="modal-title">🔥 Boss 出現機率</div>
+                <table class="rate-table">
+                    <tr><th>Boss</th><th>機率</th></tr>
+                    <tr v-for="b in raidBossPoolDisplay" :key="b.name">
+                        <td>{{ b.name }} <span style="font-size:0.8em; color:#aaa;">({{ b.tag }})</span></td>
+                        <td style="color:#f1c40f;">{{ b.rate }}%</td>
+                    </tr>
+                </table>
+                <button class="btn-yes" style="width:100%; margin-top:15px;" @click="showRaidRates=false">關閉</button>
             </div>
         </div>
 
@@ -284,7 +298,7 @@
             </div>
         </div>
 
-        <div v-if="newsState.show" class="modal-overlay"><div class="modal-box" style="text-align:left;"><div class="modal-title" style="text-align:center;">📢 V2.14.18 更新公告</div><ul><li><b>📦 批量操作</b>：商店與餵糖現在可以一次操作多個。</li><li><b>⚔️ 野怪升級</b>：野外探險的野怪現在會使用多種招式。</li><li><b>🎁 兌換碼</b>：輸入 TRUW8Q3HD 領取傳說糖果！</li></ul><div style="text-align:center; margin-top:15px;"><button class="btn-yes" @click="closeNews">我知道了</button></div></div></div>
+        <div v-if="newsState.show" class="modal-overlay"><div class="modal-box" style="text-align:left;"><div class="modal-title" style="text-align:center;">📢 V2.15.1 更新公告</div><ul><li><b>📦 批量操作</b>：商店與餵糖現在可以一次操作多個。</li><li><b>⚔️ 野怪升級</b>：野外探險的野怪現在會使用多種招式。</li><li><b>📊 Boss機率</b>：團體戰大廳現在可以查看 Boss 出現率。</li></ul><div style="text-align:center; margin-top:15px;"><button class="btn-yes" @click="closeNews">我知道了</button></div></div></div>
         
         <div v-if="showRates" class="modal-overlay" @click.self="showRates=false"><div class="modal-box" style="width: 400px; max-height:80vh;"><div class="modal-title">📊 扭蛋機率表</div><div style="overflow-y:auto; max-height:60vh;"><div v-for="(pool, name) in gachaRates" :key="name" style="margin-bottom: 15px;"><h4 style="color: #f1c40f; border-bottom: 1px solid #555;">{{ name }}</h4><table class="rate-table"><tr v-for="item in pool" :key="item.name"><td>{{ item.name }}</td><td style="text-align: right;">{{ item.rate }}%</td></tr></table></div></div><button class="btn-yes" style="width: 100%; margin-top: 10px;" @click="showRates=false">關閉</button></div></div>
 
@@ -297,7 +311,7 @@
                     <div class="stat-block"><div class="stat-title"><span>{{ user.pokemon_name }} (Lv.{{ user.pet_level }})</span><span class="atk-val">ATK: {{ currentAtkMe }} (IV: {{ currentPetIV }})</span></div><div class="bar-container"><div class="bar-fill hp-fill" :style="{ width: hpPercent(user) + '%' }"></div></div><div class="bar-text"><span>HP: {{ user.hp || 0 }}/{{ user.max_hp || 100 }}</span></div><div class="bar-container" style="margin-top:4px;"><div class="bar-fill pet-xp-fill" :style="{ width: petXpPercent(user) + '%' }"></div></div></div>
                 </div>
             </div>
-            <div style="display:flex; flex-direction:column; gap:5px;"><button class="btn-logout" @click="dailyCheckin">📅 簽到</button><button class="btn-logout" @click="logout">登出</button></div>
+            <div style="display:flex; flex-direction:column; gap:5px;"><button class="btn-logout" @click="logout">登出</button></div>
         </div>
         
         <div class="tabs" v-if="!battle.active">
@@ -337,7 +351,13 @@
                 </div>
             </div>
 
-            <div v-if="tab=='raid'"><div v-if="raidState.active" class="card" style="border:2px solid #e74c3c; background:#2c0b0e;"><h2>Boss: {{ raidState.boss_name }}</h2><img :src="raidState.image" style="width:120px; height:120px;"><div v-if="raidState.status === 'LOBBY'" style="color:#f1c40f; margin:10px 0;">⏳ 準備中... 00分準時開打</div><div v-else><div class="bar-container" style="height:20px;"><div class="hp-fill" :style="{width: (raidState.hp/raidState.max_hp)*100 + '%'}"></div></div><p>HP: {{ raidState.hp }} / {{ raidState.max_hp }}</p></div><button v-if="raidState.status=='ENDED'" class="btn-action" style="background:#f1c40f; color:black;" @click="raidVictory=true">🎁 領取獎勵</button><button v-else-if="canJoinLobby" class="btn-action btn-disabled">⏳ 尚未開放</button><button v-else-if="raidState.status=='FIGHTING'" class="btn-action" @click="joinRaid">加入戰鬥 (1000G)</button></div><div v-else class="card">目前沒有團體戰 (08/14/18/21/22/23 點)</div></div>
+            <div v-if="tab=='raid'">
+                <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:10px;">
+                    <h3>🔥 團體戰大廳</h3>
+                    <button class="btn-small" style="width:auto; background:#7f8c8d;" @click="showRaidRates=true">📊 Boss機率</button>
+                </div>
+                <div v-if="raidState.active" class="card" style="border:2px solid #e74c3c; background:#2c0b0e;"><h2>Boss: {{ raidState.boss_name }}</h2><img :src="raidState.image" style="width:120px; height:120px;"><div v-if="raidState.status === 'LOBBY'" style="color:#f1c40f; margin:10px 0;">⏳ 準備中... 00分準時開打</div><div v-else><div class="bar-container" style="height:20px;"><div class="hp-fill" :style="{width: (raidState.hp/raidState.max_hp)*100 + '%'}"></div></div><p>HP: {{ raidState.hp }} / {{ raidState.max_hp }}</p></div><button v-if="raidState.status=='ENDED'" class="btn-action" style="background:#f1c40f; color:black;" @click="raidVictory=true">🎁 領取獎勵</button><button v-else-if="canJoinLobby" class="btn-action btn-disabled">⏳ 尚未開放</button><button v-else-if="raidState.status=='FIGHTING'" class="btn-action" @click="joinRaid">加入戰鬥 (1000G)</button></div><div v-else class="card">目前沒有團體戰 (08/14/18/21/22/23 點)</div>
+            </div>
             <div v-if="tab=='quest'"><div v-if="quests.length === 0" style="color:#aaa; text-align:center;">目前沒有任務，請重新整理頁面...</div><div v-for="q in quests" :key="q.id" class="card quest-card" :class="{'quest-golden': q.type=='GOLDEN', 'quest-completed': q.now >= q.req}"><h4><span v-if="q.type=='GOLDEN'">✨</span> {{ q.target_display || q.target }} <span v-if="q.type=='GOLDEN'">✨</span></h4><div class="bar-container" style="height:12px; margin:10px 0; background:rgba(0,0,0,0.3);"><div class="bar-fill" :style="{ width: Math.min(100, (q.now/q.req)*100) + '%', background: q.now >= q.req ? '#2ecc71' : (q.type=='GOLDEN' ? '#fff' : '#f1c40f') }"></div></div><div style="display:flex; justify-content:space-between; align-items:center;"><div><p style="margin:2px 0;">進度：{{ q.now }} / {{ q.req }}</p><p style="margin:2px 0; font-size:0.9em; opacity:0.8;">獎勵：{{ q.type=='GOLDEN' ? '✨ 黃金糖果 x1' : (q.gold + 'G / ' + q.xp + ' XP') }}</p></div><button v-if="Number(q.now) >= Number(q.req)" class="btn-action" style="width:120px; background:#2ecc71;" @click="claimQuest(q.id)">🎁 領取獎勵</button><button v-else class="btn-action" style="width:120px; background:#e74c3c; font-size:0.8em; opacity:0.8;" @click="abandonQuest(q.id)">更換 (-1000G)</button></div></div></div>
             <div v-if="tab=='box'"><h3>📦 寶可夢盒子 ({{ box.length }}/35)</h3><div class="card-grid"><div v-for="p in box" :key="p.uid" class="card" :class="{active: p.uid === user.active_pokemon_uid}" @click="viewBoxMon(p)" :style="{borderColor: p.uid === user.active_pokemon_uid ? '#f1c40f' : 'transparent'}"><span class="iv-tag">IV: {{ p.iv }}</span><b>{{ p.name }}</b><div>Lv.{{ p.lv }}</div></div></div></div>
             <div v-if="tab=='pokedex'"><h3>📖 寶可夢圖鑑 ({{ pokedexPercent }}%)</h3><div class="pokedex-grid"><div v-for="item in pokedexCollection" :key="item.name" class="pokedex-item" :class="{'pokedex-owned': item.is_owned}" @click="viewPokedexEntry(item)"><img :src="item.img" class="pokedex-img" :class="{'pokedex-unknown': !item.is_owned}"><div style="font-size:0.8em; margin-top:5px;">{{ item.is_owned ? item.name : '???' }}</div></div></div></div>
@@ -390,6 +410,17 @@
             const tab = ref('wild'); 
             const bulkState = ref({ show: false, type: '', targetId: '', name: '', price: 0 });
             const isBattleResultShown = ref(false);
+            const showRaidRates = ref(false); // 🔥 新增：Boss機率視窗狀態
+
+            const raidBossPoolDisplay = [
+                { name: "❄️ 急凍鳥", rate: 25, tag: "常見" },
+                { name: "🔥 火焰鳥", rate: 25, tag: "常見" },
+                { name: "⚡ 閃電鳥", rate: 25, tag: "常見" },
+                { name: "🌈 鳳王", rate: 7.5, tag: "稀有" },
+                { name: "🌪️ 洛奇亞", rate: 7.5, tag: "稀有" },
+                { name: "🔮 超夢", rate: 5, tag: "極稀有" },
+                { name: "✨ 夢幻", rate: 5, tag: "極稀有" }
+            ];
 
             watch(tab, (newVal) => {
                 if (newVal === 'quest') fetchQuests();
@@ -504,7 +535,7 @@
             
             const normalizeName = (name) => { if (!name) return ""; return name.replace(/🔥 |✨ |強大的 |閃光 /g, "").trim(); };
             const getMonSkills = (name) => SKILL_MAP[normalizeName(name)] || ["撞擊", "撞擊", "撞擊"];
-            const closeNews = () => { newsState.value.show = false; sessionStorage.setItem('seenNews_v21418', 'true'); };
+            const closeNews = () => { newsState.value.show = false; sessionStorage.setItem('seenNews_v2151', 'true'); };
             
             const calcStats = (mon) => { 
                 const realName = normalizeName(mon.name);
@@ -656,6 +687,7 @@
                 } catch (e) { console.error(e); battle.value.active = false; } 
             };
 
+            // 🔥 批量操作 UI
             const openBulkBuy = (type, name, price) => {
                 bulkState.value = { show: true, type: 'buy', targetId: type, name: name, price: price };
             };
@@ -703,6 +735,7 @@
             
             const dailyCheckin = async () => { const res = await safeFetch(`${API_URL.replace('/items','')}/shop/social/daily_checkin`, { method: 'POST' }); if(res && res.ok) { const d = await res.json(); showToast("簽到", d.message || d.detail); updateInfo(); } else if(res) { const d = await res.json(); showToast("錯誤", d.detail || "簽到失敗"); } };
             const swapMon = async (uid) => { await safeFetch(`${API_URL.replace('/items','')}/shop/box/swap/${uid}`, { method: 'POST' }); updateInfo(); };
+            // useCandy 改由 confirmBulkAction 觸發
             const useCandy = (uid) => { openBulkCandy(uid); };
             const doGamble = async () => { const res = await safeFetch(`${API_URL.replace('/items','')}/shop/gamble?amount=${gambleAmount.value}`, { method: 'POST' }); if(res) { const d = await res.json(); showToast("賭場", d.message || d.detail); updateInfo(); } };
             const buyHeal = async () => { const res = await safeFetch(`${API_URL.replace('/items','')}/shop/heal`, { method: 'POST' }); if(res && res.ok) { showToast("系統", "補血成功"); updateInfo(); } else showToast("錯誤", "金幣不足"); };
@@ -725,6 +758,7 @@
                         user.value.hp = d.my_data.hp; battle.value.target.hp = d.opponent_data.hp; isEnemyTurn.value = !d.is_my_turn;
                     } 
                     else if (d.status === 'ENDED') { 
+                        // 🔥 PVP 修正：鎖定彈窗，防止無限跳出
                         if (battle.value.active) { 
                             battle.value.active = false; 
                             if (!isBattleResultShown.value) {
@@ -806,7 +840,7 @@
             onMounted(async () => { 
                 document.getElementById('loading').style.display = 'none'; 
                 if(!token) return window.location.href = 'login.html'; 
-                if (!sessionStorage.getItem('seenNews_v21418')) newsState.value.show = true; 
+                if (!sessionStorage.getItem('seenNews_v2151')) newsState.value.show = true; 
                 await fetchSkillData(); await fetchPokedex(); 
                 await updateInfo(); 
                 selectedWildLevel.value = 1;
@@ -838,7 +872,8 @@
                 gymList, startGymBattle,
                 canJoinLobby, viewPokedexEntry,
                 showDefenderSelect, selectDefender,
-                bulkState, openBulkBuy, openBulkCandy, confirmBulkAction 
+                bulkState, openBulkBuy, openBulkCandy, confirmBulkAction,
+                showRaidRates, raidBossPoolDisplay 
             };
         }
     }).mount('#app');

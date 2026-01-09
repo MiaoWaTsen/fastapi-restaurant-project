@@ -3,35 +3,52 @@
 import random
 
 # =================================================================
-# 1. 數值計算公式
+# 1. 數值計算公式 (V2.15.0 平衡調整)
 # =================================================================
 def create_xp_map():
+    # Lv 1-10 固定數值
     xp_map = { 1: 50, 2: 120, 3: 200, 4: 350, 5: 600, 6: 900, 7: 1360, 8: 1800, 9: 2300, 10: 2300 }
     current_req = 2300
+    
+    # Lv 11-50 (+600)
     for lv in range(11, 51):
         current_req += 600
         xp_map[lv] = current_req
+        
+    # Lv 51-100 (+2000)
     for lv in range(51, 101):
         current_req += 2000
         xp_map[lv] = current_req
+        
+    # Lv 101-120 (+5000)
+    for lv in range(101, 121):
+        current_req += 5000
+        xp_map[lv] = current_req
+        
     return xp_map
 
 LEVEL_XP_MAP = create_xp_map()
 
 def get_req_xp(lv): 
-    return 999999999 if lv >= 100 else LEVEL_XP_MAP.get(lv, 999999)
+    # 上限開放至 120
+    return 999999999 if lv >= 120 else LEVEL_XP_MAP.get(lv, 999999)
 
 def apply_iv_stats(base_val, iv, level, is_hp=False, is_player=True):
     iv_mult = 0.8 + (iv / 100) * 0.4
+    
+    # 🔥 V2.15.0 成長係數調整
     if is_player:
-        growth_rate = 1.03 if is_hp else 1.031
+        # 玩家：Atk 1.03 / HP 1.032
+        growth_rate = 1.032 if is_hp else 1.03
     else:
-        growth_rate = 1.035
+        # 野怪：Atk 1.037 / HP 1.041 (後期大幅強化)
+        growth_rate = 1.041 if is_hp else 1.037
+        
     val = int(base_val * iv_mult * (growth_rate ** (level - 1)))
     return max(1, val)
 
 # =================================================================
-# 2. 技能資料庫
+# 2. 技能資料庫 (含十字剪與Debuff修復)
 # =================================================================
 SKILL_DB = {
     # 傷害 16
@@ -87,30 +104,30 @@ SKILL_DB = {
     "泥巴炸彈": {"dmg": 26, "effect": None, "prob": 0, "val": 0, "desc": "無特效"},
     "冰凍光束": {"dmg": 26, "effect": None, "prob": 0, "val": 0, "desc": "無特效"},
     "瘋狂伏特": {"dmg": 26, "effect": None, "prob": 0, "val": 0, "desc": "無特效"},
+    "十字剪": {"dmg": 26, "effect": None, "prob": 0, "val": 0, "desc": "無特效"}, # 🔥 新增
     
     # 傷害 28
     "雙倍奉還": {"dmg": 28, "effect": None, "prob": 0, "val": 0, "desc": "無特效"},
     "逆鱗": {"dmg": 28, "effect": None, "prob": 0, "val": 0, "desc": "無特效"},
     
-    # 傷害 30+
+    # 傷害 30+ (🔥 特效修復)
     "精神擊破": {"dmg": 30, "effect": None, "prob": 0, "val": 0, "desc": "無特效"},
     "暗影球": {"dmg": 34, "effect": "debuff_atk", "prob": 1.0, "val": 0.10, "desc": "100%降低10%攻擊力"},
     "水砲": {"dmg": 34, "effect": "debuff_atk", "prob": 1.0, "val": 0.10, "desc": "100%降低10%攻擊力"},
-    "勇鳥猛攻": {"dmg": 34, "effect": "recoil", "prob": 1.0, "val": 0.15, "desc": "100%降低自己最大血量的15%"}
+    "勇鳥猛攻": {"dmg": 34, "effect": "recoil", "prob": 1.0, "val": 0.15, "desc": "100%受到自身最大血量15%的反傷"}
 }
 
 # =================================================================
-# 3. 寶可夢圖鑑
+# 3. 寶可夢圖鑑 (含關都野怪更新)
 # =================================================================
 POKEDEX_DATA = {
-    # --- 玩家寶可夢 (28隻) ---
+    # --- 玩家寶可夢 (保留基礎數據) ---
     "妙蛙種子": {"hp": 130, "atk": 112, "img": "https://img.pokemondb.net/artwork/large/bulbasaur.jpg", "skills": ["藤鞭", "種子炸彈", "污泥炸彈"]},
     "小火龍": {"hp": 112, "atk": 130, "img": "https://img.pokemondb.net/artwork/large/charmander.jpg", "skills": ["火花", "噴射火焰", "大字爆炎"]},
     "傑尼龜": {"hp": 121, "atk": 121, "img": "https://img.pokemondb.net/artwork/large/squirtle.jpg", "skills": ["水槍", "水流噴射", "水流尾"]},
     "妙蛙花": {"hp": 142, "atk": 130, "img": "https://img.pokemondb.net/artwork/large/venusaur.jpg", "skills": ["藤鞭", "種子炸彈", "污泥炸彈"]},
     "噴火龍": {"hp": 130, "atk": 142, "img": "https://img.pokemondb.net/artwork/large/charizard.jpg", "skills": ["火花", "噴射火焰", "大字爆炎"]},
     "水箭龜": {"hp": 136, "atk": 136, "img": "https://img.pokemondb.net/artwork/large/blastoise.jpg", "skills": ["水槍", "水流噴射", "水流尾"]},
-    
     "毛辮羊": {"hp": 120, "atk": 120, "img": "https://img.pokemondb.net/artwork/large/wooloo.jpg", "skills": ["撞擊", "撒嬌", "電擊"]},
     "皮卡丘": {"hp": 125, "atk": 125, "img": "https://img.pokemondb.net/artwork/large/pikachu.jpg", "skills": ["電光", "放電", "電擊"]},
     "伊布": {"hp": 125, "atk": 125, "img": "https://img.pokemondb.net/artwork/large/eevee.jpg", "skills": ["撞擊", "挖洞", "高速星星"]},
@@ -134,7 +151,7 @@ POKEDEX_DATA = {
     "超夢": {"hp": 152, "atk": 155, "img": "https://img.pokemondb.net/artwork/large/mewtwo.jpg", "skills": ["念力", "精神強念", "精神擊破"]},
     "夢幻": {"hp": 155, "atk": 152, "img": "https://img.pokemondb.net/artwork/large/mew.jpg", "skills": ["念力", "暗影球", "精神擊破"]},
     
-    # 🔥 野怪數據 (Lv.1 ~ Lv.96 全實裝)
+    # --- 🔥 野怪數據 (關都地區 Lv.1 ~ Lv.116 全實裝) ---
     "小拉達": {"hp": 90, "atk": 80, "img": "https://img.pokemondb.net/artwork/large/rattata.jpg", "skills": ["抓", "出奇一擊", "撞擊"]},
     "波波": {"hp": 94, "atk": 84, "img": "https://img.pokemondb.net/artwork/large/pidgey.jpg", "skills": ["抓", "啄", "燕返"]},
     "烈雀": {"hp": 88, "atk": 92, "img": "https://img.pokemondb.net/artwork/large/spearow.jpg", "skills": ["抓", "啄", "燕返"]},
@@ -152,9 +169,15 @@ POKEDEX_DATA = {
     "海刺龍": {"hp": 135, "atk": 135, "img": "https://img.pokemondb.net/artwork/large/seadra.jpg", "skills": ["水槍", "水流尾", "逆鱗"]},
     "電擊獸": {"hp": 135, "atk": 140, "img": "https://img.pokemondb.net/artwork/large/electabuzz.jpg", "skills": ["電光", "電擊", "瘋狂伏特"]},
     "鴨嘴火獸": {"hp": 135, "atk": 140, "img": "https://img.pokemondb.net/artwork/large/magmar.jpg", "skills": ["火花", "噴射火焰", "大字爆炎"]},
-    "化石翼龍": {"hp": 140, "atk": 140, "img": "https://img.pokemondb.net/artwork/large/aerodactyl.jpg", "skills": ["挖洞", "岩石封鎖", "勇鳥猛攻"]},
-    "怪力": {"hp": 140, "atk": 145, "img": "https://img.pokemondb.net/artwork/large/machamp.jpg", "skills": ["雙倍奉還", "岩石封鎖", "近身戰"]},
-    "暴鯉龍": {"hp": 150, "atk": 150, "img": "https://img.pokemondb.net/artwork/large/gyarados.jpg", "skills": ["水槍", "水流尾", "勇鳥猛攻"]},
+    
+    # --- 🔥 新增的高等級野怪 ---
+    "飛天螳螂": {"hp": 137, "atk": 144, "img": "https://img.pokemondb.net/artwork/large/scyther.jpg", "skills": ["十字剪", "燕返", "撞擊"]},
+    "迷唇姐": {"hp": 140, "atk": 147, "img": "https://img.pokemondb.net/artwork/large/jynx.jpg", "skills": ["冰礫", "撒嬌", "幻象光線"]},
+    "鐮刀盔": {"hp": 145, "atk": 148, "img": "https://img.pokemondb.net/artwork/large/kabutops.jpg", "skills": ["泥巴射擊", "水流噴射", "岩石封鎖"]},
+    "多刺菊石獸": {"hp": 147, "atk": 150, "img": "https://img.pokemondb.net/artwork/large/omastar.jpg", "skills": ["泥巴射擊", "水流噴射", "岩石封鎖"]},
+    "化石翼龍": {"hp": 150, "atk": 152, "img": "https://img.pokemondb.net/artwork/large/aerodactyl.jpg", "skills": ["挖洞", "岩石封鎖", "勇鳥猛攻"]},
+    "怪力": {"hp": 155, "atk": 155, "img": "https://img.pokemondb.net/artwork/large/machamp.jpg", "skills": ["雙倍奉還", "岩石封鎖", "近身戰"]},
+    "暴鯉龍": {"hp": 160, "atk": 160, "img": "https://img.pokemondb.net/artwork/large/gyarados.jpg", "skills": ["水槍", "水流尾", "勇鳥猛攻"]},
 }
 
 # =================================================================
@@ -170,11 +193,13 @@ COLLECTION_MONS = [
 OBTAINABLE_MONS = COLLECTION_MONS
 LEGENDARY_MONS = ["急凍鳥", "火焰鳥", "閃電鳥", "鳳王", "洛奇亞", "超夢", "夢幻"]
 
+# 🔥 野外解鎖等級更新 (對應新表單)
 WILD_UNLOCK_LEVELS = {
     1: ["小拉達"], 6: ["波波"], 11: ["烈雀"], 16: ["阿柏蛇"], 21: ["瓦斯彈"],
     26: ["海星星"], 31: ["角金魚"], 36: ["走路草"], 41: ["穿山鼠"], 46: ["蚊香蝌蚪"],
     51: ["小磁怪"], 56: ["卡拉卡拉"], 61: ["喵喵"], 66: ["瑪瑙水母"], 71: ["海刺龍"],
-    76: ["電擊獸"], 81: ["鴨嘴火獸"], 86: ["化石翼龍"], 91: ["怪力"], 96: ["暴鯉龍"]
+    76: ["電擊獸"], 81: ["鴨嘴火獸"], 86: ["飛天螳螂"], 91: ["迷唇姐"], 96: ["鐮刀盔"],
+    101: ["多刺菊石獸"], 106: ["化石翼龍"], 111: ["怪力"], 116: ["暴鯉龍"]
 }
 
 # =================================================================
