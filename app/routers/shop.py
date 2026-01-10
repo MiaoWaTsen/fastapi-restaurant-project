@@ -15,7 +15,6 @@ from app.common.deps import get_current_user
 from app.models.user import User, Gym
 from app.common.websocket import manager 
 
-# 引入完整的遊戲資料
 from app.common.game_data import (
     SKILL_DB, POKEDEX_DATA, COLLECTION_MONS, OBTAINABLE_MONS, LEGENDARY_MONS,
     WILD_UNLOCK_LEVELS, GACHA_NORMAL, GACHA_MEDIUM, GACHA_HIGH, 
@@ -276,7 +275,7 @@ async def train_pokemon(pokemon_uid: str, mode: str = Query(...), db: Session = 
     return {"message": msg, "iv": new_iv, "user": current_user}
 
 # =================================================================
-# 3. 道館系統 (Gym) - 🔥 修正：Debuff 降低使用者自己的攻擊
+# 3. 道館系統 (Gym)
 # =================================================================
 
 @router.get("/gym/list")
@@ -632,9 +631,37 @@ async def buy_heal(db: Session = Depends(get_db), current_user: User = Depends(g
     current_user.money -= 50; current_user.hp = current_user.max_hp; db.commit()
     return {"message": "體力已補滿"}
 
+# 🔥 新增 PVP 邀請開關 API
+@router.post("/social/settings/toggle_pvp")
+def toggle_pvp(db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
+    try:
+        inv = json.loads(current_user.inventory) if current_user.inventory else {}
+    except:
+        inv = {}
+        
+    # 切換狀態 (預設 False = 不拒絕)
+    current_status = inv.get("block_pvp", False)
+    inv["block_pvp"] = not current_status
+    
+    current_user.inventory = json.dumps(inv)
+    db.commit()
+    
+    status_text = "拒絕" if inv["block_pvp"] else "接受"
+    return {"message": f"已切換為：{status_text}對戰邀請", "block_pvp": inv["block_pvp"]}
+
 @router.post("/social/invite/{target_id}")
-def invite_player(target_id: int, current_user: User = Depends(get_current_user)):
+def invite_player(target_id: int, db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
     if is_user_busy(target_id): raise HTTPException(status_code=400, detail="對方忙錄中")
+    
+    # 🔥 檢查對方是否拒絕邀請
+    target_user = db.query(User).filter(User.id == target_id).first()
+    if target_user:
+        try:
+            target_inv = json.loads(target_user.inventory) if target_user.inventory else {}
+            if target_inv.get("block_pvp", False):
+                raise HTTPException(status_code=400, detail="對方目前不接受對戰邀請")
+        except: pass
+        
     INVITES[target_id] = current_user.id
     return {"message": "邀請已發送"}
 
@@ -655,7 +682,7 @@ def accept_invite(source_id: int, current_user: User = Depends(get_current_user)
         "start_time": datetime.utcnow().isoformat(),
         "countdown_end": (datetime.utcnow() + timedelta(seconds=12)).isoformat(),
         "turn": None, "p1_data": None, "p2_data": None, "ended_at": None,
-        "p1_atk_mult": 1.0, "p2_atk_mult": 1.0 # 🔥 PVP Buff/Debuff 初始化
+        "p1_atk_mult": 1.0, "p2_atk_mult": 1.0 
     }
     del INVITES[current_user.id]
     return {"message": "接受成功", "room_id": room_id}
@@ -729,9 +756,9 @@ def duel_attack(damage: int = Query(0), heal: int = Query(0), debuff: int = Quer
     # 🔥 PVP Debuff (降低自己攻擊)
     if debuff > 0:
         if is_p1: 
-            room["p1_atk_mult"] = room.get("p1_atk_mult", 1.0) * 0.9 # 降低自己 (P1)
+            room["p1_atk_mult"] = room.get("p1_atk_mult", 1.0) * 0.9 
         else:
-            room["p2_atk_mult"] = room.get("p2_atk_mult", 1.0) * 0.9 # 降低自己 (P2)
+            room["p2_atk_mult"] = room.get("p2_atk_mult", 1.0) * 0.9 
 
     if heal > 0:
         room[my_key]["hp"] = min(room[my_key]["max_hp"], room[my_key]["hp"] + heal)
