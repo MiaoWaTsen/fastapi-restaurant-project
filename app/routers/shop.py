@@ -15,11 +15,12 @@ from app.common.deps import get_current_user
 from app.models.user import User, Gym
 from app.common.websocket import manager 
 
+# 引入 V2.16.0 的新資料結構 (含 HELD_ITEMS)
 from app.common.game_data import (
     SKILL_DB, POKEDEX_DATA, COLLECTION_MONS, OBTAINABLE_MONS, LEGENDARY_MONS,
     WILD_UNLOCK_LEVELS, GACHA_NORMAL, GACHA_MEDIUM, GACHA_HIGH, 
     GACHA_CANDY, GACHA_GOLDEN, GACHA_LEGENDARY_CANDY, GACHA_LEGENDARY_GOLD,
-    LEVEL_XP_MAP, RAID_BOSS_POOL, get_req_xp, apply_iv_stats
+    LEVEL_XP_MAP, RAID_BOSS_POOL, HELD_ITEMS, get_req_xp, apply_iv_stats
 )
 
 router = APIRouter()
@@ -67,12 +68,29 @@ def is_user_busy(user_id):
 def get_now_tw():
     return datetime.utcnow() + timedelta(hours=8)
 
+# 🔥 力量頭帶計算 helper
+def calculate_muscle_band(damage, item_id):
+    if item_id != "muscle_band": 
+        return damage, "normal"
+    
+    roll = random.randint(1, 100)
+    if roll <= 15: 
+        return int(damage * 1.5), "crit"   # 15% 暴擊 (1.5倍)
+    if roll <= 30: 
+        return int(damage * 0.5), "glance" # 15% 失誤 (0.5倍) - 累積機率 16~30
+        
+    return damage, "normal" # 剩下 70% 正常
+
 @router.get("/data/skills")
 def get_skills_data():
     return SKILL_DB
 
+@router.get("/data/items")
+def get_items_data():
+    return HELD_ITEMS
+
 # =================================================================
-# 1. 商店與扭蛋
+# 1. 商店與扭蛋 (價格更新 V2.16)
 # =================================================================
 @router.post("/buy/{item_type}")
 async def buy_item(item_type: str, count: int = Query(1, gt=0), db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
@@ -106,6 +124,7 @@ async def play_gacha(gacha_type: str, db: Session = Depends(get_db), current_use
     
     cost = 0; pool = []
     
+    # 🔥 價格更新 (V2.16)
     if gacha_type == 'normal': pool = GACHA_NORMAL; cost = 2500
     elif gacha_type == 'medium': pool = GACHA_MEDIUM; cost = 5000
     elif gacha_type == 'high': pool = GACHA_HIGH; cost = 15000
@@ -136,7 +155,8 @@ async def play_gacha(gacha_type: str, db: Session = Depends(get_db), current_use
     if 'legendary' in gacha_type: min_iv = 60 
     iv = random.randint(min_iv, 100)
     
-    new_mon = { "uid": str(uuid.uuid4()), "name": prize_name, "iv": iv, "lv": new_lv, "exp": 0 }
+    # 預設攜帶 Leftovers
+    new_mon = { "uid": str(uuid.uuid4()), "name": prize_name, "iv": iv, "lv": new_lv, "exp": 0, "item": "leftovers" }
     box.append(new_mon)
     
     current_user.pokemon_storage = json.dumps(box)
@@ -154,8 +174,37 @@ async def play_gacha(gacha_type: str, db: Session = Depends(get_db), current_use
     return {"message": f"獲得 {prize_name} (Lv.{new_lv}, IV: {iv})!", "prize": new_mon, "user": current_user}
 
 # =================================================================
-# 2. 核心功能 API
+# 2. 核心功能 API (含裝備系統)
 # =================================================================
+
+# 🔥 裝備道具
+@router.post("/box/item/{pokemon_uid}")
+async def equip_item(pokemon_uid: str, item_id: str = Query(...), db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
+    if item_id not in HELD_ITEMS: raise HTTPException(status_code=400, detail="道具不存在")
+    try: box = json.loads(current_user.pokemon_storage)
+    except: box = []
+    target = next((p for p in box if p["uid"] == pokemon_uid), None)
+    if not target: raise HTTPException(status_code=404, detail="找不到")
+    
+    target["item"] = item_id
+    
+    # 若是當前出戰，需同步更新玩家屬性
+    if pokemon_uid == current_user.active_pokemon_uid:
+        try: inv = json.loads(current_user.inventory)
+        except: inv = {}
+        inv["active_item"] = item_id
+        current_user.inventory = json.dumps(inv)
+        
+        base = POKEDEX_DATA.get(target["name"])
+        if base:
+            # 重新計算 HP/ATK (包含道具加成)
+            current_user.max_hp = apply_iv_stats(base["hp"], target["iv"], target["lv"], is_hp=True, is_player=True, item_id=item_id)
+            current_user.attack = apply_iv_stats(base["atk"], target["iv"], target["lv"], is_hp=False, is_player=True, item_id=item_id)
+            current_user.hp = current_user.max_hp
+
+    current_user.pokemon_storage = json.dumps(box)
+    db.commit()
+    return {"message": f"已裝備 {HELD_ITEMS[item_id]['name']}", "user": current_user}
 
 @router.post("/box/swap/{pokemon_uid}")
 async def swap_active_pokemon(pokemon_uid: str, db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
@@ -169,11 +218,19 @@ async def swap_active_pokemon(pokemon_uid: str, db: Session = Depends(get_db), c
     current_user.pet_level = target["lv"]
     current_user.pet_exp = target["exp"]
     
+    # 🔥 更新 active_item
+    item_id = target.get("item", "leftovers")
+    try: inv = json.loads(current_user.inventory)
+    except: inv = {}
+    inv["active_item"] = item_id
+    current_user.inventory = json.dumps(inv)
+    
     base = POKEDEX_DATA.get(target["name"])
     if base:
         current_user.pokemon_image = base["img"]
-        current_user.max_hp = apply_iv_stats(base["hp"], target["iv"], target["lv"], is_hp=True, is_player=True)
-        current_user.attack = apply_iv_stats(base["atk"], target["iv"], target["lv"], is_hp=False, is_player=True)
+        # 套用道具加成
+        current_user.max_hp = apply_iv_stats(base["hp"], target["iv"], target["lv"], is_hp=True, is_player=True, item_id=item_id)
+        current_user.attack = apply_iv_stats(base["atk"], target["iv"], target["lv"], is_hp=False, is_player=True, item_id=item_id)
     else:
         current_user.pokemon_image = "https://via.placeholder.com/150"
         current_user.max_hp = 100
@@ -214,7 +271,12 @@ async def box_action(action: str, pokemon_uid: str, count: int = Query(1, gt=0),
         
         if pokemon_uid == current_user.active_pokemon_uid:
             base = POKEDEX_DATA.get(target["name"])
-            if base: current_user.pet_level = target["lv"]; current_user.pet_exp = target["exp"]; current_user.max_hp = apply_iv_stats(base["hp"], target["iv"], target["lv"], is_hp=True, is_player=True); current_user.attack = apply_iv_stats(base["atk"], target["iv"], target["lv"], is_hp=False, is_player=True)
+            item_id = target.get("item", "leftovers")
+            if base: 
+                current_user.pet_level = target["lv"]
+                current_user.pet_exp = target["exp"]
+                current_user.max_hp = apply_iv_stats(base["hp"], target["iv"], target["lv"], is_hp=True, is_player=True, item_id=item_id)
+                current_user.attack = apply_iv_stats(base["atk"], target["iv"], target["lv"], is_hp=False, is_player=True, item_id=item_id)
         msg = f"使用了 {real_used} 顆糖果，目前 Lv.{target['lv']}"
         
     current_user.pokemon_storage = json.dumps(box); current_user.inventory = json.dumps(inv)
@@ -232,15 +294,11 @@ async def train_pokemon(pokemon_uid: str, mode: str = Query(...), db: Session = 
     
     cost_candy = 0; cost_gold_candy = 0; cost_leg_candy = 0; cost_money = 0
     if mode == 'normal':
-        if is_legendary: 
-            cost_candy = 50; cost_leg_candy = 3; cost_money = 5000
-        else: 
-            cost_candy = 30; cost_gold_candy = 3; cost_money = 1000
+        if is_legendary: cost_candy = 50; cost_leg_candy = 3; cost_money = 5000
+        else: cost_candy = 30; cost_gold_candy = 3; cost_money = 1000
     elif mode == 'hyper':
-        if is_legendary: 
-            cost_candy = 250; cost_leg_candy = 15; cost_money = 25000
-        else: 
-            cost_candy = 150; cost_gold_candy = 15; cost_money = 5000
+        if is_legendary: cost_candy = 250; cost_leg_candy = 15; cost_money = 25000
+        else: cost_candy = 150; cost_gold_candy = 15; cost_money = 5000
             
     if current_user.money < cost_money: raise HTTPException(status_code=400, detail=f"金幣不足")
     if inv.get("candy", 0) < cost_candy: raise HTTPException(status_code=400, detail=f"糖果不足")
@@ -265,9 +323,10 @@ async def train_pokemon(pokemon_uid: str, mode: str = Query(...), db: Session = 
     target["iv"] = new_iv
     if pokemon_uid == current_user.active_pokemon_uid:
         base = POKEDEX_DATA.get(target["name"])
+        item_id = target.get("item", "leftovers")
         if base: 
-            current_user.max_hp = apply_iv_stats(base["hp"], target["iv"], target["lv"], is_hp=True, is_player=True)
-            current_user.attack = apply_iv_stats(base["atk"], target["iv"], target["lv"], is_hp=False, is_player=True)
+            current_user.max_hp = apply_iv_stats(base["hp"], target["iv"], target["lv"], is_hp=True, is_player=True, item_id=item_id)
+            current_user.attack = apply_iv_stats(base["atk"], target["iv"], target["lv"], is_hp=False, is_player=True, item_id=item_id)
             current_user.hp = current_user.max_hp
     
     current_user.pokemon_storage = json.dumps(box)
@@ -276,7 +335,7 @@ async def train_pokemon(pokemon_uid: str, mode: str = Query(...), db: Session = 
     return {"message": msg, "iv": new_iv, "user": current_user}
 
 # =================================================================
-# 3. 道館系統 (Gym)
+# 3. 道館系統 (Gym) - 🔥 修正：道具與補血
 # =================================================================
 
 @router.get("/gym/list")
@@ -321,8 +380,12 @@ async def occupy_gym(gym_id: int, pokemon_uid: str = Query(...), db: Session = D
     if gym_id in [5, 6] and target_mon["lv"] > 50: raise HTTPException(status_code=400, detail="此道館限制 Lv.50 以下的寶可夢才能佔領！")
     base = POKEDEX_DATA.get(target_mon["name"])
     if not base: raise HTTPException(status_code=400, detail="資料錯誤")
-    hp = apply_iv_stats(base["hp"], target_mon["iv"], target_mon["lv"], is_hp=True, is_player=True)
-    atk = apply_iv_stats(base["atk"], target_mon["iv"], target_mon["lv"], is_hp=False, is_player=True)
+    
+    # 🔥 佔領時寫入道具加成數值
+    item_id = target_mon.get("item", "leftovers")
+    hp = apply_iv_stats(base["hp"], target_mon["iv"], target_mon["lv"], is_hp=True, is_player=True, item_id=item_id)
+    atk = apply_iv_stats(base["atk"], target_mon["iv"], target_mon["lv"], is_hp=False, is_player=True, item_id=item_id)
+    
     gym.leader_id = current_user.id; gym.leader_name = current_user.username; gym.leader_pokemon = target_mon["name"]; gym.leader_pokemon_uid = pokemon_uid; gym.leader_hp = hp; gym.leader_max_hp = hp; gym.leader_atk = atk; gym.leader_img = base["img"]; gym.occupied_at = get_now_tw(); gym.protection_until = get_now_tw() + timedelta(minutes=5)
     db.commit()
     return {"message": f"成功派遣 {target_mon['name']} 佔領 {gym.name}！"}
@@ -360,15 +423,19 @@ def gym_battle_attack(battle_id: str, damage: int = Query(0), heal: int = Query(
     except: damage = 0
     if damage < 0: damage = 0
     
-    # 1. 玩家攻擊
-    final_player_dmg = int(damage * room["player_atk_mult"])
-    room["boss_data"]["hp"] = max(0, room["boss_data"]["hp"] - final_player_dmg)
+    # 1. 玩家攻擊 (🔥 力量頭帶判定)
+    try: inv = json.loads(current_user.inventory)
+    except: inv = {}
+    active_item = inv.get("active_item", "leftovers")
     
-    # 🔥 玩家使用 Debuff 招式 (降低 玩家自己 的攻擊力)
-    if debuff > 0:
-        room["player_atk_mult"] *= 0.9 
+    final_dmg, hit_type = calculate_muscle_band(damage, active_item)
+    final_dmg = int(final_dmg * room["player_atk_mult"])
     
-    # 🔥 修正：使用前端傳來的數值補血，不再強制鎖定 20%
+    room["boss_data"]["hp"] = max(0, room["boss_data"]["hp"] - final_dmg)
+    
+    if debuff > 0: room["player_atk_mult"] *= 0.9 
+    
+    # 🔥 修正：使用前端數值補血
     heal_val = 0
     if heal > 0:
         heal_val = heal
@@ -376,7 +443,7 @@ def gym_battle_attack(battle_id: str, damage: int = Query(0), heal: int = Query(
     else:
         final_user_hp = current_user.hp
     
-    # 2. Boss AI (反擊)
+    # 2. Boss AI
     boss_dmg = 0
     if room["boss_data"]["hp"] > 0:
         boss_pname = room["boss_data"]["pname"]
@@ -396,11 +463,8 @@ def gym_battle_attack(battle_id: str, damage: int = Query(0), heal: int = Query(
             if effect == "heal": 
                 h = int(room["boss_data"]["max_hp"] * val)
                 room["boss_data"]["hp"] += h
-            elif effect == "buff_atk": 
-                room["boss_data"]["atk_mult"] *= (1 + val)
-            elif effect == "debuff_atk": 
-                # 🔥 Boss 使用 Debuff 招式 (降低 Boss自己 的攻擊力)
-                room["boss_data"]["atk_mult"] *= (1 - val)
+            elif effect == "buff_atk": room["boss_data"]["atk_mult"] *= (1 + val)
+            elif effect == "debuff_atk": room["boss_data"]["atk_mult"] *= (1 - val)
             elif effect == "recoil": 
                 d = int(room["boss_data"]["max_hp"] * val)
                 room["boss_data"]["hp"] = max(0, room["boss_data"]["hp"] - d)
@@ -418,7 +482,7 @@ def gym_battle_attack(battle_id: str, damage: int = Query(0), heal: int = Query(
         current_user.hp = current_user.max_hp; current_user.money += 500; db.commit(); del GYM_BATTLES[battle_id]
         return {"result": "WIN_SELECT", "reward": "踢館成功！請選擇寶可夢佔領！", "user_hp": current_user.hp, "gym_id": gym.id}
     if current_user.hp <= 0: current_user.hp = current_user.max_hp; db.commit(); del GYM_BATTLES[battle_id]; return {"result": "LOSE", "reward": "挑戰失敗... (HP已回復)", "user_hp": current_user.hp, "boss_dmg": boss_dmg}
-    return {"result": "NEXT", "boss_hp": room["boss_data"]["hp"], "user_hp": current_user.hp, "boss_dmg": boss_dmg, "real_heal_amt": heal_val}
+    return {"result": "NEXT", "boss_hp": room["boss_data"]["hp"], "user_hp": current_user.hp, "boss_dmg": boss_dmg, "real_heal_amt": heal_val, "hit_type": hit_type}
 
 @router.get("/pokedex/all")
 def get_all_pokedex():
@@ -522,8 +586,15 @@ def attack_raid_boss(damage: int = Query(0), current_user: User = Depends(get_cu
     try: damage = int(damage)
     except: damage = 0
     if damage < 0: damage = 0
-    RAID_STATE["current_hp"] = max(0, RAID_STATE["current_hp"] - damage)
-    return {"message": f"造成 {damage} 點傷害", "boss_hp": RAID_STATE["current_hp"]}
+    
+    # 🔥 團體戰力量頭帶判定
+    try: inv = json.loads(current_user.inventory)
+    except: inv = {}
+    active_item = inv.get("active_item", "leftovers")
+    final_dmg, hit_type = calculate_muscle_band(damage, active_item)
+    
+    RAID_STATE["current_hp"] = max(0, RAID_STATE["current_hp"] - final_dmg)
+    return {"message": f"造成 {final_dmg} 點傷害", "boss_hp": RAID_STATE["current_hp"], "hit_type": hit_type}
 
 @router.post("/raid/recover")
 def raid_recover(current_user: User = Depends(get_current_user), db: Session = Depends(get_db)):
@@ -633,6 +704,7 @@ async def buy_heal(db: Session = Depends(get_db), current_user: User = Depends(g
     current_user.money -= 50; current_user.hp = current_user.max_hp; db.commit()
     return {"message": "體力已補滿"}
 
+# 🔥 新增 PVP 邀請開關 API
 @router.post("/social/settings/toggle_pvp")
 def toggle_pvp(db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
     try:
@@ -746,20 +818,22 @@ def duel_attack(damage: int = Query(0), heal: int = Query(0), debuff: int = Quer
     target_id = room["p2"] if is_p1 else room["p1"]
     my_key = "p1_data" if is_p1 else "p2_data"
     
-    # 🔥 PVP 傷害計算
+    # 🔥 PVP 力量頭帶判定
+    try: inv = json.loads(current_user.inventory)
+    except: inv = {}
+    active_item = inv.get("active_item", "leftovers")
+    final_dmg, hit_type = calculate_muscle_band(damage, active_item)
+    
     my_atk_mult = room.get("p1_atk_mult", 1.0) if is_p1 else room.get("p2_atk_mult", 1.0)
-    final_dmg = int(damage * my_atk_mult)
+    final_dmg = int(final_dmg * my_atk_mult)
     
     target_user = db.query(User).filter(User.id == target_id).first()
     room[target_key]["hp"] = max(0, room[target_key]["hp"] - final_dmg)
     target_user.hp = room[target_key]["hp"]
     
-    # 🔥 PVP Debuff (降低自己攻擊)
     if debuff > 0:
-        if is_p1: 
-            room["p1_atk_mult"] = room.get("p1_atk_mult", 1.0) * 0.9 
-        else:
-            room["p2_atk_mult"] = room.get("p2_atk_mult", 1.0) * 0.9 
+        if is_p1: room["p1_atk_mult"] = room.get("p1_atk_mult", 1.0) * 0.9 
+        else: room["p2_atk_mult"] = room.get("p2_atk_mult", 1.0) * 0.9 
 
     if heal > 0:
         room[my_key]["hp"] = min(room[my_key]["max_hp"], room[my_key]["hp"] + heal)
@@ -773,7 +847,7 @@ def duel_attack(damage: int = Query(0), heal: int = Query(0), debuff: int = Quer
         return {"result": "WIN", "reward": "獲得 300G & 500 XP"}
     room["turn"] = target_id
     db.commit()
-    return {"result": "NEXT", "damage": damage, "heal": heal}
+    return {"result": "NEXT", "damage": final_dmg, "heal": heal, "hit_type": hit_type}
 
 @router.get("/social/players")
 def get_online_players(current_user: User = Depends(get_current_user), db: Session = Depends(get_db)):

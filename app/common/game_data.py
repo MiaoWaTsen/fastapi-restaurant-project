@@ -3,28 +3,54 @@
 import random
 
 # =================================================================
+# 0. 攜帶道具資料庫 (V2.16.0)
+# =================================================================
+HELD_ITEMS = {
+    "leftovers": {
+        "name": "🍎 吃剩的東西",
+        "desc": "標準狀態 (無副作用)",
+        "atk_mult": 1.0,
+        "hp_mult": 1.0,
+        "effect": "none"
+    },
+    "focus_sash": {
+        "name": "🧣 氣勢披帶",
+        "desc": "ATK+15% / HP-15% (極限攻擊)",
+        "atk_mult": 1.15,
+        "hp_mult": 0.85,
+        "effect": "glass_cannon"
+    },
+    "shell_bell": {
+        "name": "🐚 貝殼之鈴",
+        "desc": "HP+15% / ATK-15% (極限防禦)",
+        "atk_mult": 0.85,
+        "hp_mult": 1.15,
+        "effect": "tank"
+    },
+    "muscle_band": {
+        "name": "💪 力量頭帶",
+        "desc": "15%暴擊(1.5倍) / 15%失誤(0.5倍)",
+        "atk_mult": 1.0,
+        "hp_mult": 1.0,
+        "effect": "gambler"
+    }
+}
+
+# =================================================================
 # 1. 數值計算公式
 # =================================================================
 def create_xp_map():
-    # Lv 1-10 固定數值
     xp_map = { 1: 50, 2: 120, 3: 200, 4: 350, 5: 600, 6: 900, 7: 1360, 8: 1800, 9: 2300, 10: 2300 }
     current_req = 2300
-    
-    # Lv 11-50 (+600)
     for lv in range(11, 51):
         current_req += 600
         xp_map[lv] = current_req
-        
-    # Lv 51-100 (+2000)
     for lv in range(51, 101):
         current_req += 2000
         xp_map[lv] = current_req
-        
-    # Lv 101-120 (+5000)
     for lv in range(101, 121):
         current_req += 5000
         xp_map[lv] = current_req
-        
     return xp_map
 
 LEVEL_XP_MAP = create_xp_map()
@@ -32,7 +58,7 @@ LEVEL_XP_MAP = create_xp_map()
 def get_req_xp(lv): 
     return 999999999 if lv >= 120 else LEVEL_XP_MAP.get(lv, 999999)
 
-def apply_iv_stats(base_val, iv, level, is_hp=False, is_player=True):
+def apply_iv_stats(base_val, iv, level, is_hp=False, is_player=True, item_id="leftovers"):
     iv_mult = 0.8 + (iv / 100) * 0.4
     
     if is_player:
@@ -41,10 +67,18 @@ def apply_iv_stats(base_val, iv, level, is_hp=False, is_player=True):
         growth_rate = 1.041 if is_hp else 1.037
         
     val = int(base_val * iv_mult * (growth_rate ** (level - 1)))
+    
+    # 🔥 套用道具加成
+    item_data = HELD_ITEMS.get(item_id, HELD_ITEMS["leftovers"])
+    if is_hp:
+        val = int(val * item_data["hp_mult"])
+    else:
+        val = int(val * item_data["atk_mult"])
+        
     return max(1, val)
 
 # =================================================================
-# 2. 技能資料庫 (修正破壞死光)
+# 2. 技能資料庫
 # =================================================================
 SKILL_DB = {
     # 傷害 16
@@ -111,8 +145,6 @@ SKILL_DB = {
     "暗影球": {"dmg": 34, "effect": "debuff_atk", "prob": 1.0, "val": 0.10, "desc": "100%降低自己10%攻擊力"},
     "水砲": {"dmg": 34, "effect": "debuff_atk", "prob": 1.0, "val": 0.10, "desc": "100%降低自己10%攻擊力"},
     "勇鳥猛攻": {"dmg": 34, "effect": "recoil", "prob": 1.0, "val": 0.15, "desc": "100%受到自身最大血量15%的反傷"},
-    
-    # 🔥 確保這個 Key 存在，前端按鈕才會顯示
     "破壞死光": {"dmg": 34, "effect": "recoil", "prob": 1.0, "val": 0.15, "desc": "100%受到自身最大血量15%的反傷"}
 }
 
@@ -120,12 +152,11 @@ SKILL_DB = {
 # 3. 寶可夢圖鑑
 # =================================================================
 POKEDEX_DATA = {
-    # 玩家寶可夢 (數值與技能更新)
+    # 玩家寶可夢
     "卡比獸": {"hp": 176, "atk": 114, "img": "https://img.pokemondb.net/artwork/large/snorlax.jpg", "skills": ["泰山壓頂", "地震", "破壞死光"]},
     "吉利蛋": {"hp": 220, "atk": 90, "img": "https://img.pokemondb.net/artwork/large/chansey.jpg", "skills": ["破壞死光", "精神強念", "撞擊"]},
     "幸福蛋": {"hp": 230, "atk": 90, "img": "https://img.pokemondb.net/artwork/large/blissey.jpg", "skills": ["破壞死光", "精神強念", "撞擊"]},
     
-    # 其他維持不變
     "妙蛙種子": {"hp": 130, "atk": 112, "img": "https://img.pokemondb.net/artwork/large/bulbasaur.jpg", "skills": ["藤鞭", "種子炸彈", "污泥炸彈"]},
     "小火龍": {"hp": 112, "atk": 130, "img": "https://img.pokemondb.net/artwork/large/charmander.jpg", "skills": ["火花", "噴射火焰", "大字爆炎"]},
     "傑尼龜": {"hp": 121, "atk": 121, "img": "https://img.pokemondb.net/artwork/large/squirtle.jpg", "skills": ["水槍", "水流噴射", "水流尾"]},
@@ -152,7 +183,7 @@ POKEDEX_DATA = {
     "超夢": {"hp": 152, "atk": 155, "img": "https://img.pokemondb.net/artwork/large/mewtwo.jpg", "skills": ["念力", "精神強念", "精神擊破"]},
     "夢幻": {"hp": 155, "atk": 152, "img": "https://img.pokemondb.net/artwork/large/mew.jpg", "skills": ["念力", "暗影球", "精神擊破"]},
     
-    # 野怪
+    # 野怪數據
     "小拉達": {"hp": 90, "atk": 80, "img": "https://img.pokemondb.net/artwork/large/rattata.jpg", "skills": ["抓", "出奇一擊", "撞擊"]},
     "波波": {"hp": 94, "atk": 84, "img": "https://img.pokemondb.net/artwork/large/pidgey.jpg", "skills": ["抓", "啄", "燕返"]},
     "烈雀": {"hp": 88, "atk": 92, "img": "https://img.pokemondb.net/artwork/large/spearow.jpg", "skills": ["抓", "啄", "燕返"]},
@@ -188,6 +219,7 @@ COLLECTION_MONS = [
     "耿鬼", "卡比獸", "吉利蛋", "幸福蛋", "拉普拉斯", "快龍",
     "急凍鳥", "火焰鳥", "閃電鳥", "鳳王", "洛奇亞", "超夢", "夢幻"
 ]
+
 OBTAINABLE_MONS = COLLECTION_MONS
 LEGENDARY_MONS = ["急凍鳥", "火焰鳥", "閃電鳥", "鳳王", "洛奇亞", "超夢", "夢幻"]
 
