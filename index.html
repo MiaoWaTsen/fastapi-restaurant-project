@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>⚡️ 寶可夢大亂鬥 V2.16.2 ⚡️</title>
+    <title>⚡️ 寶可夢大亂鬥 V2.16.1 ⚡️</title>
     <script src="https://unpkg.com/vue@3/dist/vue.global.js"></script>
     <style>
         [v-cloak] { display: none; }
@@ -120,8 +120,8 @@
 
 <div id="app" class="container" v-cloak>
     <div v-if="!user" style="text-align:center; padding-top:100px;">
-        <h1 style="color:#e94560">寶可夢大亂鬥 V2.16.2</h1>
-        <p>介面優化與數值同步版</p>
+        <h1 style="color:#e94560">寶可夢大亂鬥 V2.16.1</h1>
+        <p>裝備道具 & 策略對戰修復版</p>
         <button class="btn-action" @click="logout">前往登入頁面</button>
     </div>
 
@@ -140,7 +140,7 @@
         </div>
 
         <div v-if="invite.has_invite" class="modal-overlay">
-             <div class="modal-box">
+            <div class="modal-box">
                 <div class="modal-title">⚔️ 決鬥邀請</div>
                 <p>玩家 <b>{{ invite.source_name }}</b> 向你發起了挑戰！</p>
                 <div style="display:flex; gap:10px; margin-top:20px;">
@@ -149,7 +149,7 @@
                 </div>
             </div>
         </div>
-        
+
         <div v-if="showRaidRates" class="modal-overlay" @click.self="showRaidRates=false">
             <div class="modal-box">
                 <div class="modal-title">🔥 Boss 出現機率</div>
@@ -307,7 +307,7 @@
             </div>
         </div>
 
-        <div v-if="newsState.show" class="modal-overlay"><div class="modal-box" style="text-align:left;"><div class="modal-title" style="text-align:center;">📢 V2.16.2 更新公告</div><ul><li><b>👜 道具系統</b>：現在可以為寶可夢裝備「吃剩的東西」、「氣勢披帶」、「貝殼之鈴」或「力量頭帶」！</li><li><b>✨ 介面優化</b>：修復了數值顯示不同步與文字重疊問題。</li><li><b>📦 即時更新</b>：更換裝備後數值會立即變化。</li></ul><div style="text-align:center; margin-top:15px;"><button class="btn-yes" @click="closeNews">我知道了</button></div></div></div>
+        <div v-if="newsState.show" class="modal-overlay"><div class="modal-box" style="text-align:left;"><div class="modal-title" style="text-align:center;">📢 V2.16.1 更新公告</div><ul><li><b>👜 道具優化</b>：修復了切換道具時選項跳回的問題。</li><li><b>🐛 團體戰修復</b>：解決了死亡視窗無限彈出與回血無效的問題。</li><li><b>✨ 策略升級</b>：道具與技能現在能更正確地影響戰局！</li></ul><div style="text-align:center; margin-top:15px;"><button class="btn-yes" @click="closeNews">我知道了</button></div></div></div>
         
         <div v-if="showRates" class="modal-overlay" @click.self="showRates=false"><div class="modal-box" style="width: 400px; max-height:80vh;"><div class="modal-title">📊 扭蛋機率表</div><div style="overflow-y:auto; max-height:60vh;"><div v-for="(pool, name) in gachaRates" :key="name" style="margin-bottom: 15px;"><h4 style="color: #f1c40f; border-bottom: 1px solid #555;">{{ name }}</h4><table class="rate-table"><tr v-for="item in pool" :key="item.name"><td>{{ item.name }}</td><td style="text-align: right;">{{ item.rate }}%</td></tr></table></div></div><button class="btn-yes" style="width: 100%; margin-top: 10px;" @click="showRates=false">關閉</button></div></div>
 
@@ -428,7 +428,7 @@
             const bulkState = ref({ show: false, type: '', targetId: '', name: '', price: 0 });
             const isBattleResultShown = ref(false);
             const showRaidRates = ref(false);
-            const pvpBlocked = ref(false); // 🔥 PVP 狀態
+            const pvpBlocked = ref(false);
 
             const raidBossPoolDisplay = [
                 { name: "❄️ 急凍鳥", rate: 25, tag: "常見" },
@@ -446,13 +446,28 @@
                 if (newVal === 'wild') fetchWildList();
             });
 
-            // ... (box, inventory, currentPetIV, getReqXp, playerXpPercent, hpPercent, petXpPercent, currentAtkMe 保持不變)
-            const box = computed(() => { if(!user.value || !user.value.pokemon_storage) return []; if(typeof user.value.pokemon_storage === 'object') return user.value.pokemon_storage; try { return JSON.parse(user.value.pokemon_storage); } catch(e) { return []; } });
+            const box = computed(() => { 
+                if(!user.value || !user.value.pokemon_storage) return []; 
+                if(typeof user.value.pokemon_storage === 'object') return user.value.pokemon_storage;
+                try { return JSON.parse(user.value.pokemon_storage); } catch(e) { return []; } 
+            });
             const inventory = computed(() => { if(!user.value) return {}; try { return JSON.parse(user.value.inventory); } catch(e) { return {}; } });
             const currentPetIV = computed(() => { if(!user.value) return 0; const p = box.value.find(x => x.uid === user.value.active_pokemon_uid); return p ? p.iv : 50; });
-            const getReqXp = (lv) => { if(lv >= 100) return 999999999; if(lv <= 10) return LEVEL_XP_MAP[lv]; let req = 2300; for(let i=11; i<=Math.min(lv, 50); i++) req += 600; if(lv > 50) { for(let i=51; i<=lv; i++) req += 2000; } return req; };
+            const getReqXp = (lv) => { 
+                if(lv >= 100) return 999999999;
+                if(lv <= 10) return LEVEL_XP_MAP[lv];
+                let req = 2300;
+                for(let i=11; i<=Math.min(lv, 50); i++) req += 600;
+                if(lv > 50) { for(let i=51; i<=lv; i++) req += 2000; }
+                return req;
+            };
             const playerXpPercent = computed(() => user.value ? Math.min(100, (user.value.exp / getReqXp(user.value.level)) * 100) : 0);
-            const hpPercent = (u) => { if (!u || !u.max_hp || u.max_hp <= 0) return 0; return Math.min(100, (u.hp / u.max_hp) * 100); };
+            
+            const hpPercent = (u) => { 
+                if (!u || !u.max_hp || u.max_hp <= 0) return 0; 
+                return Math.min(100, (u.hp / u.max_hp) * 100); 
+            };
+            
             const petXpPercent = (u) => { if (!u) return 0; const req = getReqXp(u.pet_level); return Math.min(100, (u.pet_exp / req) * 100); };
             const currentAtkMe = computed(() => user.value ? user.value.attack : 0);
             
@@ -492,6 +507,7 @@
             const duelState = ref({ preparing: false, countdown: 12 });
             const showDefenderSelect = ref(false);
             const pendingGymId = ref(null);
+
             const skillData = ref({});
             const SKILL_MAP = { 
                 "小拉達": ["抓", "出奇一擊", "撞擊"], "波波": ["抓", "啄", "燕返"], "小火龍": ["火花", "噴射火焰", "大字爆炎"], "傑尼龜": ["水槍", "水流噴射", "水流尾"], "妙蛙種子": ["藤鞭", "種子炸彈", "污泥炸彈"], "皮卡丘": ["電光", "放電", "電擊"], "伊布": ["撞擊", "挖洞", "高速星星"], "卡比獸": ["泰山壓頂", "地震", "破壞死光"], "快龍": ["龍息", "逆鱗", "勇鳥猛攻"], "超夢": ["念力", "精神強念", "精神擊破"], "夢幻": ["念力", "暗影球", "精神擊破"], "急凍鳥": ["冰礫", "冰凍光束", "勇鳥猛攻"], "火焰鳥": ["噴射火焰", "大字爆炎", "勇鳥猛攻"], "閃電鳥": ["電光", "瘋狂伏特", "勇鳥猛攻"], "鳳王": ["燒盡", "勇鳥猛攻", "神聖之火"], "洛奇亞": ["龍尾", "水砲", "氣旋攻擊"], "妙蛙花": ["藤鞭", "種子炸彈", "污泥炸彈"], "噴火龍": ["火花", "噴射火焰", "大字爆炎"], "水箭龜": ["水槍", "水流噴射", "水流尾"], "毛辮羊": ["撞擊", "撒嬌", "電擊"], "六尾": ["撞擊", "火花", "噴射火焰"], "胖丁": ["撞擊", "撒嬌", "精神強念"], "皮皮": ["撞擊", "撒嬌", "精神強念"], "大蔥鴨": ["啄", "葉刃", "勇鳥猛攻"], "呆呆獸": ["水槍", "幻象光線", "水流噴射"], "可達鴨": ["水槍", "幻象光線", "水流噴射"], "耿鬼": ["驚嚇", "污泥炸彈", "暗影球"], "吉利蛋": ["破壞死光", "精神強念", "撞擊"], "幸福蛋": ["破壞死光", "精神強念", "撞擊"], "拉普拉斯": ["水槍", "水流噴射", "冰凍光束"],
@@ -538,15 +554,14 @@
             
             const normalizeName = (name) => { if (!name) return ""; return name.replace(/🔥 |✨ |強大的 |閃光 /g, "").trim(); };
             const getMonSkills = (name) => SKILL_MAP[normalizeName(name)] || ["撞擊", "撞擊", "撞擊"];
-            const closeNews = () => { newsState.value.show = false; sessionStorage.setItem('seenNews_v2162', 'true'); }; // 🔥 Version bump
+            const closeNews = () => { newsState.value.show = false; sessionStorage.setItem('seenNews_v2161', 'true'); }; // 🔥 Version bump
             
             const calcStats = (mon) => { 
                 const realName = normalizeName(mon.name);
                 const base = pokedexMap.value[realName] || { hp: 100, atk: 10 }; 
                 const ivMult = 0.8 + ((mon.iv || 50) / 100) * 0.4; 
-                // 🔥 修正：前端公式與後端對齊 (Player: 1.032/1.03)
-                const hp = Math.floor(base.hp * ivMult * (1.032 ** ((mon.lv || 1) - 1))); 
-                const atk = Math.floor(base.atk * ivMult * (1.03 ** ((mon.lv || 1) - 1))); 
+                const hp = Math.floor(base.hp * ivMult * (1.033 ** ((mon.lv || 1) - 1))); 
+                const atk = Math.floor(base.atk * ivMult * (1.034 ** ((mon.lv || 1) - 1))); 
                 return { hp, atk }; 
             };
             
@@ -569,22 +584,7 @@
             };
             
             const forceCloseBattle = () => { battle.value.active = false; isEnemyTurn.value = false; clearInterval(timerInterval); };
-            
-            // 🔥 修正：showFloatingText 增加位移參數
-            const showFloatingText = (text, color='red', isEnemy=false, offsetY=0) => { 
-                const arena = document.querySelector('.battle-arena'); 
-                if(!arena) return; 
-                const el = document.createElement('div'); 
-                el.className = 'floating-text'; 
-                el.innerText = text; 
-                el.style.color = color === 'gold' ? '#f1c40f' : (color === 'green' ? '#2ecc71' : (color === 'blue' ? '#3498db' : (color === 'gray' ? '#999' : '#e74c3c'))); 
-                el.style.left = isEnemy ? '60%' : '20%'; 
-                // 🔥 位移計算
-                el.style.top = `calc(30% + ${offsetY}px)`; 
-                arena.appendChild(el); 
-                setTimeout(() => el.remove(), 1500); 
-            };
-            
+            const showFloatingText = (text, color='red', isEnemy=false) => { const arena = document.querySelector('.battle-arena'); if(!arena) return; const el = document.createElement('div'); el.className = 'floating-text'; el.innerText = text; el.style.color = color === 'gold' ? '#f1c40f' : (color === 'green' ? '#2ecc71' : (color === 'blue' ? '#3498db' : (color === 'gray' ? '#999' : '#e74c3c'))); el.style.left = isEnemy ? '60%' : '20%'; el.style.top = '30%'; arena.appendChild(el); setTimeout(() => el.remove(), 1500); };
             const getMonImage = (name) => { if (!name) return "https://via.placeholder.com/150"; const realName = normalizeName(name); const base = pokedexMap.value[realName]; if (base && base.img) return base.img; if (user.value && user.value.pokemon_name === name && user.value.pokemon_image) return user.value.pokemon_image; return "https://via.placeholder.com/150"; };
 
             const updateInfo = async () => { 
@@ -609,14 +609,16 @@
                 }
             };
             
-            // 🔥 裝備道具 (樂觀更新 + 視窗數值即時刷新)
+            // 🔥 裝備道具 API Call (樂觀更新)
             const equipItem = async (uid, itemId) => {
+                // 1. 樂觀更新前端資料
                 const p = box.value.find(x => x.uid === uid);
                 if(p) { 
                     p.item = itemId; 
-                    viewBoxMon(p); // 立即更新視窗數值
+                    viewBoxMon(p); // 立即更新數值預覽
                 }
                 
+                // 2. 發送 API
                 const res = await safeFetch(`${API_URL.replace('/items','')}/shop/box/item/${uid}?item_id=${itemId}`, { method: 'POST' });
                 if(res && res.ok) {
                     const d = await res.json();
@@ -632,10 +634,14 @@
             const fetchLeaderboard = async () => { const res = await safeFetch(`${API_URL.replace('/items','')}/shop/leaderboard?type=${leaderboardType.value}`); if(res && res.ok) leaderboardData.value = await res.json(); };
             const fetchWildList = async () => { wildList.value = []; const res = await safeFetch(`${API_URL.replace('/items','')}/shop/wild/list?level=${selectedWildLevel.value}`); if(res && res.ok) wildList.value = await res.json(); };
             const fetchSkillData = async () => { const res = await fetch(`${API_URL.replace('/items','')}/shop/data/skills`); if(res.ok) skillData.value = await res.json(); };
+            
+            // 🔥 抓取道具資料
             const fetchItemsData = async () => { const res = await fetch(`${API_URL.replace('/items','')}/shop/data/items`); if(res.ok) heldItemsData.value = await res.json(); };
+
             const updateMySkills = () => { if(!user.value || !box.value) return; const active = box.value.find(p => p.uid === user.value.active_pokemon_uid); if(active) mySkills.value = getMonSkills(active.name); };
             const releaseMon = async (uid) => { if(!confirm("確定要放生這隻寶可夢嗎？")) return; const res = await safeFetch(`${API_URL.replace('/items','')}/shop/box/action/release/${uid}`, { method: 'POST' }); if(res && res.ok) { const d = await res.json(); showToast("系統", d.message); viewMon.value = null; updateInfo(); } else if(res) { const d = await res.json(); showToast("錯誤", d.detail); } };
             
+            // 🔥 修復 Raid 死亡視窗迴圈
             const checkRaid = async () => {
                 const res = await safeFetch(`${API_URL.replace('/items','')}/shop/raid/status`);
                 if(res && res.ok) {
@@ -647,6 +653,7 @@
                     }
                     if (data.status === 'ENDED' && data.my_status && !data.my_status.claimed && !raidVictory.value && data.is_participant) { raidVictory.value = true; }
                     if (data.my_status && data.my_status.dead_at) { 
+                        // 🔥 只有在「戰鬥中」才彈出視窗
                         if (battle.value.active && !isRaidDead.value) { 
                             isRaidDead.value = true; 
                             raidDeadTimer.value = 5; 
@@ -717,6 +724,7 @@
                         user.value.hp = Math.min(user.value.max_hp, user.value.hp + healAmt); 
                         showFloatingText(`+${healAmt}`, 'green'); 
                     } 
+                    
                     else if (skill.effect === 'debuff_atk' && Math.random() < skill.prob) {
                         debuffFlag = 1; 
                         if (battle.value.mode === 'wild') {
@@ -742,14 +750,14 @@
 
                     let rawDmg = Math.floor((user.value.attack / 100) * skill.dmg * battle.value.atkBuff); 
                     
+                    // 🔥 前端力量頭帶模擬 (只在 Wild 模式生效，其他模式由後端決定)
                     if (battle.value.mode === 'wild') {
                          try {
                              const inv = JSON.parse(user.value.inventory || '{}');
                              if (inv.active_item === 'muscle_band') {
                                  const r = Math.random() * 100;
-                                 // 🔥 修正：使用 offsetY 防止文字重疊
-                                 if (r < 15) { rawDmg = Math.floor(rawDmg * 1.5); showFloatingText('Crit!', 'red', true, -40); }
-                                 else if (r < 30) { rawDmg = Math.floor(rawDmg * 0.5); showFloatingText('Glance', 'gray', true, -40); }
+                                 if (r < 15) { rawDmg = Math.floor(rawDmg * 1.5); showFloatingText('Crit!', 'red', true); }
+                                 else if (r < 30) { rawDmg = Math.floor(rawDmg * 0.5); showFloatingText('Glance', 'gray', true); }
                              }
                          } catch(e){}
                     }
@@ -770,9 +778,9 @@
                             else { 
                                 battle.value.target.hp = d.boss_hp; 
                                 if (d.user_hp !== undefined) { user.value.hp = d.user_hp; }
-                                // 🔥 修正：使用 offsetY 防止重疊
-                                if (d.hit_type === 'crit') showFloatingText('Crit!', 'red', true, -40);
-                                if (d.hit_type === 'glance') showFloatingText('Glance', 'gray', true, -40);
+                                // 🔥 顯示後端判定的暴擊/失誤
+                                if (d.hit_type === 'crit') showFloatingText('Crit!', 'red', true);
+                                if (d.hit_type === 'glance') showFloatingText('Glance', 'gray', true);
 
                                 setTimeout(() => {
                                     if(d.boss_dmg > 0) { showFloatingText(`-${d.boss_dmg}`, 'red'); battle.value.shakeMe = true; setTimeout(()=>battle.value.shakeMe=false, 400); user.value.hp = d.user_hp; }
@@ -782,20 +790,21 @@
                         } else { console.error("Gym API Error"); battle.value.active = false; }
                     }
                     else if (battle.value.mode === 'raid') { 
+                        // 🔥 修正：傳送 heal 參數給後端
                         const res = await safeFetch(`${API_URL.replace('/items','')}/shop/raid/attack?damage=${dmg}&heal=${healAmt}`, { method: 'POST' }); 
                         if(res) { 
                             const d = await res.json(); 
                             if(d.boss_hp !== undefined) battle.value.target.hp = d.boss_hp; 
-                            if (d.hit_type === 'crit') showFloatingText('Crit!', 'red', true, -40);
-                            if (d.hit_type === 'glance') showFloatingText('Glance', 'gray', true, -40);
+                            if (d.hit_type === 'crit') showFloatingText('Crit!', 'red', true);
+                            if (d.hit_type === 'glance') showFloatingText('Glance', 'gray', true);
                         }
                         setTimeout(() => { isEnemyTurn.value = false; startTurnTimer(); }, 800); 
                     } else if (battle.value.mode === 'pvp') {
                         const res = await safeFetch(`${API_URL.replace('/items','')}/shop/duel/attack?damage=${dmg}&heal=${healAmt}&debuff=${debuffFlag}`, { method: 'POST' });
                         if(res) { 
                             const d = await res.json(); 
-                            if (d.hit_type === 'crit') showFloatingText('Crit!', 'red', true, -40);
-                            if (d.hit_type === 'glance') showFloatingText('Glance', 'gray', true, -40);
+                            if (d.hit_type === 'crit') showFloatingText('Crit!', 'red', true);
+                            if (d.hit_type === 'glance') showFloatingText('Glance', 'gray', true);
                             if(d.result === 'WIN') { showToast("戰鬥結束", d.reward); battle.value.active = false; updateInfo(); isBattleResultShown.value = false; } 
                         }
                     }
@@ -817,29 +826,31 @@
                     if(res) { const d = await res.json(); showToast("系統", d.message || d.detail); updateInfo(); }
                 }
             };
-            
-            const dailyCheckin = async () => { 
-                const res = await safeFetch(`${API_URL.replace('/items','')}/shop/social/daily_checkin`, { method: 'POST' }); 
-                if(res && res.ok) { const d = await res.json(); showToast("簽到", d.message || d.detail); updateInfo(); } 
-                else if(res) { const d = await res.json(); showToast("錯誤", d.detail || "簽到失敗"); } 
-            };
-            
+
+            const dailyCheckin = async () => { const res = await safeFetch(`${API_URL.replace('/items','')}/shop/social/daily_checkin`, { method: 'POST' }); if(res && res.ok) { const d = await res.json(); showToast("簽到", d.message || d.detail); updateInfo(); } else if(res) { const d = await res.json(); showToast("錯誤", d.detail || "簽到失敗"); } };
             const swapMon = async (uid) => { await safeFetch(`${API_URL.replace('/items','')}/shop/box/swap/${uid}`, { method: 'POST' }); updateInfo(); };
             const useCandy = (uid) => { openBulkCandy(uid); };
             const doGamble = async () => { const res = await safeFetch(`${API_URL.replace('/items','')}/shop/gamble?amount=${gambleAmount.value}`, { method: 'POST' }); if(res) { const d = await res.json(); showToast("賭場", d.message || d.detail); updateInfo(); } };
             const buyHeal = async () => { const res = await safeFetch(`${API_URL.replace('/items','')}/shop/heal`, { method: 'POST' }); if(res && res.ok) { showToast("系統", "補血成功"); updateInfo(); } else showToast("錯誤", "金幣不足"); };
             const redeemCode = async () => { const res = await safeFetch(`${API_URL.replace('/items','')}/shop/social/redeem?code=${promoCode.value}`, { method: 'POST' }); if(res) { const d = await res.json(); showToast("系統", d.message || d.detail); updateInfo(); } };
-            const sendInvite = async (p) => { const res = await safeFetch(`${API_URL.replace('/items','')}/shop/social/invite/${p.id}`, { method: 'POST' }); if(res && res.ok) showToast("系統", "已發送邀請，等待對方回應..."); else if (res) { const d = await res.json(); showToast("錯誤", d.detail); } };
+            const sendInvite = async (p) => { 
+                const res = await safeFetch(`${API_URL.replace('/items','')}/shop/social/invite/${p.id}`, { method: 'POST' }); 
+                if(res && res.ok) showToast("系統", "已發送邀請，等待對方回應..."); 
+                else if (res) { const d = await res.json(); showToast("錯誤", d.detail); }
+            };
             const acceptInvite = async () => { await safeFetch(`${API_URL.replace('/items','')}/shop/social/accept_invite/${invite.value.source_id}`, { method: 'POST' }); invite.value.has_invite = false; duelState.value.preparing = true; };
             const rejectInvite = async () => { await safeFetch(`${API_URL.replace('/items','')}/shop/social/reject_invite/${invite.value.source_id}`, { method: 'POST' }); invite.value.has_invite = false; };
+
             const playGacha = async (type) => { showGachaAnim.value = true; const res = await safeFetch(`${API_URL.replace('/items','')}/shop/gacha/${type}`, { method: 'POST' }); if(res && res.ok) { const d = await res.json(); setTimeout(() => { showGachaAnim.value = false; gachaResult.value = d; updateInfo(); }, 2000); } else { showGachaAnim.value = false; if(res) { const d = await res.json(); showToast("錯誤", d.detail); } } };
             const useShield = () => { if(shieldUses.value <= 0) return; shieldUses.value--; battle.value.shieldActive = true; isEnemyTurn.value = true; clearInterval(timerInterval); setTimeout(enemyAttackPhase, 1200); };
+            
             const doHeal = async () => { 
                 if (battle.value.mode === 'gym') {
                     isEnemyTurn.value = true;
                     const res = await safeFetch(`${API_URL.replace('/items','')}/shop/gym/battle/attack/${battleId}?damage=0&heal=1`, { method: 'POST' });
                     if (res && res.ok) {
                         const d = await res.json();
+                        // 修正：不再重複顯示補血動畫
                         if (d.real_heal_amt > 0) { user.value.hp = Math.min(user.value.max_hp, user.value.hp + d.real_heal_amt); }
                         setTimeout(() => {
                             if (d.boss_dmg > 0) { showFloatingText(`-${d.boss_dmg}`, 'red'); battle.value.shakeMe = true; setTimeout(() => battle.value.shakeMe = false, 400); user.value.hp = d.user_hp; }
@@ -854,11 +865,102 @@
                 }
             };
             
+            const checkDuelStatus = async () => {
+                const res = await safeFetch(`${API_URL.replace('/items','')}/shop/duel/status`);
+                if (res && res.ok) {
+                    const d = await res.json();
+                    if (d.status === 'PREPARING') { duelState.value.preparing = true; duelState.value.countdown = Math.ceil(d.remaining); } 
+                    else if (d.status === 'FIGHTING') {
+                        duelState.value.preparing = false;
+                        if (!battle.value.active) {
+                            battle.value = { active: true, mode: 'pvp', target: { ...d.opponent_data, image_url: d.opponent_data.img }, shakeMe: false, shakeTarget: false, atkBuff: 1.0, shieldActive: false };
+                            user.value.hp = d.my_data.hp; user.value.max_hp = d.my_data.max_hp; mySkills.value = getMonSkills(d.my_data.pname);
+                        }
+                        user.value.hp = d.my_data.hp; battle.value.target.hp = d.opponent_data.hp; isEnemyTurn.value = !d.is_my_turn;
+                    } 
+                    else if (d.status === 'ENDED') { 
+                        if (battle.value.active && battle.value.mode === 'pvp') { 
+                            battle.value.active = false; 
+                            if (!isBattleResultShown.value) {
+                                if (d.my_data.hp <= 0) showToast("戰敗", "💀 你輸了..."); else showToast("勝利", "🏆 恭喜勝利！"); 
+                                isBattleResultShown.value = true;
+                            }
+                            updateInfo(); 
+                        } 
+                    }
+                }
+            };
+            
+            const isLegendary = (name) => ["急凍鳥", "火焰鳥", "閃電鳥", "超夢", "夢幻", "鳳王", "洛奇亞"].includes(normalizeName(name));
+            const trainMon = async (uid) => { if (!confirm(`確定特訓嗎？`)) return; const res = await safeFetch(`${API_URL.replace('/items','')}/shop/box/action/train?pokemon_uid=${uid}&mode=${trainMode.value.type}`, { method: 'POST' }); if (res && res.ok) { const d = await res.json(); showToast("特訓成功", d.message); viewMon.value.iv = d.iv; if(d.user) user.value = d.user; trainMode.value.show = false; const stats = calcStats(viewMon.value); viewMon.value.hp_val = stats.hp; viewMon.value.atk_val = stats.atk; } else if (res) { const d = await res.json(); showToast("特訓失敗", d.detail); } };
+
+            const fetchGymList = async () => { const res = await safeFetch(`${API_URL.replace('/items','')}/shop/gym/list`); if(res && res.ok) gymList.value = await res.json(); };
+            
+            const startGymBattle = async (gymId) => {
+                const res = await safeFetch(`${API_URL.replace('/items','')}/shop/gym/battle/start/${gymId}`, { method: 'POST' });
+                if(res && res.ok) {
+                    const d = await res.json();
+                    if(d.result === 'OCCUPIED' || d.result === 'COLLECTED') { showToast("系統", d.message); fetchGymList(); updateInfo(); }
+                    else if(d.result === 'BATTLE_START') {
+                        battleId = d.battle_id;
+                        battle.value = { active: true, mode: 'gym', target: { ...d.opponent, image_url: d.opponent.img }, shakeMe: false, shakeTarget: false, atkBuff: 1.0, shieldActive: false };
+                        shieldUses.value = 0; 
+                        updateMySkills();
+                        isEnemyTurn.value = false;
+                    } 
+                    else if(d.result === 'EMPTY') {
+                        showToast("系統", d.message);
+                        pendingGymId.value = gymId;
+                        showDefenderSelect.value = true;
+                    }
+                    else if(d.result === 'WAIT') { showToast("系統", d.message); }
+                } else if(res) { const d = await res.json(); showToast("錯誤", d.detail); }
+            };
+
+            const selectDefender = async (pokemon) => {
+                if(!pendingGymId.value) return;
+                try {
+                    const res = await safeFetch(`${API_URL.replace('/items','')}/shop/gym/occupy/${pendingGymId.value}?pokemon_uid=${pokemon.uid}`, { method: 'POST' });
+                    if(res && res.ok) {
+                        const d = await res.json();
+                        showToast("系統", d.message);
+                        showDefenderSelect.value = false;
+                        pendingGymId.value = null;
+                        fetchGymList();
+                    } else if(res) {
+                        const d = await res.json();
+                        showToast("錯誤", d.detail);
+                    }
+                } catch(e) { console.error(e); }
+            };
+
+            const joinRaid = async () => { if(confirm("支付 1000G 加入？")) { const res = await safeFetch(`${API_URL.replace('/items','')}/shop/raid/join`, { method: 'POST' }); if(res && res.ok) { battle.value = { active: true, mode: 'raid', target: { name: raidState.value.boss_name, hp: raidState.value.hp, max_hp: raidState.value.max_hp, image_url: raidState.value.image }, shakeMe: false, shakeTarget: false, atkBuff: 1.0, shieldActive: false }; shieldUses.value = 2; updateMySkills(); } else if(res) { const d = await res.json(); showToast("錯誤", d.detail); } } };
+            const abandonQuest = async (qid) => { if(confirm("放棄需消耗 1000G，確定嗎？")) { await safeFetch(`${API_URL}/quests/abandon/${qid}`, { method: 'POST' }); fetchQuests(); } };
+            const claimQuest = async (qid) => { const res = await safeFetch(`${API_URL}/quests/claim/${qid}`, { method: 'POST' }); if(res) { const d = await res.json(); showToast("系統", d.message); fetchQuests(); } };
+            
+            const reviveRaid = async () => { 
+                const res = await safeFetch(`${API_URL.replace('/items','')}/shop/raid/revive`, { method: 'POST' }); 
+                if (res && res.ok) { 
+                    isRaidDead.value = false; 
+                    raidDeadTimer.value = 0; 
+                    clearInterval(deadInterval); 
+                    updateInfo(); 
+                } else if(res) { 
+                    const d = await res.json(); 
+                    showToast("錯誤", d.detail); 
+                } 
+            };
+            
+            const claimRaidReward = async (choice) => { const res = await safeFetch(`${API_URL.replace('/items','')}/shop/raid/claim?choice=${choice}`, { method: 'POST' }); if(res) { const d = await res.json(); showToast("系統", d.message); raidVictory.value = false; battle.value.active = false; tab.value = 'wild'; updateInfo(); } };
+            const useMedKit = async () => { if(shieldUses.value <= 0) return; shieldUses.value--; const healAmt = Math.floor(user.value.max_hp * 0.2); user.value.hp = Math.min(user.value.max_hp, user.value.hp + healAmt); try { await safeFetch(`${API_URL.replace('/items','')}/shop/raid/recover`, { method: 'POST' }); showFloatingText(`+${healAmt}`, 'green'); } catch(e) { console.error("Heal sync failed", e); } };
+
+            const canJoinLobby = computed(() => raidState.value.status === 'LOBBY');
+
             onUpdated(() => { const chatBox = document.getElementById('chat-box'); if(chatBox) chatBox.scrollTop = chatBox.scrollHeight; });
             onMounted(async () => { 
                 document.getElementById('loading').style.display = 'none'; 
                 if(!token) return window.location.href = 'login.html'; 
-                if (!sessionStorage.getItem('seenNews_v2162')) newsState.value.show = true; 
+                if (!sessionStorage.getItem('seenNews_v2161')) newsState.value.show = true; 
                 await fetchSkillData(); await fetchItemsData(); await fetchPokedex(); 
                 await updateInfo(); 
                 selectedWildLevel.value = 1;

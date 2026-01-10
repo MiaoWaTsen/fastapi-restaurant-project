@@ -3,7 +3,7 @@
 import random
 
 # =================================================================
-# 0. 攜帶道具資料庫
+# 0. 攜帶道具資料庫 (V2.16.0)
 # =================================================================
 HELD_ITEMS = {
     "leftovers": {
@@ -61,17 +61,14 @@ def get_req_xp(lv):
 def apply_iv_stats(base_val, iv, level, is_hp=False, is_player=True, item_id="leftovers"):
     iv_mult = 0.8 + (iv / 100) * 0.4
     
-    # 🔥 V2.16.2 成長係數更新
     if is_player:
-        # 玩家：攻擊 1.03 / 血量 1.032
         growth_rate = 1.032 if is_hp else 1.03
     else:
-        # 野怪：攻擊 1.039 / 血量 1.043
-        growth_rate = 1.043 if is_hp else 1.039
+        growth_rate = 1.041 if is_hp else 1.037
         
     val = int(base_val * iv_mult * (growth_rate ** (level - 1)))
     
-    # 套用道具加成
+    # 🔥 套用道具加成
     item_data = HELD_ITEMS.get(item_id, HELD_ITEMS["leftovers"])
     if is_hp:
         val = int(val * item_data["hp_mult"])
