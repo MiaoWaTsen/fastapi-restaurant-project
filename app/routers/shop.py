@@ -105,13 +105,14 @@ async def play_gacha(gacha_type: str, db: Session = Depends(get_db), current_use
     except: inventory = {}
     
     cost = 0; pool = []
-    if gacha_type == 'normal': pool = GACHA_NORMAL; cost = 1500
-    elif gacha_type == 'medium': pool = GACHA_MEDIUM; cost = 3000
-    elif gacha_type == 'high': pool = GACHA_HIGH; cost = 10000
+    
+    if gacha_type == 'normal': pool = GACHA_NORMAL; cost = 2500
+    elif gacha_type == 'medium': pool = GACHA_MEDIUM; cost = 5000
+    elif gacha_type == 'high': pool = GACHA_HIGH; cost = 15000
     elif gacha_type == 'candy': pool = GACHA_CANDY; cost = 12
     elif gacha_type == 'golden': pool = GACHA_GOLDEN; cost = 3
     elif gacha_type == 'legendary_candy': pool = GACHA_LEGENDARY_CANDY; cost = 5
-    elif gacha_type == 'legendary_gold': pool = GACHA_LEGENDARY_GOLD; cost = 400000
+    elif gacha_type == 'legendary_gold': pool = GACHA_LEGENDARY_GOLD; cost = 200000
     else: raise HTTPException(status_code=400, detail="未知類型")
     
     if gacha_type == 'candy':
@@ -367,12 +368,13 @@ def gym_battle_attack(battle_id: str, damage: int = Query(0), heal: int = Query(
     if debuff > 0:
         room["player_atk_mult"] *= 0.9 
     
-    # 玩家補血 (先補)
+    # 🔥 修正：使用前端傳來的數值補血，不再強制鎖定 20%
     heal_val = 0
-    final_user_hp = current_user.hp
     if heal > 0:
-        heal_val = int(current_user.max_hp * 0.2)
-        final_user_hp = min(current_user.max_hp, final_user_hp + heal_val)
+        heal_val = heal
+        final_user_hp = min(current_user.max_hp, current_user.hp + heal_val)
+    else:
+        final_user_hp = current_user.hp
     
     # 2. Boss AI (反擊)
     boss_dmg = 0
@@ -631,7 +633,6 @@ async def buy_heal(db: Session = Depends(get_db), current_user: User = Depends(g
     current_user.money -= 50; current_user.hp = current_user.max_hp; db.commit()
     return {"message": "體力已補滿"}
 
-# 🔥 新增 PVP 邀請開關 API
 @router.post("/social/settings/toggle_pvp")
 def toggle_pvp(db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
     try:

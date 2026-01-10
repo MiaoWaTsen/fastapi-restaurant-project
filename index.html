@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>⚡️ 寶可夢大亂鬥 V2.15.10 ⚡️</title>
+    <title>⚡️ 寶可夢大亂鬥 V2.15.11 ⚡️</title>
     <script src="https://unpkg.com/vue@3/dist/vue.global.js"></script>
     <style>
         [v-cloak] { display: none; }
@@ -120,7 +120,7 @@
 
 <div id="app" class="container" v-cloak>
     <div v-if="!user" style="text-align:center; padding-top:100px;">
-        <h1 style="color:#e94560">寶可夢大亂鬥 V2.15.10</h1>
+        <h1 style="color:#e94560">寶可夢大亂鬥 V2.15.11</h1>
         <p>道館補血邏輯修復版</p>
         <button class="btn-action" @click="logout">前往登入頁面</button>
     </div>
@@ -298,7 +298,7 @@
             </div>
         </div>
 
-        <div v-if="newsState.show" class="modal-overlay"><div class="modal-box" style="text-align:left;"><div class="modal-title" style="text-align:center;">📢 V2.15.10 更新公告</div><ul><li><b>Bug修復</b>：修復了道館戰鬥中，使用醫療包會導致血量顯示異常（重複補血）的問題。</li><li><b>✨ 技能更新</b>：新增破壞死光，並調整部分寶可夢技能組。</li></ul><div style="text-align:center; margin-top:15px;"><button class="btn-yes" @click="closeNews">我知道了</button></div></div></div>
+        <div v-if="newsState.show" class="modal-overlay"><div class="modal-box" style="text-align:left;"><div class="modal-title" style="text-align:center;">📢 V2.15.11 更新公告</div><ul><li><b>⚡ 技能修正</b>：破壞死光已實裝，並修復了補血數字顯示問題。</li><li><b>📦 批量操作</b>：商店與餵糖現在可以一次操作多個。</li><li><b>⚔️ 全面升級</b>：玩家等級上限提升至Lv.120。</li></ul><div style="text-align:center; margin-top:15px;"><button class="btn-yes" @click="closeNews">我知道了</button></div></div></div>
         
         <div v-if="showRates" class="modal-overlay" @click.self="showRates=false"><div class="modal-box" style="width: 400px; max-height:80vh;"><div class="modal-title">📊 扭蛋機率表</div><div style="overflow-y:auto; max-height:60vh;"><div v-for="(pool, name) in gachaRates" :key="name" style="margin-bottom: 15px;"><h4 style="color: #f1c40f; border-bottom: 1px solid #555;">{{ name }}</h4><table class="rate-table"><tr v-for="item in pool" :key="item.name"><td>{{ item.name }}</td><td style="text-align: right;">{{ item.rate }}%</td></tr></table></div></div><button class="btn-yes" style="width: 100%; margin-top: 10px;" @click="showRates=false">關閉</button></div></div>
 
@@ -482,7 +482,9 @@
             const duelState = ref({ preparing: false, countdown: 12 });
             const showDefenderSelect = ref(false);
             const pendingGymId = ref(null);
+
             const skillData = ref({});
+            // 🔥 更新前端技能表 (SKILL_MAP)，加入「破壞死光」
             const SKILL_MAP = { 
                 "小拉達": ["抓", "出奇一擊", "撞擊"], "波波": ["抓", "啄", "燕返"], "小火龍": ["火花", "噴射火焰", "大字爆炎"], "傑尼龜": ["水槍", "水流噴射", "水流尾"], "妙蛙種子": ["藤鞭", "種子炸彈", "污泥炸彈"], "皮卡丘": ["電光", "放電", "電擊"], "伊布": ["撞擊", "挖洞", "高速星星"], "卡比獸": ["泰山壓頂", "地震", "破壞死光"], "快龍": ["龍息", "逆鱗", "勇鳥猛攻"], "超夢": ["念力", "精神強念", "精神擊破"], "夢幻": ["念力", "暗影球", "精神擊破"], "急凍鳥": ["冰礫", "冰凍光束", "勇鳥猛攻"], "火焰鳥": ["噴射火焰", "大字爆炎", "勇鳥猛攻"], "閃電鳥": ["電光", "瘋狂伏特", "勇鳥猛攻"], "鳳王": ["燒盡", "勇鳥猛攻", "神聖之火"], "洛奇亞": ["龍尾", "水砲", "氣旋攻擊"], "妙蛙花": ["藤鞭", "種子炸彈", "污泥炸彈"], "噴火龍": ["火花", "噴射火焰", "大字爆炎"], "水箭龜": ["水槍", "水流噴射", "水流尾"], "毛辮羊": ["撞擊", "撒嬌", "電擊"], "六尾": ["撞擊", "火花", "噴射火焰"], "胖丁": ["撞擊", "撒嬌", "精神強念"], "皮皮": ["撞擊", "撒嬌", "精神強念"], "大蔥鴨": ["啄", "葉刃", "勇鳥猛攻"], "呆呆獸": ["水槍", "幻象光線", "水流噴射"], "可達鴨": ["水槍", "幻象光線", "水流噴射"], "耿鬼": ["驚嚇", "污泥炸彈", "暗影球"], "吉利蛋": ["破壞死光", "精神強念", "撞擊"], "幸福蛋": ["破壞死光", "精神強念", "撞擊"], "拉普拉斯": ["水槍", "水流噴射", "冰凍光束"],
                 "烈雀": ["抓", "啄", "燕返"], "阿柏蛇": ["毒針", "毒擊", "緊束"], "瓦斯彈": ["毒針", "毒針", "撞擊"], "海星星": ["水槍", "幻象光線", "撞擊"], "角金魚": ["水槍", "幻象光線", "泥巴射擊"], "走路草": ["種子炸彈", "撞擊", "毒擊"], "穿山鼠": ["抓", "泥巴射擊", "泥巴炸彈"], "蚊香蝌蚪": ["雙倍奉還", "冰凍光束", "水槍"], "小磁怪": ["電擊", "放電", "撞擊"], "卡拉卡拉": ["泥巴射擊", "泥巴炸彈", "挖洞"], "喵喵": ["抓", "出奇一擊", "撞擊"], "瑪瑙水母": ["水槍", "水流尾", "緊束"], "海刺龍": ["水槍", "水流尾", "逆鱗"], "電擊獸": ["電光", "電擊", "瘋狂伏特"], "鴨嘴火獸": ["火花", "噴射火焰", "大字爆炎"], "化石翼龍": ["挖洞", "岩石封鎖", "勇鳥猛攻"], "怪力": ["雙倍奉還", "岩石封鎖", "近身戰"], "暴鯉龍": ["水槍", "水流尾", "勇鳥猛攻"],
@@ -528,7 +530,7 @@
             
             const normalizeName = (name) => { if (!name) return ""; return name.replace(/🔥 |✨ |強大的 |閃光 /g, "").trim(); };
             const getMonSkills = (name) => SKILL_MAP[normalizeName(name)] || ["撞擊", "撞擊", "撞擊"];
-            const closeNews = () => { newsState.value.show = false; sessionStorage.setItem('seenNews_v21510', 'true'); }; // 🔥 Version bump
+            const closeNews = () => { newsState.value.show = false; sessionStorage.setItem('seenNews_v21511', 'true'); }; // 🔥 Version bump
             
             const calcStats = (mon) => { 
                 const realName = normalizeName(mon.name);
@@ -568,11 +570,16 @@
                 }
             };
 
+            // ... (fetchPokedex, fetchPlayers, fetchQuests, fetchLeaderboard, fetchWildList, fetchSkillData, updateMySkills, releaseMon, checkRaid)
             const fetchPokedex = async () => { try { const res = await safeFetch(`${API_URL.replace('/items','')}/shop/pokedex/all`); if(res && res.ok) { const allMons = await res.json(); allMons.forEach(m => pokedexMap.value[m.name] = m); } const res2 = await safeFetch(`${API_URL.replace('/items','')}/shop/pokedex/collection`); if(res2 && res2.ok) { pokedexCollection.value = await res2.json(); const ownedCount = pokedexCollection.value.filter(x => x.is_owned).length; pokedexPercent.value = Math.floor((ownedCount / pokedexCollection.value.length) * 100); } } catch(e) {} };
             const fetchPlayers = async () => { const res = await safeFetch(`${API_URL.replace('/items','')}/shop/social/players`); if(res && res.ok) { const data = await res.json(); players.value = data.filter(p => p.id !== user.value.id); } };
             const fetchQuests = async () => { const res = await safeFetch(`${API_URL}/quests/`); if(res && res.ok) quests.value = await res.json(); updateInfo(); };
             const fetchLeaderboard = async () => { const res = await safeFetch(`${API_URL.replace('/items','')}/shop/leaderboard?type=${leaderboardType.value}`); if(res && res.ok) leaderboardData.value = await res.json(); };
-            const fetchWildList = async () => { wildList.value = []; const res = await safeFetch(`${API_URL.replace('/items','')}/shop/wild/list?level=${selectedWildLevel.value}`); if(res && res.ok) wildList.value = await res.json(); };
+            const fetchWildList = async () => { 
+                wildList.value = []; 
+                const res = await safeFetch(`${API_URL.replace('/items','')}/shop/wild/list?level=${selectedWildLevel.value}`); 
+                if(res && res.ok) wildList.value = await res.json(); 
+            };
             const fetchSkillData = async () => { const res = await fetch(`${API_URL.replace('/items','')}/shop/data/skills`); if(res.ok) skillData.value = await res.json(); };
             const updateMySkills = () => { if(!user.value || !box.value) return; const active = box.value.find(p => p.uid === user.value.active_pokemon_uid); if(active) mySkills.value = getMonSkills(active.name); };
             const releaseMon = async (uid) => { if(!confirm("確定要放生這隻寶可夢嗎？")) return; const res = await safeFetch(`${API_URL.replace('/items','')}/shop/box/action/release/${uid}`, { method: 'POST' }); if(res && res.ok) { const d = await res.json(); showToast("系統", d.message); viewMon.value = null; updateInfo(); } else if(res) { const d = await res.json(); showToast("錯誤", d.detail); } };
@@ -699,7 +706,7 @@
                             else if(d.result === 'LOSE') { showToast("失敗", d.reward); battle.value.active = false; updateInfo(); }
                             else { 
                                 battle.value.target.hp = d.boss_hp; 
-                                // 🔥 修正：從後端同步最新血量 (解決補兩次問題)
+                                // 🔥 修正：這裡移除重複加血邏輯，只進行最終血量同步
                                 if (d.user_hp !== undefined) { user.value.hp = d.user_hp; }
 
                                 setTimeout(() => {
@@ -756,7 +763,7 @@
                     const res = await safeFetch(`${API_URL.replace('/items','')}/shop/gym/battle/attack/${battleId}?damage=0&heal=1`, { method: 'POST' });
                     if (res && res.ok) {
                         const d = await res.json();
-                        // 修正：這裡不再顯示 +healAmt，避免重複
+                        // 🔥 修正：只同步血量，不再重複顯示+HP動畫 (因為前端一開始就顯示了)
                         if (d.real_heal_amt > 0) { user.value.hp = Math.min(user.value.max_hp, user.value.hp + d.real_heal_amt); }
                         setTimeout(() => {
                             if (d.boss_dmg > 0) { showFloatingText(`-${d.boss_dmg}`, 'red'); battle.value.shakeMe = true; setTimeout(() => battle.value.shakeMe = false, 400); user.value.hp = d.user_hp; }
@@ -880,7 +887,7 @@
             onMounted(async () => { 
                 document.getElementById('loading').style.display = 'none'; 
                 if(!token) return window.location.href = 'login.html'; 
-                if (!sessionStorage.getItem('seenNews_v21510')) newsState.value.show = true; 
+                if (!sessionStorage.getItem('seenNews_v21511')) newsState.value.show = true; 
                 await fetchSkillData(); await fetchPokedex(); 
                 await updateInfo(); 
                 selectedWildLevel.value = 1;
