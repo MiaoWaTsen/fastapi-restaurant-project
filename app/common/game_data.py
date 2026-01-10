@@ -30,13 +30,11 @@ def create_xp_map():
 LEVEL_XP_MAP = create_xp_map()
 
 def get_req_xp(lv): 
-    # 上限開放至 120
     return 999999999 if lv >= 120 else LEVEL_XP_MAP.get(lv, 999999)
 
 def apply_iv_stats(base_val, iv, level, is_hp=False, is_player=True):
     iv_mult = 0.8 + (iv / 100) * 0.4
     
-    # 成長係數 (V2.15.0)
     if is_player:
         growth_rate = 1.032 if is_hp else 1.03
     else:
@@ -108,18 +106,25 @@ SKILL_DB = {
     "雙倍奉還": {"dmg": 28, "effect": None, "prob": 0, "val": 0, "desc": "無特效"},
     "逆鱗": {"dmg": 28, "effect": None, "prob": 0, "val": 0, "desc": "無特效"},
     
-    # 傷害 30+ (Debuff 修正為降自己)
+    # 傷害 30+ 
     "精神擊破": {"dmg": 30, "effect": None, "prob": 0, "val": 0, "desc": "無特效"},
     "暗影球": {"dmg": 34, "effect": "debuff_atk", "prob": 1.0, "val": 0.10, "desc": "100%降低自己10%攻擊力"},
     "水砲": {"dmg": 34, "effect": "debuff_atk", "prob": 1.0, "val": 0.10, "desc": "100%降低自己10%攻擊力"},
-    "勇鳥猛攻": {"dmg": 34, "effect": "recoil", "prob": 1.0, "val": 0.15, "desc": "100%受到自身最大血量15%的反傷"}
+    "勇鳥猛攻": {"dmg": 34, "effect": "recoil", "prob": 1.0, "val": 0.15, "desc": "100%受到自身最大血量15%的反傷"},
+    # 🔥 新增
+    "破壞死光": {"dmg": 34, "effect": "recoil", "prob": 1.0, "val": 0.15, "desc": "100%受到自身最大血量15%的反傷"}
 }
 
 # =================================================================
 # 3. 寶可夢圖鑑
 # =================================================================
 POKEDEX_DATA = {
-    # 玩家寶可夢
+    # 玩家寶可夢 (數值更新)
+    "卡比獸": {"hp": 176, "atk": 114, "img": "https://img.pokemondb.net/artwork/large/snorlax.jpg", "skills": ["泰山壓頂", "地震", "破壞死光"]},
+    "吉利蛋": {"hp": 220, "atk": 90, "img": "https://img.pokemondb.net/artwork/large/chansey.jpg", "skills": ["破壞死光", "精神強念", "撞擊"]},
+    "幸福蛋": {"hp": 230, "atk": 90, "img": "https://img.pokemondb.net/artwork/large/blissey.jpg", "skills": ["破壞死光", "精神強念", "撞擊"]},
+    
+    # 其他維持不變
     "妙蛙種子": {"hp": 130, "atk": 112, "img": "https://img.pokemondb.net/artwork/large/bulbasaur.jpg", "skills": ["藤鞭", "種子炸彈", "污泥炸彈"]},
     "小火龍": {"hp": 112, "atk": 130, "img": "https://img.pokemondb.net/artwork/large/charmander.jpg", "skills": ["火花", "噴射火焰", "大字爆炎"]},
     "傑尼龜": {"hp": 121, "atk": 121, "img": "https://img.pokemondb.net/artwork/large/squirtle.jpg", "skills": ["水槍", "水流噴射", "水流尾"]},
@@ -136,9 +141,6 @@ POKEDEX_DATA = {
     "呆呆獸": {"hp": 122, "atk": 122, "img": "https://img.pokemondb.net/artwork/large/slowpoke.jpg", "skills": ["水槍", "幻象光線", "水流噴射"]},
     "可達鴨": {"hp": 122, "atk": 122, "img": "https://img.pokemondb.net/artwork/large/psyduck.jpg", "skills": ["水槍", "幻象光線", "水流噴射"]},
     "耿鬼": {"hp": 96, "atk": 176, "img": "https://img.pokemondb.net/artwork/large/gengar.jpg", "skills": ["驚嚇", "污泥炸彈", "暗影球"]},
-    "卡比獸": {"hp": 175, "atk": 112, "img": "https://img.pokemondb.net/artwork/large/snorlax.jpg", "skills": ["泰山壓頂", "地震", "撞擊"]},
-    "吉利蛋": {"hp": 220, "atk": 90, "img": "https://img.pokemondb.net/artwork/large/chansey.jpg", "skills": ["抓", "精神強念", "撞擊"]},
-    "幸福蛋": {"hp": 230, "atk": 90, "img": "https://img.pokemondb.net/artwork/large/blissey.jpg", "skills": ["抓", "精神強念", "撞擊"]},
     "拉普拉斯": {"hp": 160, "atk": 138, "img": "https://img.pokemondb.net/artwork/large/lapras.jpg", "skills": ["水槍", "水流噴射", "冰凍光束"]},
     "快龍": {"hp": 144, "atk": 142, "img": "https://img.pokemondb.net/artwork/large/dragonite.jpg", "skills": ["龍息", "逆鱗", "勇鳥猛攻"]},
     "急凍鳥": {"hp": 145, "atk": 145, "img": "https://img.pokemondb.net/artwork/large/articuno.jpg", "skills": ["冰礫", "冰凍光束", "勇鳥猛攻"]},
@@ -149,7 +151,7 @@ POKEDEX_DATA = {
     "超夢": {"hp": 152, "atk": 155, "img": "https://img.pokemondb.net/artwork/large/mewtwo.jpg", "skills": ["念力", "精神強念", "精神擊破"]},
     "夢幻": {"hp": 155, "atk": 152, "img": "https://img.pokemondb.net/artwork/large/mew.jpg", "skills": ["念力", "暗影球", "精神擊破"]},
     
-    # 野怪數據
+    # 野怪
     "小拉達": {"hp": 90, "atk": 80, "img": "https://img.pokemondb.net/artwork/large/rattata.jpg", "skills": ["抓", "出奇一擊", "撞擊"]},
     "波波": {"hp": 94, "atk": 84, "img": "https://img.pokemondb.net/artwork/large/pidgey.jpg", "skills": ["抓", "啄", "燕返"]},
     "烈雀": {"hp": 88, "atk": 92, "img": "https://img.pokemondb.net/artwork/large/spearow.jpg", "skills": ["抓", "啄", "燕返"]},
@@ -204,7 +206,6 @@ GACHA_GOLDEN = [{"name": "卡比獸", "weight": 30}, {"name": "吉利蛋", "weig
 GACHA_LEGENDARY_CANDY = [{"name": "急凍鳥", "weight": 25}, {"name": "火焰鳥", "weight": 25}, {"name": "閃電鳥", "weight": 25}, {"name": "鳳王", "weight": 7.5}, {"name": "洛奇亞", "weight": 7.5}, {"name": "超夢", "weight": 5}, {"name": "夢幻", "weight": 5}]
 GACHA_LEGENDARY_GOLD = [{"name": "快龍", "weight": 30}, {"name": "耿鬼", "weight": 20}, {"name": "急凍鳥", "weight": 15}, {"name": "火焰鳥", "weight": 15}, {"name": "閃電鳥", "weight": 15}, {"name": "鳳王", "weight": 2}, {"name": "洛奇亞", "weight": 2}, {"name": "超夢", "weight": 0.5}, {"name": "夢幻", "weight": 0.5}]
 
-# 🔥 團體戰 Boss 池更新
 RAID_BOSS_POOL = [
     {"name": "❄️ 急凍鳥", "hp": 20000, "atk": 800, "weight": 25, "img": "https://img.pokemondb.net/artwork/large/articuno.jpg"},
     {"name": "🔥 火焰鳥", "hp": 20000, "atk": 800, "weight": 25, "img": "https://img.pokemondb.net/artwork/large/moltres.jpg"},
