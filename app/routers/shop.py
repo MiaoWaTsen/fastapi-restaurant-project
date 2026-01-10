@@ -177,7 +177,7 @@ async def play_gacha(gacha_type: str, db: Session = Depends(get_db), current_use
 # 2. 核心功能 API (含裝備系統)
 # =================================================================
 
-# 🔥 裝備道具
+# 🔥 裝備道具 (V2.16.1 修復：db.refresh)
 @router.post("/box/item/{pokemon_uid}")
 async def equip_item(pokemon_uid: str, item_id: str = Query(...), db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
     if item_id not in HELD_ITEMS: raise HTTPException(status_code=400, detail="道具不存在")
@@ -204,6 +204,8 @@ async def equip_item(pokemon_uid: str, item_id: str = Query(...), db: Session = 
 
     current_user.pokemon_storage = json.dumps(box)
     db.commit()
+    # 🔥 關鍵修復：強制刷新，確保前端拿到最新狀態，防止選項跳回
+    db.refresh(current_user)
     return {"message": f"已裝備 {HELD_ITEMS[item_id]['name']}", "user": current_user}
 
 @router.post("/box/swap/{pokemon_uid}")
@@ -228,7 +230,6 @@ async def swap_active_pokemon(pokemon_uid: str, db: Session = Depends(get_db), c
     base = POKEDEX_DATA.get(target["name"])
     if base:
         current_user.pokemon_image = base["img"]
-        # 套用道具加成
         current_user.max_hp = apply_iv_stats(base["hp"], target["iv"], target["lv"], is_hp=True, is_player=True, item_id=item_id)
         current_user.attack = apply_iv_stats(base["atk"], target["iv"], target["lv"], is_hp=False, is_player=True, item_id=item_id)
     else:
@@ -576,24 +577,32 @@ def join_raid(current_user: User = Depends(get_current_user), db: Session = Depe
     db.commit()
     return {"message": "成功加入團體戰！"}
 
+# 🔥 修正：團體戰攻擊 API (加入 heal 參數)
 @router.post("/raid/attack")
-def attack_raid_boss(damage: int = Query(0), current_user: User = Depends(get_current_user), db: Session = Depends(get_db)):
+def attack_raid_boss(damage: int = Query(0), heal: int = Query(0), current_user: User = Depends(get_current_user), db: Session = Depends(get_db)):
     update_raid_logic(db)
     if current_user.id not in RAID_STATE["players"]: raise HTTPException(status_code=400, detail="你不在大廳中")
     p_data = RAID_STATE["players"][current_user.id]
     if p_data.get("dead_at"): raise HTTPException(status_code=400, detail="你已死亡，請盡快復活！")
     if RAID_STATE["status"] != "FIGHTING": return {"message": "戰鬥尚未開始或已結束", "boss_hp": RAID_STATE["current_hp"]}
+    
     try: damage = int(damage)
     except: damage = 0
     if damage < 0: damage = 0
     
-    # 🔥 團體戰力量頭帶判定
+    # 力量頭帶判定
     try: inv = json.loads(current_user.inventory)
     except: inv = {}
     active_item = inv.get("active_item", "leftovers")
     final_dmg, hit_type = calculate_muscle_band(damage, active_item)
     
     RAID_STATE["current_hp"] = max(0, RAID_STATE["current_hp"] - final_dmg)
+    
+    # 🔥 執行補血
+    if heal > 0:
+        current_user.hp = min(current_user.max_hp, current_user.hp + heal)
+        db.commit()
+        
     return {"message": f"造成 {final_dmg} 點傷害", "boss_hp": RAID_STATE["current_hp"], "hit_type": hit_type}
 
 @router.post("/raid/recover")
@@ -704,7 +713,6 @@ async def buy_heal(db: Session = Depends(get_db), current_user: User = Depends(g
     current_user.money -= 50; current_user.hp = current_user.max_hp; db.commit()
     return {"message": "體力已補滿"}
 
-# 🔥 新增 PVP 邀請開關 API
 @router.post("/social/settings/toggle_pvp")
 def toggle_pvp(db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
     try:
@@ -712,7 +720,6 @@ def toggle_pvp(db: Session = Depends(get_db), current_user: User = Depends(get_c
     except:
         inv = {}
         
-    # 切換狀態 (預設 False = 不拒絕)
     current_status = inv.get("block_pvp", False)
     inv["block_pvp"] = not current_status
     
@@ -726,7 +733,6 @@ def toggle_pvp(db: Session = Depends(get_db), current_user: User = Depends(get_c
 def invite_player(target_id: int, db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
     if is_user_busy(target_id): raise HTTPException(status_code=400, detail="對方忙錄中")
     
-    # 🔥 檢查對方是否拒絕邀請
     target_user = db.query(User).filter(User.id == target_id).first()
     if target_user:
         try:
