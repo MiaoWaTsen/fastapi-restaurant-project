@@ -140,7 +140,7 @@
         </div>
 
         <div v-if="invite.has_invite" class="modal-overlay">
-            <div class="modal-box">
+             <div class="modal-box">
                 <div class="modal-title">⚔️ 決鬥邀請</div>
                 <p>玩家 <b>{{ invite.source_name }}</b> 向你發起了挑戰！</p>
                 <div style="display:flex; gap:10px; margin-top:20px;">
@@ -149,7 +149,7 @@
                 </div>
             </div>
         </div>
-
+        
         <div v-if="showRaidRates" class="modal-overlay" @click.self="showRaidRates=false">
             <div class="modal-box">
                 <div class="modal-title">🔥 Boss 出現機率</div>
@@ -195,7 +195,7 @@
         </div>
 
         <div v-if="battle.active && !inLobby" class="battle-overlay">
-            <div class="battle-header">
+             <div class="battle-header">
                 <h2 style="color:#f1c40f; margin:0;">
                     {{ battle.mode === 'gym' ? '🏟️ 道館挑戰' : (battle.mode === 'raid' ? '🔥 團體戰' : (battle.mode === 'wild' ? '🌲 野外探險' : '⚔️ PVP')) }}
                 </h2>
@@ -267,7 +267,7 @@
                 <div v-if="viewMon.iv" style="text-align:center; margin-bottom:15px;"><span style="background:#f1c40f; color:black; padding:2px 8px; border-radius:5px; font-weight:bold;">IV: {{ viewMon.iv }}</span></div>
                 
                 <div v-if="trainMode.show && !viewMon.is_demo" style="background:#222; padding:10px; border-radius:10px; margin-bottom:10px;">
-                    <h4 style="margin:5px 0; color:#f1c40f;">⚡ 潛能特訓中心</h4>
+                     <h4 style="margin:5px 0; color:#f1c40f;">⚡ 潛能特訓中心</h4>
                     <div style="display:flex; gap:5px; margin-bottom:10px;">
                         <button class="btn-small" :style="{background: trainMode.type=='normal'?'#3498db':'#333'}" @click="trainMode.type='normal'">一般特訓</button>
                         <button class="btn-small" :style="{background: trainMode.type=='hyper'?'#e74c3c':'#333'}" @click="trainMode.type='hyper'">極限特訓</button>
@@ -492,7 +492,9 @@
             const duelState = ref({ preparing: false, countdown: 12 });
             const showDefenderSelect = ref(false);
             const pendingGymId = ref(null);
+
             const skillData = ref({});
+            // 🔥 更新前端技能表 (SKILL_MAP)，加入「破壞死光」
             const SKILL_MAP = { 
                 "小拉達": ["抓", "出奇一擊", "撞擊"], "波波": ["抓", "啄", "燕返"], "小火龍": ["火花", "噴射火焰", "大字爆炎"], "傑尼龜": ["水槍", "水流噴射", "水流尾"], "妙蛙種子": ["藤鞭", "種子炸彈", "污泥炸彈"], "皮卡丘": ["電光", "放電", "電擊"], "伊布": ["撞擊", "挖洞", "高速星星"], "卡比獸": ["泰山壓頂", "地震", "破壞死光"], "快龍": ["龍息", "逆鱗", "勇鳥猛攻"], "超夢": ["念力", "精神強念", "精神擊破"], "夢幻": ["念力", "暗影球", "精神擊破"], "急凍鳥": ["冰礫", "冰凍光束", "勇鳥猛攻"], "火焰鳥": ["噴射火焰", "大字爆炎", "勇鳥猛攻"], "閃電鳥": ["電光", "瘋狂伏特", "勇鳥猛攻"], "鳳王": ["燒盡", "勇鳥猛攻", "神聖之火"], "洛奇亞": ["龍尾", "水砲", "氣旋攻擊"], "妙蛙花": ["藤鞭", "種子炸彈", "污泥炸彈"], "噴火龍": ["火花", "噴射火焰", "大字爆炎"], "水箭龜": ["水槍", "水流噴射", "水流尾"], "毛辮羊": ["撞擊", "撒嬌", "電擊"], "六尾": ["撞擊", "火花", "噴射火焰"], "胖丁": ["撞擊", "撒嬌", "精神強念"], "皮皮": ["撞擊", "撒嬌", "精神強念"], "大蔥鴨": ["啄", "葉刃", "勇鳥猛攻"], "呆呆獸": ["水槍", "幻象光線", "水流噴射"], "可達鴨": ["水槍", "幻象光線", "水流噴射"], "耿鬼": ["驚嚇", "污泥炸彈", "暗影球"], "吉利蛋": ["破壞死光", "精神強念", "撞擊"], "幸福蛋": ["破壞死光", "精神強念", "撞擊"], "拉普拉斯": ["水槍", "水流噴射", "冰凍光束"],
                 "烈雀": ["抓", "啄", "燕返"], "阿柏蛇": ["毒針", "毒擊", "緊束"], "瓦斯彈": ["毒針", "毒針", "撞擊"], "海星星": ["水槍", "幻象光線", "撞擊"], "角金魚": ["水槍", "幻象光線", "泥巴射擊"], "走路草": ["種子炸彈", "撞擊", "毒擊"], "穿山鼠": ["抓", "泥巴射擊", "泥巴炸彈"], "蚊香蝌蚪": ["雙倍奉還", "冰凍光束", "水槍"], "小磁怪": ["電擊", "放電", "撞擊"], "卡拉卡拉": ["泥巴射擊", "泥巴炸彈", "挖洞"], "喵喵": ["抓", "出奇一擊", "撞擊"], "瑪瑙水母": ["水槍", "水流尾", "緊束"], "海刺龍": ["水槍", "水流尾", "逆鱗"], "電擊獸": ["電光", "電擊", "瘋狂伏特"], "鴨嘴火獸": ["火花", "噴射火焰", "大字爆炎"], "化石翼龍": ["挖洞", "岩石封鎖", "勇鳥猛攻"], "怪力": ["雙倍奉還", "岩石封鎖", "近身戰"], "暴鯉龍": ["水槍", "水流尾", "勇鳥猛攻"],
@@ -779,7 +781,6 @@
                 } catch (e) { console.error(e); battle.value.active = false; } 
             };
 
-            // ... (批量操作等其他 UI 邏輯保持不變) ...
             const openBulkBuy = (type, name, price) => { bulkState.value = { show: true, type: 'buy', targetId: type, name: name, price: price }; };
             const openBulkCandy = (uid) => { bulkState.value = { show: true, type: 'candy', targetId: uid, name: '餵食糖果', price: 0 }; };
             const confirmBulkAction = async (count) => {
@@ -796,19 +797,30 @@
                 }
             };
             
-            // 🔥 補回 dailyCheckin 函式 (V2.16.1 修復)
-            const dailyCheckin = async () => { 
-                const res = await safeFetch(`${API_URL.replace('/items','')}/shop/social/daily_checkin`, { method: 'POST' }); 
-                if(res && res.ok) { 
-                    const d = await res.json(); 
-                    showToast("簽到", d.message || d.detail); 
-                    updateInfo(); 
-                } else if(res) { 
-                    const d = await res.json(); 
-                    showToast("錯誤", d.detail || "簽到失敗"); 
-                } 
+            const playGacha = async (type) => { showGachaAnim.value = true; const res = await safeFetch(`${API_URL.replace('/items','')}/shop/gacha/${type}`, { method: 'POST' }); if(res && res.ok) { const d = await res.json(); setTimeout(() => { showGachaAnim.value = false; gachaResult.value = d; updateInfo(); }, 2000); } else { showGachaAnim.value = false; if(res) { const d = await res.json(); showToast("錯誤", d.detail); } } };
+            const useShield = () => { if(shieldUses.value <= 0) return; shieldUses.value--; battle.value.shieldActive = true; isEnemyTurn.value = true; clearInterval(timerInterval); setTimeout(enemyAttackPhase, 1200); };
+            
+            const doHeal = async () => { 
+                if (battle.value.mode === 'gym') {
+                    isEnemyTurn.value = true;
+                    const res = await safeFetch(`${API_URL.replace('/items','')}/shop/gym/battle/attack/${battleId}?damage=0&heal=1`, { method: 'POST' });
+                    if (res && res.ok) {
+                        const d = await res.json();
+                        if (d.real_heal_amt > 0) { user.value.hp = Math.min(user.value.max_hp, user.value.hp + d.real_heal_amt); }
+                        setTimeout(() => {
+                            if (d.boss_dmg > 0) { showFloatingText(`-${d.boss_dmg}`, 'red'); battle.value.shakeMe = true; setTimeout(() => battle.value.shakeMe = false, 400); user.value.hp = d.user_hp; }
+                            if (d.result === 'LOSE') { showToast("失敗", d.reward); battle.value.active = false; updateInfo(); } else { isEnemyTurn.value = false; }
+                        }, 600);
+                    }
+                } else {
+                    const heal = Math.floor(user.value.max_hp * 0.2); 
+                    user.value.hp = Math.min(user.value.max_hp, user.value.hp + heal); 
+                    showToast("系統", `回復了 ${heal} HP`); 
+                    if (battle.value.mode === 'pvp') { await safeFetch(`${API_URL.replace('/items','')}/shop/duel/attack?damage=0&heal=${heal}`, { method: 'POST' }); isEnemyTurn.value = true; }
+                }
             };
             
+            const dailyCheckin = async () => { const res = await safeFetch(`${API_URL.replace('/items','')}/shop/social/daily_checkin`, { method: 'POST' }); if(res && res.ok) { const d = await res.json(); showToast("簽到", d.message || d.detail); updateInfo(); } else if(res) { const d = await res.json(); showToast("錯誤", d.detail || "簽到失敗"); } };
             const swapMon = async (uid) => { await safeFetch(`${API_URL.replace('/items','')}/shop/box/swap/${uid}`, { method: 'POST' }); updateInfo(); };
             const useCandy = (uid) => { openBulkCandy(uid); };
             const doGamble = async () => { const res = await safeFetch(`${API_URL.replace('/items','')}/shop/gamble?amount=${gambleAmount.value}`, { method: 'POST' }); if(res) { const d = await res.json(); showToast("賭場", d.message || d.detail); updateInfo(); } };
