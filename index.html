@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>⚡️ 寶可夢大亂鬥 V2.15.7 ⚡️</title>
+    <title>⚡️ 寶可夢大亂鬥 V2.15.8 ⚡️</title>
     <script src="https://unpkg.com/vue@3/dist/vue.global.js"></script>
     <style>
         [v-cloak] { display: none; }
@@ -120,8 +120,8 @@
 
 <div id="app" class="container" v-cloak>
     <div v-if="!user" style="text-align:center; padding-top:100px;">
-        <h1 style="color:#e94560">寶可夢大亂鬥 V2.15.7</h1>
-        <p>Boss 數據更新 & PVP 開關版</p>
+        <h1 style="color:#e94560">寶可夢大亂鬥 V2.15.8</h1>
+        <p>PVP 修復 & 批量操作版</p>
         <button class="btn-action" @click="logout">前往登入頁面</button>
     </div>
 
@@ -298,7 +298,7 @@
             </div>
         </div>
 
-        <div v-if="newsState.show" class="modal-overlay"><div class="modal-box" style="text-align:left;"><div class="modal-title" style="text-align:center;">📢 V2.15.7 更新公告</div><ul><li><b>🔥 團體戰修復</b>：技能的降攻效果現在能正常作用了。</li><li><b>🔔 PVP設定</b>：在競技場可設定拒絕陌生邀請。</li><li><b>🌪️ Boss調整</b>：全區域 Boss 數值與機率已更新。</li></ul><div style="text-align:center; margin-top:15px;"><button class="btn-yes" @click="closeNews">我知道了</button></div></div></div>
+        <div v-if="newsState.show" class="modal-overlay"><div class="modal-box" style="text-align:left;"><div class="modal-title" style="text-align:center;">📢 V2.15.8 更新公告</div><ul><li><b>🐛 PVP修正</b>：修復了戰鬥結算閃退的問題。</li><li><b>📦 批量操作</b>：商店與餵糖現在可以一次操作多個。</li><li><b>⚔️ 野怪升級</b>：野外探險的野怪現在會使用多種招式。</li></ul><div style="text-align:center; margin-top:15px;"><button class="btn-yes" @click="closeNews">我知道了</button></div></div></div>
         
         <div v-if="showRates" class="modal-overlay" @click.self="showRates=false"><div class="modal-box" style="width: 400px; max-height:80vh;"><div class="modal-title">📊 扭蛋機率表</div><div style="overflow-y:auto; max-height:60vh;"><div v-for="(pool, name) in gachaRates" :key="name" style="margin-bottom: 15px;"><h4 style="color: #f1c40f; border-bottom: 1px solid #555;">{{ name }}</h4><table class="rate-table"><tr v-for="item in pool" :key="item.name"><td>{{ item.name }}</td><td style="text-align: right;">{{ item.rate }}%</td></tr></table></div></div><button class="btn-yes" style="width: 100%; margin-top: 10px;" @click="showRates=false">關閉</button></div></div>
 
@@ -392,15 +392,7 @@
 
             <div v-if="tab=='bag'"><div class="card-grid"><div class="card" style="background:#2c3e50;"><div style="font-size:2em;">🍬</div><b>神奇糖果</b><div style="font-size:1.2em; color:#f1c40f;">{{ inventory.candy || 0 }}</div></div><div class="card" style="background:#2c3e50;"><div style="font-size:2em;">✨</div><b>黃金糖果</b><div style="font-size:1.2em; color:#f1c40f;">{{ inventory.golden_candy || 0 }}</div></div><div class="card" style="background:#2c3e50;"><div style="font-size:2em;">💊</div><b>成長糖果</b><div style="font-size:1.2em; color:#f1c40f;">{{ inventory.growth_candy || 0 }}</div></div><div class="card" style="background:#2c3e50;"><div style="font-size:2em;">🔮</div><b>傳說糖果</b><div style="font-size:1.2em; color:#f1c40f;">{{ inventory.legendary_candy || 0 }}</div></div></div></div>
             <div v-if="tab=='leaderboard'"><div class="card"><h3>🏆 全服排行榜</h3><div style="margin-bottom:10px;"><label>排序方式：</label><select v-model="leaderboardType" @change="fetchLeaderboard" style="padding:5px; background:#16213e; color:white; border:none;"><option value="level">等級 (Level)</option><option value="money">財富 (Gold)</option></select></div><table v-if="leaderboardData.length > 0" style="width:100%; border-collapse:collapse; margin-top:10px;"><tr style="border-bottom:1px solid #555; text-align:left;"><th style="padding:5px;">排名</th><th>玩家</th><th>數值</th></tr><tr v-for="r in leaderboardData" :key="r.rank" style="border-bottom:1px solid #333;"><td style="padding:8px;"><span v-if="r.rank==1">🥇</span><span v-else-if="r.rank==2">🥈</span><span v-else-if="r.rank==3">🥉</span><span v-else>{{ r.rank }}</span></td><td><img :src="r.img" style="width:20px; height:20px; vertical-align:middle; border-radius:50%;"> {{ r.username }}</td><td>{{ r.value }}</td></tr></table><div v-else style="padding:20px; text-align:center; color:#aaa;">暫無排行資料或載入中...</div></div></div>
-            <div v-if="tab=='arena'">
-                <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:15px; background:#2c3e50; padding:10px; border-radius:8px;">
-                    <div><b>⚔️ 競技場設定</b></div>
-                    <button class="btn-small" :style="{background: pvpBlocked ? '#e74c3c' : '#2ecc71', width:'auto'}" @click="togglePvpSettings">
-                        {{ pvpBlocked ? '🔕 拒絕邀請' : '🔔 接受邀請' }}
-                    </button>
-                </div>
-                <div class="card-grid"><div v-for="p in players" :key="p.id" class="card" :style="{opacity: p.is_online ? 1 : 0.5}"><img :src="p.pokemon_image" class="card-img"><div style="margin-top:5px;"><b>{{ p.username }}</b><span v-if="p.is_online" style="color:#2ecc71; font-size:0.8em;">● 在線</span><span v-else style="color:#95a5a6; font-size:0.8em;">● 離線</span><div style="display:flex; gap:5px; margin-top:5px;"><button v-if="p.is_online" class="btn-small" style="background:#c0392b" @click="sendInvite(p)">決鬥</button><button v-else class="btn-small btn-disabled" disabled>決鬥</button></div></div></div></div>
-            </div>
+            <div v-if="tab=='arena'"><div class="card-grid"><div v-for="p in players" :key="p.id" class="card" :style="{opacity: p.is_online ? 1 : 0.5}"><img :src="p.pokemon_image" class="card-img"><div style="margin-top:5px;"><b>{{ p.username }}</b><span v-if="p.is_online" style="color:#2ecc71; font-size:0.8em;">● 在線</span><span v-else style="color:#95a5a6; font-size:0.8em;">● 離線</span><div style="display:flex; gap:5px; margin-top:5px;"><button v-if="p.is_online" class="btn-small" style="background:#c0392b" @click="sendInvite(p)">決鬥</button><button v-else class="btn-small btn-disabled" disabled>決鬥</button></div></div></div></div></div>
         </div>
     </div>
 </div>
@@ -419,7 +411,7 @@
             const bulkState = ref({ show: false, type: '', targetId: '', name: '', price: 0 });
             const isBattleResultShown = ref(false);
             const showRaidRates = ref(false);
-            const pvpBlocked = ref(false); // 🔥 PVP 狀態
+            const pvpBlocked = ref(false);
 
             const raidBossPoolDisplay = [
                 { name: "❄️ 急凍鳥", rate: 25, tag: "常見" },
@@ -437,13 +429,28 @@
                 if (newVal === 'wild') fetchWildList();
             });
 
-            // ... (box, inventory, currentPetIV, getReqXp, playerXpPercent, hpPercent, petXpPercent, currentAtkMe 保持不變)
-            const box = computed(() => { if(!user.value || !user.value.pokemon_storage) return []; if(typeof user.value.pokemon_storage === 'object') return user.value.pokemon_storage; try { return JSON.parse(user.value.pokemon_storage); } catch(e) { return []; } });
+            const box = computed(() => { 
+                if(!user.value || !user.value.pokemon_storage) return []; 
+                if(typeof user.value.pokemon_storage === 'object') return user.value.pokemon_storage;
+                try { return JSON.parse(user.value.pokemon_storage); } catch(e) { return []; } 
+            });
             const inventory = computed(() => { if(!user.value) return {}; try { return JSON.parse(user.value.inventory); } catch(e) { return {}; } });
             const currentPetIV = computed(() => { if(!user.value) return 0; const p = box.value.find(x => x.uid === user.value.active_pokemon_uid); return p ? p.iv : 50; });
-            const getReqXp = (lv) => { if(lv >= 100) return 999999999; if(lv <= 10) return LEVEL_XP_MAP[lv]; let req = 2300; for(let i=11; i<=Math.min(lv, 50); i++) req += 600; if(lv > 50) { for(let i=51; i<=lv; i++) req += 2000; } return req; };
+            const getReqXp = (lv) => { 
+                if(lv >= 100) return 999999999;
+                if(lv <= 10) return LEVEL_XP_MAP[lv];
+                let req = 2300;
+                for(let i=11; i<=Math.min(lv, 50); i++) req += 600;
+                if(lv > 50) { for(let i=51; i<=lv; i++) req += 2000; }
+                return req;
+            };
             const playerXpPercent = computed(() => user.value ? Math.min(100, (user.value.exp / getReqXp(user.value.level)) * 100) : 0);
-            const hpPercent = (u) => { if (!u || !u.max_hp || u.max_hp <= 0) return 0; return Math.min(100, (u.hp / u.max_hp) * 100); };
+            
+            const hpPercent = (u) => { 
+                if (!u || !u.max_hp || u.max_hp <= 0) return 0; 
+                return Math.min(100, (u.hp / u.max_hp) * 100); 
+            };
+            
             const petXpPercent = (u) => { if (!u) return 0; const req = getReqXp(u.pet_level); return Math.min(100, (u.pet_exp / req) * 100); };
             const currentAtkMe = computed(() => user.value ? user.value.attack : 0);
             
@@ -482,7 +489,9 @@
             const duelState = ref({ preparing: false, countdown: 12 });
             const showDefenderSelect = ref(false);
             const pendingGymId = ref(null);
+
             const skillData = ref({});
+            // 前端技能表
             const SKILL_MAP = { 
                 "小拉達": ["抓", "出奇一擊", "撞擊"], "波波": ["抓", "啄", "燕返"], "小火龍": ["火花", "噴射火焰", "大字爆炎"], "傑尼龜": ["水槍", "水流噴射", "水流尾"], "妙蛙種子": ["藤鞭", "種子炸彈", "污泥炸彈"], "皮卡丘": ["電光", "放電", "電擊"], "伊布": ["撞擊", "挖洞", "高速星星"], "卡比獸": ["泰山壓頂", "地震", "撞擊"], "快龍": ["龍息", "逆鱗", "勇鳥猛攻"], "超夢": ["念力", "精神強念", "精神擊破"], "夢幻": ["念力", "暗影球", "精神擊破"], "急凍鳥": ["冰礫", "冰凍光束", "勇鳥猛攻"], "火焰鳥": ["噴射火焰", "大字爆炎", "勇鳥猛攻"], "閃電鳥": ["電光", "瘋狂伏特", "勇鳥猛攻"], "鳳王": ["燒盡", "勇鳥猛攻", "神聖之火"], "洛奇亞": ["龍尾", "水砲", "氣旋攻擊"], "妙蛙花": ["藤鞭", "種子炸彈", "污泥炸彈"], "噴火龍": ["火花", "噴射火焰", "大字爆炎"], "水箭龜": ["水槍", "水流噴射", "水流尾"], "毛辮羊": ["撞擊", "撒嬌", "電擊"], "六尾": ["撞擊", "火花", "噴射火焰"], "胖丁": ["撞擊", "撒嬌", "精神強念"], "皮皮": ["撞擊", "撒嬌", "精神強念"], "大蔥鴨": ["啄", "葉刃", "勇鳥猛攻"], "呆呆獸": ["水槍", "幻象光線", "水流噴射"], "可達鴨": ["水槍", "幻象光線", "水流噴射"], "耿鬼": ["驚嚇", "污泥炸彈", "暗影球"], "吉利蛋": ["抓", "精神強念", "撞擊"], "幸福蛋": ["抓", "精神強念", "撞擊"], "拉普拉斯": ["水槍", "水流噴射", "冰凍光束"],
                 "烈雀": ["抓", "啄", "燕返"], "阿柏蛇": ["毒針", "毒擊", "緊束"], "瓦斯彈": ["毒針", "毒針", "撞擊"], "海星星": ["水槍", "幻象光線", "撞擊"], "角金魚": ["水槍", "幻象光線", "泥巴射擊"], "走路草": ["種子炸彈", "撞擊", "毒擊"], "穿山鼠": ["抓", "泥巴射擊", "泥巴炸彈"], "蚊香蝌蚪": ["雙倍奉還", "冰凍光束", "水槍"], "小磁怪": ["電擊", "放電", "撞擊"], "卡拉卡拉": ["泥巴射擊", "泥巴炸彈", "挖洞"], "喵喵": ["抓", "出奇一擊", "撞擊"], "瑪瑙水母": ["水槍", "水流尾", "緊束"], "海刺龍": ["水槍", "水流尾", "逆鱗"], "電擊獸": ["電光", "電擊", "瘋狂伏特"], "鴨嘴火獸": ["火花", "噴射火焰", "大字爆炎"], "化石翼龍": ["挖洞", "岩石封鎖", "勇鳥猛攻"], "怪力": ["雙倍奉還", "岩石封鎖", "近身戰"], "暴鯉龍": ["水槍", "水流尾", "勇鳥猛攻"],
@@ -499,6 +508,16 @@
             const raidDeadTimer = ref(5);
             let deadInterval = null;
             let battleId = null;
+
+            const gachaRates = { 
+                "🔮 初級": [{name:"妙蛙種子", rate:5}, {name:"小火龍", rate:5}, {name:"傑尼龜", rate:5}, {name:"六尾", rate:5}, {name:"毛辮羊", rate:5}, {name:"伊布", rate:10}, {name:"皮卡丘", rate:10}, {name:"皮皮", rate:10}, {name:"胖丁", rate:10}, {name:"大蔥鴨", rate:10}, {name:"呆呆獸", rate:12.5}, {name:"可達鴨", rate:12.5}],
+                "🔵 中級": [{name:"妙蛙種子", rate:10}, {name:"小火龍", rate:10}, {name:"傑尼龜", rate:10}, {name:"伊布", rate:10}, {name:"皮卡丘", rate:10}, {name:"呆呆獸", rate:10}, {name:"可達鴨", rate:10}, {name:"毛辮羊", rate:10}, {name:"卡比獸", rate:5}, {name:"吉利蛋", rate:3}, {name:"拉普拉斯", rate:3}, {name:"妙蛙花", rate:3}, {name:"噴火龍", rate:3}, {name:"水箭龜", rate:3}],
+                "🟣 高級": [{name:"卡比獸", rate:20}, {name:"吉利蛋", rate:20}, {name:"幸福蛋", rate:10}, {name:"拉普拉斯", rate:10}, {name:"妙蛙花", rate:10}, {name:"噴火龍", rate:10}, {name:"水箭龜", rate:10}, {name:"快龍", rate:5}, {name:"耿鬼", rate:5}],
+                "🍬 糖果": [{name:"伊布", rate:20}, {name:"皮卡丘", rate:20}, {name:"妙蛙花", rate:10}, {name:"噴火龍", rate:10}, {name:"水箭龜", rate:10}, {name:"卡比獸", rate:10}, {name:"吉利蛋", rate:10}, {name:"幸福蛋", rate:4}, {name:"拉普拉斯", rate:3}, {name:"快龍", rate:3}],
+                "✨ 黃金": [{name:"卡比獸", rate:30}, {name:"吉利蛋", rate:35}, {name:"幸福蛋", rate:20}, {name:"拉普拉斯", rate:5}, {name:"快龍", rate:5}, {name:"耿鬼", rate:5}],
+                "👑 傳說": [{name:"急凍鳥", rate:25}, {name:"火焰鳥", rate:25}, {name:"閃電鳥", rate:25}, {name:"鳳王", rate:7.5}, {name:"洛奇亞", rate:7.5}, {name:"超夢", rate:5}, {name:"夢幻", rate:5}],
+                "💰 傳奇": [{name:"快龍", rate:30}, {name:"耿鬼", rate:20}, {name:"急凍鳥", rate:15}, {name:"火焰鳥", rate:15}, {name:"閃電鳥", rate:15}, {name:"鳳王", rate:2}, {name:"洛奇亞", rate:2}, {name:"超夢", rate:0.5}, {name:"夢幻", rate:0.5}]
+            };
 
             const logout = () => { localStorage.clear(); window.location.href = 'login.html'; };
             const safeFetch = async (url, options = {}) => {
@@ -518,7 +537,7 @@
             
             const normalizeName = (name) => { if (!name) return ""; return name.replace(/🔥 |✨ |強大的 |閃光 /g, "").trim(); };
             const getMonSkills = (name) => SKILL_MAP[normalizeName(name)] || ["撞擊", "撞擊", "撞擊"];
-            const closeNews = () => { newsState.value.show = false; sessionStorage.setItem('seenNews_v2157', 'true'); }; // 🔥 Version bump
+            const closeNews = () => { newsState.value.show = false; sessionStorage.setItem('seenNews_v2158', 'true'); }; // 🔥 Version bump
             
             const calcStats = (mon) => { 
                 const realName = normalizeName(mon.name);
@@ -529,8 +548,23 @@
                 return { hp, atk }; 
             };
             
-            const viewPokedexEntry = (p) => { const realName = normalizeName(p.name); const base = pokedexMap.value[realName]; if (base) { viewMon.value = { name: p.name, iv: null, lv: null, exp: null, hp_val: base.hp, atk_val: base.atk, img_src: base.img, is_demo: true }; } };
-            const viewBoxMon = (p) => { const realName = normalizeName(p.name); const base = pokedexMap.value[realName]; trainMode.value.show = false; if (!base) { viewMon.value = { ...p, hp_val: "???", atk_val: "???", img_src: "https://via.placeholder.com/150", is_demo: false }; return; } const stats = calcStats(p); viewMon.value = { ...p, hp_val: stats.hp, atk_val: stats.atk, img_src: base.img, is_demo: false }; };
+            const viewPokedexEntry = (p) => { 
+                const realName = normalizeName(p.name);
+                const base = pokedexMap.value[realName]; 
+                if (base) { 
+                    viewMon.value = { name: p.name, iv: null, lv: null, exp: null, hp_val: base.hp, atk_val: base.atk, img_src: base.img, is_demo: true }; 
+                } 
+            };
+
+            const viewBoxMon = (p) => { 
+                const realName = normalizeName(p.name);
+                const base = pokedexMap.value[realName]; 
+                trainMode.value.show = false; 
+                if (!base) { viewMon.value = { ...p, hp_val: "???", atk_val: "???", img_src: "https://via.placeholder.com/150", is_demo: false }; return; } 
+                const stats = calcStats(p); 
+                viewMon.value = { ...p, hp_val: stats.hp, atk_val: stats.atk, img_src: base.img, is_demo: false }; 
+            };
+            
             const forceCloseBattle = () => { battle.value.active = false; isEnemyTurn.value = false; clearInterval(timerInterval); };
             const showFloatingText = (text, color='red', isEnemy=false) => { const arena = document.querySelector('.battle-arena'); if(!arena) return; const el = document.createElement('div'); el.className = 'floating-text'; el.innerText = text; el.style.color = color === 'gold' ? '#f1c40f' : (color === 'green' ? '#2ecc71' : (color === 'blue' ? '#3498db' : '#e74c3c')); el.style.left = isEnemy ? '60%' : '20%'; el.style.top = '30%'; arena.appendChild(el); setTimeout(() => el.remove(), 1500); };
             const getMonImage = (name) => { if (!name) return "https://via.placeholder.com/150"; const realName = normalizeName(name); const base = pokedexMap.value[realName]; if (base && base.img) return base.img; if (user.value && user.value.pokemon_name === name && user.value.pokemon_image) return user.value.pokemon_image; return "https://via.placeholder.com/150"; };
@@ -558,16 +592,19 @@
                 }
             };
 
-            // ... (fetchPokedex, fetchPlayers, fetchQuests, fetchLeaderboard, fetchWildList, fetchSkillData, updateMySkills, releaseMon, checkRaid)
             const fetchPokedex = async () => { try { const res = await safeFetch(`${API_URL.replace('/items','')}/shop/pokedex/all`); if(res && res.ok) { const allMons = await res.json(); allMons.forEach(m => pokedexMap.value[m.name] = m); } const res2 = await safeFetch(`${API_URL.replace('/items','')}/shop/pokedex/collection`); if(res2 && res2.ok) { pokedexCollection.value = await res2.json(); const ownedCount = pokedexCollection.value.filter(x => x.is_owned).length; pokedexPercent.value = Math.floor((ownedCount / pokedexCollection.value.length) * 100); } } catch(e) {} };
             const fetchPlayers = async () => { const res = await safeFetch(`${API_URL.replace('/items','')}/shop/social/players`); if(res && res.ok) { const data = await res.json(); players.value = data.filter(p => p.id !== user.value.id); } };
             const fetchQuests = async () => { const res = await safeFetch(`${API_URL}/quests/`); if(res && res.ok) quests.value = await res.json(); updateInfo(); };
             const fetchLeaderboard = async () => { const res = await safeFetch(`${API_URL.replace('/items','')}/shop/leaderboard?type=${leaderboardType.value}`); if(res && res.ok) leaderboardData.value = await res.json(); };
-            const fetchWildList = async () => { wildList.value = []; const res = await safeFetch(`${API_URL.replace('/items','')}/shop/wild/list?level=${selectedWildLevel.value}`); if(res && res.ok) wildList.value = await res.json(); };
+            const fetchWildList = async () => { 
+                wildList.value = []; 
+                const res = await safeFetch(`${API_URL.replace('/items','')}/shop/wild/list?level=${selectedWildLevel.value}`); 
+                if(res && res.ok) wildList.value = await res.json(); 
+            };
             const fetchSkillData = async () => { const res = await fetch(`${API_URL.replace('/items','')}/shop/data/skills`); if(res.ok) skillData.value = await res.json(); };
             const updateMySkills = () => { if(!user.value || !box.value) return; const active = box.value.find(p => p.uid === user.value.active_pokemon_uid); if(active) mySkills.value = getMonSkills(active.name); };
             const releaseMon = async (uid) => { if(!confirm("確定要放生這隻寶可夢嗎？")) return; const res = await safeFetch(`${API_URL.replace('/items','')}/shop/box/action/release/${uid}`, { method: 'POST' }); if(res && res.ok) { const d = await res.json(); showToast("系統", d.message); viewMon.value = null; updateInfo(); } else if(res) { const d = await res.json(); showToast("錯誤", d.detail); } };
-            
+
             const checkRaid = async () => {
                 const res = await safeFetch(`${API_URL.replace('/items','')}/shop/raid/status`);
                 if(res && res.ok) {
@@ -783,6 +820,7 @@
                         user.value.hp = d.my_data.hp; battle.value.target.hp = d.opponent_data.hp; isEnemyTurn.value = !d.is_my_turn;
                     } 
                     else if (d.status === 'ENDED') { 
+                        // 🔥 PVP 修正：鎖定彈窗，防止無限跳出
                         if (battle.value.active && battle.value.mode === 'pvp') { 
                             battle.value.active = false; 
                             if (!isBattleResultShown.value) {
@@ -864,7 +902,7 @@
             onMounted(async () => { 
                 document.getElementById('loading').style.display = 'none'; 
                 if(!token) return window.location.href = 'login.html'; 
-                if (!sessionStorage.getItem('seenNews_v2157')) newsState.value.show = true; 
+                if (!sessionStorage.getItem('seenNews_v2158')) newsState.value.show = true; 
                 await fetchSkillData(); await fetchPokedex(); 
                 await updateInfo(); 
                 selectedWildLevel.value = 1;
