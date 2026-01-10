@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>⚡️ 寶可夢大亂鬥 V2.15.9 ⚡️</title>
+    <title>⚡️ 寶可夢大亂鬥 V2.15.7 ⚡️</title>
     <script src="https://unpkg.com/vue@3/dist/vue.global.js"></script>
     <style>
         [v-cloak] { display: none; }
@@ -120,7 +120,7 @@
 
 <div id="app" class="container" v-cloak>
     <div v-if="!user" style="text-align:center; padding-top:100px;">
-        <h1 style="color:#e94560">寶可夢大亂鬥 V2.15.9</h1>
+        <h1 style="color:#e94560">寶可夢大亂鬥 V2.15.7</h1>
         <p>Boss 數據更新 & PVP 開關版</p>
         <button class="btn-action" @click="logout">前往登入頁面</button>
     </div>
@@ -298,7 +298,7 @@
             </div>
         </div>
 
-        <div v-if="newsState.show" class="modal-overlay"><div class="modal-box" style="text-align:left;"><div class="modal-title" style="text-align:center;">📢 V2.15.9 更新公告</div><ul><li><b>🔥 團體戰修復</b>：技能的降攻效果現在能正常作用了。</li><li><b>🔔 PVP設定</b>：在競技場可設定拒絕陌生邀請。</li><li><b>🌪️ Boss調整</b>：全區域 Boss 數值與機率已更新。</li></ul><div style="text-align:center; margin-top:15px;"><button class="btn-yes" @click="closeNews">我知道了</button></div></div></div>
+        <div v-if="newsState.show" class="modal-overlay"><div class="modal-box" style="text-align:left;"><div class="modal-title" style="text-align:center;">📢 V2.15.7 更新公告</div><ul><li><b>🔥 團體戰修復</b>：技能的降攻效果現在能正常作用了。</li><li><b>🔔 PVP設定</b>：在競技場可設定拒絕陌生邀請。</li><li><b>🌪️ Boss調整</b>：全區域 Boss 數值與機率已更新。</li></ul><div style="text-align:center; margin-top:15px;"><button class="btn-yes" @click="closeNews">我知道了</button></div></div></div>
         
         <div v-if="showRates" class="modal-overlay" @click.self="showRates=false"><div class="modal-box" style="width: 400px; max-height:80vh;"><div class="modal-title">📊 扭蛋機率表</div><div style="overflow-y:auto; max-height:60vh;"><div v-for="(pool, name) in gachaRates" :key="name" style="margin-bottom: 15px;"><h4 style="color: #f1c40f; border-bottom: 1px solid #555;">{{ name }}</h4><table class="rate-table"><tr v-for="item in pool" :key="item.name"><td>{{ item.name }}</td><td style="text-align: right;">{{ item.rate }}%</td></tr></table></div></div><button class="btn-yes" style="width: 100%; margin-top: 10px;" @click="showRates=false">關閉</button></div></div>
 

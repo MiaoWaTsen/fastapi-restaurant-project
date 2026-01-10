@@ -72,7 +72,7 @@ def get_skills_data():
     return SKILL_DB
 
 # =================================================================
-# 1. 商店與扭蛋 (🔥 價格更新)
+# 1. 商店與扭蛋
 # =================================================================
 @router.post("/buy/{item_type}")
 async def buy_item(item_type: str, count: int = Query(1, gt=0), db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
@@ -105,15 +105,13 @@ async def play_gacha(gacha_type: str, db: Session = Depends(get_db), current_use
     except: inventory = {}
     
     cost = 0; pool = []
-    
-    # 🔥 更新價格與池
-    if gacha_type == 'normal': pool = GACHA_NORMAL; cost = 2500
-    elif gacha_type == 'medium': pool = GACHA_MEDIUM; cost = 5000
-    elif gacha_type == 'high': pool = GACHA_HIGH; cost = 15000
+    if gacha_type == 'normal': pool = GACHA_NORMAL; cost = 1500
+    elif gacha_type == 'medium': pool = GACHA_MEDIUM; cost = 3000
+    elif gacha_type == 'high': pool = GACHA_HIGH; cost = 10000
     elif gacha_type == 'candy': pool = GACHA_CANDY; cost = 12
     elif gacha_type == 'golden': pool = GACHA_GOLDEN; cost = 3
     elif gacha_type == 'legendary_candy': pool = GACHA_LEGENDARY_CANDY; cost = 5
-    elif gacha_type == 'legendary_gold': pool = GACHA_LEGENDARY_GOLD; cost = 200000
+    elif gacha_type == 'legendary_gold': pool = GACHA_LEGENDARY_GOLD; cost = 400000
     else: raise HTTPException(status_code=400, detail="未知類型")
     
     if gacha_type == 'candy':
@@ -134,7 +132,6 @@ async def play_gacha(gacha_type: str, db: Session = Depends(get_db), current_use
     
     new_lv = random.randint(1, current_user.level)
     min_iv = 0
-    # Legendary Gold 也要保底 60
     if 'legendary' in gacha_type: min_iv = 60 
     iv = random.randint(min_iv, 100)
     
@@ -357,6 +354,7 @@ def start_gym_battle(gym_id: int, current_user: User = Depends(get_current_user)
 def gym_battle_attack(battle_id: str, damage: int = Query(0), heal: int = Query(0), debuff: int = Query(0), current_user: User = Depends(get_current_user), db: Session = Depends(get_db)):
     if battle_id not in GYM_BATTLES: raise HTTPException(status_code=404, detail="戰鬥已過期")
     room = GYM_BATTLES[battle_id]
+    
     try: damage = int(damage)
     except: damage = 0
     if damage < 0: damage = 0
