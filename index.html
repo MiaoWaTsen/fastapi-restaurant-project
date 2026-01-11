@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>⚡️ 寶可夢大亂鬥 V2.16.2 ⚡️</title>
+    <title>⚡️ 寶可夢大亂鬥 V2.16.3 ⚡️</title>
     <script src="https://unpkg.com/vue@3/dist/vue.global.js"></script>
     <style>
         [v-cloak] { display: none; }
@@ -120,8 +120,8 @@
 
 <div id="app" class="container" v-cloak>
     <div v-if="!user" style="text-align:center; padding-top:100px;">
-        <h1 style="color:#e94560">寶可夢大亂鬥 V2.16.2</h1>
-        <p>介面優化與數值同步版</p>
+        <h1 style="color:#e94560">寶可夢大亂鬥 V2.16.3</h1>
+        <p>完整功能修復版</p>
         <button class="btn-action" @click="logout">前往登入頁面</button>
     </div>
 
@@ -307,7 +307,7 @@
             </div>
         </div>
 
-        <div v-if="newsState.show" class="modal-overlay"><div class="modal-box" style="text-align:left;"><div class="modal-title" style="text-align:center;">📢 V2.16.2 更新公告</div><ul><li><b>👜 道具系統</b>：現在可以為寶可夢裝備「吃剩的東西」、「氣勢披帶」、「貝殼之鈴」或「力量頭帶」！</li><li><b>✨ 介面優化</b>：修復了數值顯示不同步與文字重疊問題。</li><li><b>📦 即時更新</b>：更換裝備後數值會立即變化。</li></ul><div style="text-align:center; margin-top:15px;"><button class="btn-yes" @click="closeNews">我知道了</button></div></div></div>
+        <div v-if="newsState.show" class="modal-overlay"><div class="modal-box" style="text-align:left;"><div class="modal-title" style="text-align:center;">📢 V2.16.3 更新公告</div><ul><li><b>👜 道具系統</b>：現在可以為寶可夢裝備「吃剩的東西」、「氣勢披帶」、「貝殼之鈴」或「力量頭帶」！</li><li><b>✨ 介面優化</b>：修復了數值顯示不同步與文字重疊問題。</li><li><b>🐛 錯誤修復</b>：解決了團體戰按鈕失效的問題。</li></ul><div style="text-align:center; margin-top:15px;"><button class="btn-yes" @click="closeNews">我知道了</button></div></div></div>
         
         <div v-if="showRates" class="modal-overlay" @click.self="showRates=false"><div class="modal-box" style="width: 400px; max-height:80vh;"><div class="modal-title">📊 扭蛋機率表</div><div style="overflow-y:auto; max-height:60vh;"><div v-for="(pool, name) in gachaRates" :key="name" style="margin-bottom: 15px;"><h4 style="color: #f1c40f; border-bottom: 1px solid #555;">{{ name }}</h4><table class="rate-table"><tr v-for="item in pool" :key="item.name"><td>{{ item.name }}</td><td style="text-align: right;">{{ item.rate }}%</td></tr></table></div></div><button class="btn-yes" style="width: 100%; margin-top: 10px;" @click="showRates=false">關閉</button></div></div>
 
@@ -428,7 +428,7 @@
             const bulkState = ref({ show: false, type: '', targetId: '', name: '', price: 0 });
             const isBattleResultShown = ref(false);
             const showRaidRates = ref(false);
-            const pvpBlocked = ref(false); // 🔥 PVP 狀態
+            const pvpBlocked = ref(false);
 
             const raidBossPoolDisplay = [
                 { name: "❄️ 急凍鳥", rate: 25, tag: "常見" },
@@ -446,13 +446,28 @@
                 if (newVal === 'wild') fetchWildList();
             });
 
-            // ... (box, inventory, currentPetIV, getReqXp, playerXpPercent, hpPercent, petXpPercent, currentAtkMe 保持不變)
-            const box = computed(() => { if(!user.value || !user.value.pokemon_storage) return []; if(typeof user.value.pokemon_storage === 'object') return user.value.pokemon_storage; try { return JSON.parse(user.value.pokemon_storage); } catch(e) { return []; } });
+            const box = computed(() => { 
+                if(!user.value || !user.value.pokemon_storage) return []; 
+                if(typeof user.value.pokemon_storage === 'object') return user.value.pokemon_storage;
+                try { return JSON.parse(user.value.pokemon_storage); } catch(e) { return []; } 
+            });
             const inventory = computed(() => { if(!user.value) return {}; try { return JSON.parse(user.value.inventory); } catch(e) { return {}; } });
             const currentPetIV = computed(() => { if(!user.value) return 0; const p = box.value.find(x => x.uid === user.value.active_pokemon_uid); return p ? p.iv : 50; });
-            const getReqXp = (lv) => { if(lv >= 100) return 999999999; if(lv <= 10) return LEVEL_XP_MAP[lv]; let req = 2300; for(let i=11; i<=Math.min(lv, 50); i++) req += 600; if(lv > 50) { for(let i=51; i<=lv; i++) req += 2000; } return req; };
+            const getReqXp = (lv) => { 
+                if(lv >= 100) return 999999999;
+                if(lv <= 10) return LEVEL_XP_MAP[lv];
+                let req = 2300;
+                for(let i=11; i<=Math.min(lv, 50); i++) req += 600;
+                if(lv > 50) { for(let i=51; i<=lv; i++) req += 2000; }
+                return req;
+            };
             const playerXpPercent = computed(() => user.value ? Math.min(100, (user.value.exp / getReqXp(user.value.level)) * 100) : 0);
-            const hpPercent = (u) => { if (!u || !u.max_hp || u.max_hp <= 0) return 0; return Math.min(100, (u.hp / u.max_hp) * 100); };
+            
+            const hpPercent = (u) => { 
+                if (!u || !u.max_hp || u.max_hp <= 0) return 0; 
+                return Math.min(100, (u.hp / u.max_hp) * 100); 
+            };
+            
             const petXpPercent = (u) => { if (!u) return 0; const req = getReqXp(u.pet_level); return Math.min(100, (u.pet_exp / req) * 100); };
             const currentAtkMe = computed(() => user.value ? user.value.attack : 0);
             
@@ -492,6 +507,7 @@
             const duelState = ref({ preparing: false, countdown: 12 });
             const showDefenderSelect = ref(false);
             const pendingGymId = ref(null);
+
             const skillData = ref({});
             const SKILL_MAP = { 
                 "小拉達": ["抓", "出奇一擊", "撞擊"], "波波": ["抓", "啄", "燕返"], "小火龍": ["火花", "噴射火焰", "大字爆炎"], "傑尼龜": ["水槍", "水流噴射", "水流尾"], "妙蛙種子": ["藤鞭", "種子炸彈", "污泥炸彈"], "皮卡丘": ["電光", "放電", "電擊"], "伊布": ["撞擊", "挖洞", "高速星星"], "卡比獸": ["泰山壓頂", "地震", "破壞死光"], "快龍": ["龍息", "逆鱗", "勇鳥猛攻"], "超夢": ["念力", "精神強念", "精神擊破"], "夢幻": ["念力", "暗影球", "精神擊破"], "急凍鳥": ["冰礫", "冰凍光束", "勇鳥猛攻"], "火焰鳥": ["噴射火焰", "大字爆炎", "勇鳥猛攻"], "閃電鳥": ["電光", "瘋狂伏特", "勇鳥猛攻"], "鳳王": ["燒盡", "勇鳥猛攻", "神聖之火"], "洛奇亞": ["龍尾", "水砲", "氣旋攻擊"], "妙蛙花": ["藤鞭", "種子炸彈", "污泥炸彈"], "噴火龍": ["火花", "噴射火焰", "大字爆炎"], "水箭龜": ["水槍", "水流噴射", "水流尾"], "毛辮羊": ["撞擊", "撒嬌", "電擊"], "六尾": ["撞擊", "火花", "噴射火焰"], "胖丁": ["撞擊", "撒嬌", "精神強念"], "皮皮": ["撞擊", "撒嬌", "精神強念"], "大蔥鴨": ["啄", "葉刃", "勇鳥猛攻"], "呆呆獸": ["水槍", "幻象光線", "水流噴射"], "可達鴨": ["水槍", "幻象光線", "水流噴射"], "耿鬼": ["驚嚇", "污泥炸彈", "暗影球"], "吉利蛋": ["破壞死光", "精神強念", "撞擊"], "幸福蛋": ["破壞死光", "精神強念", "撞擊"], "拉普拉斯": ["水槍", "水流噴射", "冰凍光束"],
@@ -747,7 +763,6 @@
                              const inv = JSON.parse(user.value.inventory || '{}');
                              if (inv.active_item === 'muscle_band') {
                                  const r = Math.random() * 100;
-                                 // 🔥 修正：使用 offsetY 防止文字重疊
                                  if (r < 15) { rawDmg = Math.floor(rawDmg * 1.5); showFloatingText('Crit!', 'red', true, -40); }
                                  else if (r < 30) { rawDmg = Math.floor(rawDmg * 0.5); showFloatingText('Glance', 'gray', true, -40); }
                              }
@@ -770,7 +785,6 @@
                             else { 
                                 battle.value.target.hp = d.boss_hp; 
                                 if (d.user_hp !== undefined) { user.value.hp = d.user_hp; }
-                                // 🔥 修正：使用 offsetY 防止重疊
                                 if (d.hit_type === 'crit') showFloatingText('Crit!', 'red', true, -40);
                                 if (d.hit_type === 'glance') showFloatingText('Glance', 'gray', true, -40);
 
@@ -802,28 +816,7 @@
                 } catch (e) { console.error(e); battle.value.active = false; } 
             };
 
-            const openBulkBuy = (type, name, price) => { bulkState.value = { show: true, type: 'buy', targetId: type, name: name, price: price }; };
-            const openBulkCandy = (uid) => { bulkState.value = { show: true, type: 'candy', targetId: uid, name: '餵食糖果', price: 0 }; };
-            const confirmBulkAction = async (count) => {
-                bulkState.value.show = false;
-                if (bulkState.value.type === 'buy') {
-                    const totalCost = bulkState.value.price * count;
-                    if (!confirm(`確定購買 ${count} 個 ${bulkState.value.name}？\n總價: ${totalCost} G`)) return;
-                    const res = await safeFetch(`${API_URL.replace('/items','')}/shop/buy/${bulkState.value.targetId}?count=${count}`, { method: 'POST' });
-                    if(res && res.ok) { const d = await res.json(); showToast("購買成功", d.message); if(d.user) user.value = d.user; }
-                    else if(res) { const d = await res.json(); showToast("購買失敗", d.detail); }
-                } else if (bulkState.value.type === 'candy') {
-                    const res = await safeFetch(`${API_URL.replace('/items','')}/shop/box/action/candy/${bulkState.value.targetId}?count=${count}`, { method: 'POST' });
-                    if(res) { const d = await res.json(); showToast("系統", d.message || d.detail); updateInfo(); }
-                }
-            };
-            
-            const dailyCheckin = async () => { 
-                const res = await safeFetch(`${API_URL.replace('/items','')}/shop/social/daily_checkin`, { method: 'POST' }); 
-                if(res && res.ok) { const d = await res.json(); showToast("簽到", d.message || d.detail); updateInfo(); } 
-                else if(res) { const d = await res.json(); showToast("錯誤", d.detail || "簽到失敗"); } 
-            };
-            
+            const dailyCheckin = async () => { const res = await safeFetch(`${API_URL.replace('/items','')}/shop/social/daily_checkin`, { method: 'POST' }); if(res && res.ok) { const d = await res.json(); showToast("簽到", d.message || d.detail); updateInfo(); } else if(res) { const d = await res.json(); showToast("錯誤", d.detail || "簽到失敗"); } };
             const swapMon = async (uid) => { await safeFetch(`${API_URL.replace('/items','')}/shop/box/swap/${uid}`, { method: 'POST' }); updateInfo(); };
             const useCandy = (uid) => { openBulkCandy(uid); };
             const doGamble = async () => { const res = await safeFetch(`${API_URL.replace('/items','')}/shop/gamble?amount=${gambleAmount.value}`, { method: 'POST' }); if(res) { const d = await res.json(); showToast("賭場", d.message || d.detail); updateInfo(); } };
@@ -853,7 +846,15 @@
                     if (battle.value.mode === 'pvp') { await safeFetch(`${API_URL.replace('/items','')}/shop/duel/attack?damage=0&heal=${heal}`, { method: 'POST' }); isEnemyTurn.value = true; }
                 }
             };
-            
+            const joinRaid = async () => { if(confirm("支付 1000G 加入？")) { const res = await safeFetch(`${API_URL.replace('/items','')}/shop/raid/join`, { method: 'POST' }); if(res && res.ok) { battle.value = { active: true, mode: 'raid', target: { name: raidState.value.boss_name, hp: raidState.value.hp, max_hp: raidState.value.max_hp, image_url: raidState.value.image }, shakeMe: false, shakeTarget: false, atkBuff: 1.0, shieldActive: false }; shieldUses.value = 2; updateMySkills(); } else if(res) { const d = await res.json(); showToast("錯誤", d.detail); } } };
+            const abandonQuest = async (qid) => { if(confirm("放棄需消耗 1000G，確定嗎？")) { await safeFetch(`${API_URL}/quests/abandon/${qid}`, { method: 'POST' }); fetchQuests(); } };
+            const claimQuest = async (qid) => { const res = await safeFetch(`${API_URL}/quests/claim/${qid}`, { method: 'POST' }); if(res) { const d = await res.json(); showToast("系統", d.message); fetchQuests(); } };
+            const reviveRaid = async () => { const res = await safeFetch(`${API_URL.replace('/items','')}/shop/raid/revive`, { method: 'POST' }); if (res && res.ok) { isRaidDead.value = false; raidDeadTimer.value = 0; clearInterval(deadInterval); updateInfo(); } else if(res) { const d = await res.json(); showToast("錯誤", d.detail); } };
+            const claimRaidReward = async (choice) => { const res = await safeFetch(`${API_URL.replace('/items','')}/shop/raid/claim?choice=${choice}`, { method: 'POST' }); if(res) { const d = await res.json(); showToast("系統", d.message); raidVictory.value = false; battle.value.active = false; tab.value = 'wild'; updateInfo(); } };
+            const useMedKit = async () => { if(shieldUses.value <= 0) return; shieldUses.value--; const healAmt = Math.floor(user.value.max_hp * 0.2); user.value.hp = Math.min(user.value.max_hp, user.value.hp + healAmt); try { await safeFetch(`${API_URL.replace('/items','')}/shop/raid/recover`, { method: 'POST' }); showFloatingText(`+${healAmt}`, 'green'); } catch(e) { console.error("Heal sync failed", e); } };
+
+            const canJoinLobby = computed(() => raidState.value.status === 'LOBBY');
+
             onUpdated(() => { const chatBox = document.getElementById('chat-box'); if(chatBox) chatBox.scrollTop = chatBox.scrollHeight; });
             onMounted(async () => { 
                 document.getElementById('loading').style.display = 'none'; 
